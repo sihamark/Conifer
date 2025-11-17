@@ -10,6 +10,6 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         title = "Conifer",
     ) {
-        App()
+        ConiferApp.AppContent()
     }
 }

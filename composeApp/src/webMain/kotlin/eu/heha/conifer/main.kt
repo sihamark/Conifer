@@ -8,6 +8,6 @@ import io.github.aakira.napier.DebugAntilog
 fun main() {
     ConiferApp.initialize(DebugAntilog())
     ComposeViewport {
-        App()
+        ConiferApp.AppContent()
     }
 }

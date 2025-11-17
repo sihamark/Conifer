@@ -21,5 +21,5 @@ class ConiferActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App()
+    ConiferApp.AppContent()
 }
