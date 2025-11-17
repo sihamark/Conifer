@@ -1,6 +1,6 @@
 import UIKit
 import SwiftUI
-import ComposeApp
+import ConiferApp
 
 struct ConiferAppView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {

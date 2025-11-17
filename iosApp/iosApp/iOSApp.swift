@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import ConiferApp
 
 @main
 struct iOSApp: App {
