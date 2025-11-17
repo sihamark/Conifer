@@ -8,11 +8,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import conifer.composeapp.generated.resources.Res
 import conifer.composeapp.generated.resources.app_name
 import org.jetbrains.compose.resources.stringResource
@@ -37,6 +37,7 @@ fun App() {
 
 @Composable
 fun AppContent() {
+    val model = viewModel { ContentViewModel() }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
@@ -46,9 +47,8 @@ fun AppContent() {
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
-        val platform = remember { getPlatform() }
         Text(
-            "Running on ${platform.name}",
+            "Running on ${model.platform.name}",
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
         )
