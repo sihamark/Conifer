@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +43,9 @@ fun AppContent() {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
     ) {
+        LaunchedEffect(Unit) {
+            model.logPlatformInfo()
+        }
         Text(
             "Hello, ${stringResource(Res.string.app_name)}!",
             style = MaterialTheme.typography.headlineMedium,
