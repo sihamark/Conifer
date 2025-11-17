@@ -6,10 +6,10 @@ struct iOSApp: App {
     init() {
         IosConiferApp.shared.initialize()
     }
-    
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ConiferAppView().ignoresSafeArea()
         }
     }
 }
