@@ -16,13 +16,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import conifer.composeapp.generated.resources.Res
 import conifer.composeapp.generated.resources.app_name
+import eu.heha.conifer.ui.theme.ConiferTheme
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
+    ConiferTheme {
         Scaffold { innerPadding ->
             Box(
                 contentAlignment = Alignment.Center,
