@@ -1,45 +1,100 @@
 package eu.heha.conifer.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.heha.conifer.model.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
-import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BitsPane(
-    state: BitsPaneState = BitsPaneState()
+    state: BitsPaneState = BitsPaneState(),
+    actions: BitsPaneActions = BitsPaneActions()
 ) {
-    Scaffold { innerPadding ->
-        LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            items(state.bits) {
-                BitItem(bit = it)
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(title = { Text("Bits") })
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            NewBitText(
+                newBitText = state.newBitText,
+                onNewBitTextChange = actions.onNewBitTextChange,
+                onClickAdd = actions.onClickAdd
+            )
+            LazyColumn {
+                items(state.bits) {
+                    BitItem(bit = it, modifier = Modifier.animateItem())
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalTime::class)
 @Composable
-fun BitItem(bit: Bit) {
-    Card(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+private fun NewBitText(
+    newBitText: String,
+    onNewBitTextChange: (String) -> Unit,
+    onClickAdd: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        OutlinedTextField(
+            value = newBitText,
+            onValueChange = onNewBitTextChange,
+            label = { Text("New Bit") },
+            modifier = modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+        AnimatedVisibility(newBitText.isNotBlank()) {
+            Row {
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onClickAdd) {
+                    Text("Add")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
+    Card(
+        modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 bit.text,
                 style = MaterialTheme.typography.titleSmall
             )
             Text(
-                "at ${bit.date} ${bit.time}",
+                "${bit.date.print()} at ${bit.time.print()}",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -48,16 +103,22 @@ fun BitItem(bit: Bit) {
 
 
 data class BitsPaneState(
+    val newBitText: String = "",
     val bits: List<Bit> = emptyList()
 )
 
-@OptIn(ExperimentalTime::class)
+class BitsPaneActions(
+    val onClickAdd: () -> Unit = {},
+    val onNewBitTextChange: (String) -> Unit = {},
+)
+
 @Preview
 @Composable
 private fun BitsPanePreview() {
     ConiferTheme {
         BitsPane(
             state = BitsPaneState(
+                newBitText = "This is a new bit",
                 bits = listOf(
                     Bit(text = "First bit"),
                     Bit(text = "Second bit"),
