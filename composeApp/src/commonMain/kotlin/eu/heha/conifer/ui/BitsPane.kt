@@ -18,8 +18,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import eu.heha.conifer.model.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
@@ -36,11 +40,16 @@ fun BitsPane(
             CenterAlignedTopAppBar(title = { Text("Bits") })
         }
     ) { innerPadding ->
+        val focusRequester = remember { FocusRequester() }
+        LaunchedEffect(state.newBitText) {
+            if (state.newBitText.isBlank()) focusRequester.requestFocus()
+        }
         Column(modifier = Modifier.padding(innerPadding)) {
             NewBitText(
                 newBitText = state.newBitText,
                 onNewBitTextChange = actions.onNewBitTextChange,
-                onClickAdd = actions.onClickAdd
+                onClickAdd = actions.onClickAdd,
+                focusRequester = focusRequester
             )
             LazyColumn {
                 items(state.bits) {
@@ -56,6 +65,7 @@ private fun NewBitText(
     newBitText: String,
     onNewBitTextChange: (String) -> Unit,
     onClickAdd: () -> Unit,
+    focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -68,6 +78,7 @@ private fun NewBitText(
             label = { Text("New Bit") },
             modifier = modifier
                 .fillMaxWidth()
+                .focusRequester(focusRequester)
                 .weight(1f)
         )
         AnimatedVisibility(newBitText.isNotBlank()) {
