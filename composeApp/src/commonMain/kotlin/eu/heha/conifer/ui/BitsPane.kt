@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +15,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import eu.heha.conifer.model.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
@@ -45,6 +48,10 @@ fun BitsPane(
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
         }
         Column(modifier = Modifier.padding(innerPadding)) {
+            val permissionRationale = state.permissionRationale
+            AnimatedVisibility(permissionRationale != null) {
+                PermissionPrompt(permissionRationale ?: "", actions)
+            }
             NewBitText(
                 newBitText = state.newBitText,
                 onNewBitTextChange = actions.onNewBitTextChange,
@@ -55,6 +62,33 @@ fun BitsPane(
                 items(state.bits) {
                     BitItem(bit = it, modifier = Modifier.animateItem())
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionPrompt(
+    permissionRationale: String,
+    actions: BitsPaneActions
+) {
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = permissionRationale,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(actions.onClickRequestPermission) {
+                Text("Grant Permission")
             }
         }
     }
@@ -114,6 +148,7 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
 
 
 data class BitsPaneState(
+    val permissionRationale: String? = null,
     val newBitText: String = "",
     val bits: List<Bit> = emptyList()
 )
@@ -121,6 +156,7 @@ data class BitsPaneState(
 class BitsPaneActions(
     val onClickAdd: () -> Unit = {},
     val onNewBitTextChange: (String) -> Unit = {},
+    val onClickRequestPermission: () -> Unit = {},
 )
 
 @Preview

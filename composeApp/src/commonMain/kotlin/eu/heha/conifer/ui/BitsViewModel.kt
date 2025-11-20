@@ -5,21 +5,36 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import eu.heha.conifer.ConiferApp
 import eu.heha.conifer.ConiferApp.repository
 import eu.heha.conifer.model.Bit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.launch
 
-class BitsPaneViewModel : ViewModel() {
+class BitsViewModel(
+    private val permissionHandler: ConiferApp.PermissionHandler? = null
+) : ViewModel() {
 
     var state by mutableStateOf(BitsPaneState())
         private set
 
     init {
         viewModelScope.launch {
-            repository.bits.collect {
-                Napier.d { "has found ${it.size} bits" }
-                state = state.copy(bits = it)
+            launch {
+                repository.bits.collect {
+                    Napier.d { "has found ${it.size} bits" }
+                    state = state.copy(bits = it)
+                }
+            }
+            launch {
+                permissionHandler?.let { handler ->
+                    handler.isPermissionGranted.collect { isGranted ->
+                        Napier.e { "notification permission granted: $isGranted" }
+                        state = state.copy(
+                            permissionRationale = handler.permissionRationale.takeUnless { isGranted },
+                        )
+                    }
+                }
             }
         }
     }
