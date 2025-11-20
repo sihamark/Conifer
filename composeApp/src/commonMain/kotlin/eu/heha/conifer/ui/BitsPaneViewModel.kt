@@ -18,7 +18,7 @@ class BitsPaneViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             repository.bits.collect {
-                Napier.e { "has found ${it.size} bits" }
+                Napier.d { "has found ${it.size} bits" }
                 state = state.copy(bits = it)
             }
         }

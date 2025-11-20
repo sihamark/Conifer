@@ -12,7 +12,7 @@ class BitsRepository {
     val bits = _bits.asStateFlow()
 
     suspend fun add(bit: Bit) = withContext(Default) {
-        Napier.e { "add new bit $bit" }
+        Napier.d { "add new bit $bit" }
         _bits.update { it + bit }
     }
 }
