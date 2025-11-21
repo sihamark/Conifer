@@ -3,6 +3,7 @@ package eu.heha.conifer
 import androidx.compose.runtime.Composable
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.ui.BitsRoute
+import eu.heha.conifer.ui.theme.ConiferTheme
 import io.github.aakira.napier.Antilog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,8 @@ object ConiferApp {
 
     @Composable
     fun AppContent(permissionHandler: PermissionHandler? = null) {
-        BitsRoute(permissionHandler)
+        ConiferTheme {
+            BitsRoute(permissionHandler)
+        }
     }
 }

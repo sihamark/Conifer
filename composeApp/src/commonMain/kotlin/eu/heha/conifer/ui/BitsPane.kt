@@ -136,7 +136,7 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 bit.text,
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.bodyLarge
             )
             Text(
                 "${bit.date.print()} at ${bit.time.print()}",
