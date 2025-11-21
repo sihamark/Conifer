@@ -3,6 +3,7 @@ package eu.heha.conifer
 import android.Manifest.permission.POST_NOTIFICATIONS
 import android.app.Activity
 import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -56,10 +57,16 @@ class NotificationPermissionHandler(
     }
 
     private fun isPermissionGranted(): Boolean =
-        checkSelfPermission(activity, POST_NOTIFICATIONS) == PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            checkSelfPermission(activity, POST_NOTIFICATIONS) == PERMISSION_GRANTED
+        } else {
+            true
+        }
 
     override fun requestPermission() {
-        ActivityCompat.requestPermissions(activity, arrayOf(POST_NOTIFICATIONS), 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(activity, arrayOf(POST_NOTIFICATIONS), 0)
+        }
     }
 }
 
