@@ -58,8 +58,8 @@ kotlin {
             implementation(libs.jetbrains.compose.material.icons)
             implementation(libs.jetbrains.compose.resources)
             implementation(libs.jetbrains.compose.ui.tooling.preview)
-            implementation(libs.androidx.lifecycle.viewmodel)
-            implementation(libs.androidx.lifecycle.runtime)
+            implementation(libs.jetbrains.lifecycle.viewmodel)
+            implementation(libs.jetbrains.lifecycle.runtime)
             implementation(libs.kotlinx.datetime)
             implementation(libs.napier)
         }
@@ -112,6 +112,15 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "eu.heha.conifer"
             packageVersion = "1.0.0"
+            windows {
+                iconFile = project.file("desktopIcons/app_icon.ico")
+            }
+            macOS {
+                iconFile = project.file("desktopIcons/app_icon.icns")
+            }
+            linux {
+                iconFile = project.file("desktopIcons/app_icon.png")
+            }
         }
     }
 }
