@@ -48,17 +48,10 @@ import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
 
-private val imageResources = arrayOf(
-    R.raw.bark,
-    R.raw.cone,
-    R.raw.pollen_cones,
-    R.raw.tree,
-    R.raw.young_seeds,
-)
 
 @Suppress("unused")
 @Composable
-fun ImagePalettePane() {
+fun ImagePalettePane(imageResources: List<Int>) {
     var selectedColorHex by remember { mutableStateOf<String?>(null) }
     Scaffold { innerPadding ->
         Box {

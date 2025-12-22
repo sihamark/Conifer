@@ -20,6 +20,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+private val imageResources = arrayOf(
+    R.raw.bark,
+    R.raw.cone,
+    R.raw.pollen_cones,
+    R.raw.tree,
+    R.raw.young_seeds,
+)
+
 class ConiferActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
