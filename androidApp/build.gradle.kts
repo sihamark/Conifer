@@ -31,6 +31,14 @@ android {
         targetCompatibility = JavaVersion.toVersion(javaVersion)
     }
 }
+kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+        compilerOptions {
+            freeCompilerArgs.add("-Xexplicit-backing-fields")
+        }
+    }
+}
 
 dependencies {
     implementation(project(":composeApp"))

@@ -18,7 +18,6 @@ kotlin {
         compilerOptions {
             val javaVersion = AppConfig.javaVersion
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
-            optIn.add("kotlin.time.ExperimentalTime")
         }
     }
     compilerOptions {
