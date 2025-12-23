@@ -4,10 +4,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 fun LocalDate.print() = LocalDate.Formats.ISO.format(this)
-fun LocalTime.print() = LocalTime
-    .Format {
-        hour()
-        chars(":")
-        minute()
-    }
-    .format(this)
+fun LocalTime.print() = LocalTime.Format {
+    hour(); chars(":"); minute()
+}.format(this)

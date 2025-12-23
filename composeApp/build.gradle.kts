@@ -1,5 +1,4 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -8,20 +7,25 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.hot.reload)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
 }
 
 kotlin {
     androidLibrary {
-        namespace = libs.versions.namespace.get()
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        namespace = AppConfig.namespace
+        compileSdk = AppConfig.targetSdk
         compilerOptions {
-            val javaVersion = libs.versions.java.version.get().toInt()
+            val javaVersion = AppConfig.javaVersion
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
             optIn.add("kotlin.time.ExperimentalTime")
         }
     }
     compilerOptions {
         optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+        compilerOptions {
+            freeCompilerArgs.add("-Xexplicit-backing-fields")
+        }
     }
 
     listOf(
@@ -36,16 +40,16 @@ kotlin {
 
     jvm()
 
-    js {
-        browser()
-        binaries.executable()
-    }
+//    js {
+//        browser()
+//        binaries.executable()
+//    }
 
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
-    }
+//    @OptIn(ExperimentalWasmDsl::class)
+//    wasmJs {
+//        browser()
+//        binaries.executable()
+//    }
 
     sourceSets {
         androidMain.dependencies {
@@ -63,6 +67,8 @@ kotlin {
             implementation(libs.jetbrains.compose.ui.tooling.preview)
             implementation(libs.jetbrains.lifecycle.viewmodel)
             implementation(libs.jetbrains.lifecycle.runtime)
+            implementation(libs.androidx.room.runtime)
+            implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.datetime)
             implementation(libs.napier)
         }
@@ -76,14 +82,29 @@ kotlin {
     }
 }
 
+dependencies {
+    add("kspAndroid", libs.androidx.room.compiler)
+    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
+    add("kspIosArm64", libs.androidx.room.compiler)
+    add("kspJvm", libs.androidx.room.compiler)
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 compose.desktop {
     application {
         mainClass = "eu.heha.conifer.MainKt"
 
+        buildTypes.release.proguard {
+            configurationFiles.from(project.file("compose-desktop.pro"))
+        }
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "eu.heha.conifer"
-            packageVersion = "1.0.0"
+            packageName = AppConfig.appName
+            packageVersion = AppConfig.versionName
             windows {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }
@@ -95,4 +116,13 @@ compose.desktop {
             }
         }
     }
+}
+
+tasks.register<CopyDesktopArtifacts>("buildDesktopRelease") {
+    group = "release"
+    intoFolder = rootDir.resolve("releases")
+    version = AppConfig.versionName
+    artifactName = AppConfig.appName
+    appPackage = AppConfig.namespace
+    dependsOn("createReleaseDistributable")
 }

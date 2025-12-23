@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ConiferApp
 import eu.heha.conifer.ConiferApp.repository
-import eu.heha.conifer.model.Bit
+import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.launch
 
@@ -21,7 +21,7 @@ class BitsViewModel(
     init {
         viewModelScope.launch {
             launch {
-                repository.bits.collect {
+                repository.getBits().collect {
                     Napier.d { "has found ${it.size} bits" }
                     state = state.copy(bits = it)
                 }
