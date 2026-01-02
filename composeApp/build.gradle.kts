@@ -12,19 +12,20 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+    }
+
     androidLibrary {
         namespace = AppConfig.namespace
         compileSdk = AppConfig.targetSdk
+        minSdk = AppConfig.minSdk
+
         compilerOptions {
             val javaVersion = AppConfig.javaVersion
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
         }
-    }
-    compilerOptions {
-        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
-        compilerOptions {
-            freeCompilerArgs.add("-Xexplicit-backing-fields")
-        }
+        androidResources.enable = true
     }
 
     listOf(

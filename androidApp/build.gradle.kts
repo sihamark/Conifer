@@ -34,9 +34,6 @@ android {
 kotlin {
     compilerOptions {
         optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
-        compilerOptions {
-            freeCompilerArgs.add("-Xexplicit-backing-fields")
-        }
     }
 }
 

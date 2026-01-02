@@ -1,0 +1,8 @@
+<resources>
+    <string name="notification_channel_conversations_name">Conversations</string>
+    <string name="notification_channel_conversations_description">Conversation\'s like notifications</string>
+
+    <string name="notification_conversation_action_enter">Reply</string>
+    <string name="notification_conversation_title">What's been up?</string>
+    <string name="notification_conversation_message">What has happened?</string>
+</resources>

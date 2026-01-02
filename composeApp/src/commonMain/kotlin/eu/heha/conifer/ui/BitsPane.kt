@@ -29,10 +29,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import conifer.composeapp.generated.resources.Res
+import conifer.composeapp.generated.resources.bits_title
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +45,7 @@ fun BitsPane(
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(title = { Text("Bits") })
+            CenterAlignedTopAppBar(title = { Text(stringResource(Res.string.bits_title)) })
         }
     ) { innerPadding ->
         val focusRequester = remember { FocusRequester() }

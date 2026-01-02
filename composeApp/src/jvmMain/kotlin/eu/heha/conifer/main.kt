@@ -4,15 +4,17 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import conifer.composeapp.generated.resources.Res
 import conifer.composeapp.generated.resources.app_icon
+import conifer.composeapp.generated.resources.app_name
 import io.github.aakira.napier.DebugAntilog
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 fun main() = application {
     ConiferApp.initialize(DebugAntilog(), JvmPlatform, JvmDatabaseInitializer)
     Window(
         onCloseRequest = ::exitApplication,
         icon = painterResource(Res.drawable.app_icon),
-        title = "Conifer",
+        title = stringResource(Res.string.app_name)
     ) {
         ConiferApp.AppContent()
     }
