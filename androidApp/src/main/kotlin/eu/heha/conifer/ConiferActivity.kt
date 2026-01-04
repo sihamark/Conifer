@@ -11,13 +11,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
-private val imageResources = arrayOf(
-    R.raw.bark,
-    R.raw.cone,
-    R.raw.pollen_cones,
-    R.raw.tree,
-    R.raw.young_seeds,
-)
 
 class ConiferActivity : ComponentActivity() {
 
