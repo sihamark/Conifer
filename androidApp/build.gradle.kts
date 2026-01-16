@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -11,7 +10,6 @@ android {
     defaultConfig {
         applicationId = AppConfig.namespace
         minSdk = AppConfig.minSdk
-        targetSdk = AppConfig.targetSdk
         versionCode = AppConfig.versionCode
         versionName = AppConfig.versionName
     }
