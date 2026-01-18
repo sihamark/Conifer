@@ -21,6 +21,10 @@ kotlin {
         compileSdk = AppConfig.targetSdk
         minSdk = AppConfig.minSdk
 
+        packaging {
+            resources.excludes += ("META-INF/MANIFEST.MF")
+        }
+
         compilerOptions {
             val javaVersion = AppConfig.javaVersion
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
@@ -103,6 +107,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 
+            modules("java.sql", "java.instrument", "jdk.unsupported")
+
             packageName = AppConfig.appName
             packageVersion = AppConfig.versionName
             description = "A simple and delightful note-taking application."
@@ -114,6 +120,7 @@ compose.desktop {
             }
             macOS {
                 iconFile = project.file("desktopIcons/app_icon.icns")
+                bundleID = AppConfig.namespace
             }
             linux {
                 iconFile = project.file("desktopIcons/app_icon.png")
