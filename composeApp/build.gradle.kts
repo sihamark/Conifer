@@ -102,8 +102,13 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+
             packageName = AppConfig.appName
             packageVersion = AppConfig.versionName
+            description = "A simple and delightful note-taking application."
+            vendor = "HeHa Foundation"
+            copyright = "2025-2026 HeHa Foundation"
+
             windows {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }
