@@ -29,8 +29,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import eu.heha.conifer.model.Bit
+import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,8 +140,10 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
                 bit.text,
                 style = MaterialTheme.typography.bodyLarge
             )
+            val date = (bit.concernedAt ?: bit.createdAt)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
             Text(
-                "${bit.date.print()} at ${bit.time.print()}",
+                "${date.date.print()} at ${date.time.print()}",
                 style = MaterialTheme.typography.bodySmall
             )
         }

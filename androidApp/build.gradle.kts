@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = libs.versions.namespace.get()
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    namespace = AppConfig.namespace
+    compileSdk = AppConfig.targetSdk
 
     defaultConfig {
-        applicationId = libs.versions.namespace.get()
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        applicationId = AppConfig.namespace
+        minSdk = AppConfig.minSdk
+        targetSdk = AppConfig.targetSdk
+        versionCode = AppConfig.versionCode
+        versionName = AppConfig.versionName
     }
     packaging {
         resources {
@@ -26,9 +26,17 @@ android {
         }
     }
     compileOptions {
-        val javaVersion = libs.versions.java.version.get().toInt()
+        val javaVersion = AppConfig.javaVersion
         sourceCompatibility = JavaVersion.toVersion(javaVersion)
         targetCompatibility = JavaVersion.toVersion(javaVersion)
+    }
+}
+kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+        compilerOptions {
+            freeCompilerArgs.add("-Xexplicit-backing-fields")
+        }
     }
 }
 
@@ -38,6 +46,8 @@ dependencies {
 
     implementation(libs.jetbrains.compose.ui.tooling.preview)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core)
     implementation(libs.androidx.palette)
     implementation(libs.napier)
 }

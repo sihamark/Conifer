@@ -8,7 +8,7 @@ import io.github.aakira.napier.DebugAntilog
 import org.jetbrains.compose.resources.painterResource
 
 fun main() = application {
-    ConiferApp.initialize(DebugAntilog())
+    ConiferApp.initialize(DebugAntilog(), JvmPlatform, JvmDatabaseInitializer)
     Window(
         onCloseRequest = ::exitApplication,
         icon = painterResource(Res.drawable.app_icon),

@@ -1,7 +1,5 @@
 package eu.heha.conifer
 
-class JVMPlatform: Platform {
+data object JvmPlatform : Platform {
     override val name: String = "Java ${System.getProperty("java.version")}"
 }
-
-actual fun getPlatform(): Platform = JVMPlatform()

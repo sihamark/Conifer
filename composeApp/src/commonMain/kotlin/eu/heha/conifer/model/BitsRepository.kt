@@ -1,18 +1,20 @@
 package eu.heha.conifer.model
 
+import eu.heha.conifer.model.database.Bit
+import eu.heha.conifer.model.database.DatabaseController
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.Dispatchers.Default
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 
 class BitsRepository {
-    private val _bits: MutableStateFlow<List<Bit>> = MutableStateFlow(emptyList())
-    val bits = _bits.asStateFlow()
 
-    suspend fun add(bit: Bit) = withContext(Default) {
+    private suspend fun dao() = DatabaseController.bitDao()
+
+    suspend fun getBits() = dao().getAllBits()
+
+    suspend fun add(bit: Bit): Unit = withContext(Dispatchers.IO) {
         Napier.d { "add new bit $bit" }
-        _bits.update { it + bit }
+        dao().upsert(bit)
     }
 }
