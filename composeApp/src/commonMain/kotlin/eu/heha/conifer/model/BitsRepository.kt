@@ -17,4 +17,9 @@ class BitsRepository {
         Napier.d { "add new bit $bit" }
         dao().upsert(bit)
     }
+
+    suspend fun getTextsOfBits(bitIds: List<String>) = withContext(Dispatchers.IO) {
+        Napier.d { "get texts of bits with ids $bitIds" }
+        dao().getBitsByIds(bitIds).map { it.text }
+    }
 }

@@ -17,7 +17,7 @@ kotlin {
     }
 
     androidLibrary {
-        namespace = AppConfig.namespace
+        namespace = AppConfig.namespace + ".core"
         compileSdk = AppConfig.targetSdk
         minSdk = AppConfig.minSdk
 

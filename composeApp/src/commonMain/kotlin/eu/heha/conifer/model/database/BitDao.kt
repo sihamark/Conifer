@@ -13,4 +13,7 @@ interface BitDao {
 
     @Upsert
     suspend fun upsert(bit: Bit)
+
+    @Query("SELECT * FROM bits WHERE id IN (:bitIds) ORDER BY concerned_at DESC, created_at DESC")
+    fun getBitsByIds(bitIds: List<String>): List<Bit>
 }
