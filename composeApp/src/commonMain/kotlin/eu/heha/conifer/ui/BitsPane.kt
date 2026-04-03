@@ -16,10 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -140,8 +143,8 @@ private fun NewBitText(
         AnimatedVisibility(newBitText.isNotBlank()) {
             Row {
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = onClickAdd) {
-                    Text("Add")
+                FilledIconButton(onClick = onClickAdd) {
+                    Icon(Icons.Default.Check, contentDescription = "Add Bit")
                 }
             }
         }
