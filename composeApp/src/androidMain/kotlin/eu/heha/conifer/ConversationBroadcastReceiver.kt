@@ -23,12 +23,14 @@ class ConversationBroadcastReceiver : BroadcastReceiver() {
             Napier.w { "no entered text found in remote input results, results: $results" }
             return
         }
-        val previousBitIds = intent.getStringArrayExtra(EXTRA_PREVIOUS_BIT_IDS)?.toList()
-            ?: emptyList()
+        val previousBitIds = intent
+            .getStringArrayExtra(EXTRA_PREVIOUS_BIT_IDS)
+            ?.toList() ?: emptyList()
         runBlocking {
             val newBit = Bit(text = enteredText)
             ConiferApp.repository.add(newBit)
-            NotificationController(context).conversationNotification(previousBitIds + newBit.id)
+            NotificationController(context)
+                .conversationNotification(previousBitIds + newBit.id)
         }
     }
 

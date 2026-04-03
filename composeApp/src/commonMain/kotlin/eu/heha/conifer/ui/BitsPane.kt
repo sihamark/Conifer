@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +44,7 @@ import conifer.composeapp.generated.resources.Res
 import conifer.composeapp.generated.resources.bits_title
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
@@ -75,8 +77,13 @@ fun BitsPane(
                 focusRequester = focusRequester
             )
             LazyColumn {
-                items(state.bits) {
-                    BitItem(bit = it, modifier = Modifier.animateItem())
+                state.bitsByDate.forEach { datedBits ->
+                    stickyHeader(key = datedBits.date.toEpochDays()) {
+                        DateHeader(datedBits.date)
+                    }
+                    items(datedBits.bits, key = { it.id }) {
+                        BitItem(bit = it, modifier = Modifier.animateItem())
+                    }
                 }
                 item { Spacer(Modifier.height(8.dp)) }
                 item {
@@ -86,6 +93,20 @@ fun BitsPane(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DateHeader(date: LocalDate) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            date.print(),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -163,10 +184,9 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
                 bit.text,
                 style = MaterialTheme.typography.bodyLarge
             )
-            val date = (bit.concernedAt ?: bit.createdAt)
-                .toLocalDateTime(TimeZone.currentSystemDefault())
+            val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
             Text(
-                "${date.date.print()} at ${date.time.print()}",
+                date.time.print(),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -177,7 +197,12 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
 data class BitsPaneState(
     val permissionRationale: String? = null,
     val newBitText: String = "",
-    val bits: List<Bit> = emptyList()
+    val bitsByDate: List<DatedBits> = emptyList(),
+)
+
+data class DatedBits(
+    val date: LocalDate,
+    val bits: List<Bit>
 )
 
 class BitsPaneActions(
@@ -193,10 +218,15 @@ private fun BitsPanePreview() {
         BitsPane(
             state = BitsPaneState(
                 newBitText = "This is a new bit",
-                bits = listOf(
-                    Bit(text = "First bit"),
-                    Bit(text = "Second bit"),
-                    Bit(text = "Third bit")
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(
+                            Bit(text = "First bit"),
+                            Bit(text = "Second bit"),
+                            Bit(text = "Third bit")
+                        )
+                    )
                 )
             )
         )

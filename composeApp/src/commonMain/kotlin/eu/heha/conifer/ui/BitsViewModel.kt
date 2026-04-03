@@ -10,6 +10,8 @@ import eu.heha.conifer.ConiferApp.repository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 class BitsViewModel(
     private val permissionHandler: ConiferApp.PermissionHandler? = null
@@ -21,9 +23,14 @@ class BitsViewModel(
     init {
         viewModelScope.launch {
             launch {
-                repository.getBits().collect {
-                    Napier.d { "has found ${it.size} bits" }
-                    state = state.copy(bits = it)
+                repository.getBits().collect { bits ->
+                    Napier.d { "has found ${bits.size} bits" }
+                    state = state.copy(
+                        bitsByDate = bits
+                            .groupBy { it.date.toLocalDateTime(TimeZone.currentSystemDefault()).date }
+                            .map { (date, bits) -> DatedBits(date, bits) }
+                            .sortedByDescending { it.date.toEpochDays() }
+                    )
                 }
             }
             launch {

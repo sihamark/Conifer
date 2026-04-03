@@ -1,5 +1,6 @@
 package eu.heha.conifer.model.database
 
+import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -8,7 +9,13 @@ import androidx.room.TypeConverters
 
 const val DATABASE_NAME = "conifer_database.db"
 
-@Database(entities = [Bit::class], version = 1)
+@Database(
+    entities = [Bit::class],
+    version = 2,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = Migration1to2::class)
+    ]
+)
 @TypeConverters(DatabaseConverters::class)
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {

@@ -16,6 +16,6 @@ data class Bit(
     val text: String,
     @ColumnInfo(name = "created_at")
     val createdAt: Instant = Clock.System.now(),
-    @ColumnInfo(name = "concerned_at")
-    val concernedAt: Instant? = null,
+    @ColumnInfo(name = "date", defaultValue = "0")
+    val date: Instant = createdAt
 )

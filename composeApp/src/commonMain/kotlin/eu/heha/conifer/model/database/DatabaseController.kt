@@ -10,13 +10,11 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
 object DatabaseController {
-    private val database: AppDatabase by lazy {
-        getRoomDatabase()
-    }
+    private val database: AppDatabase by lazy { getRoomDatabase() }
 
-    private fun databaseFlow(): Flow<AppDatabase> = flow {
-        emit(database)
-    }.flowOn(Dispatchers.IO)
+    private fun databaseFlow(): Flow<AppDatabase> =
+        flow { emit(database) }
+            .flowOn(Dispatchers.IO)
 
     suspend fun bitDao() = databaseFlow().first().bitDao()
 
