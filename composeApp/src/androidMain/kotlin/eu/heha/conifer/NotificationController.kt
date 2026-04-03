@@ -26,7 +26,6 @@ class NotificationController(private val baseContext: Context) {
     private fun string(stringRes: Int): String = context.getString(stringRes)
 
     suspend fun conversationNotification(bitIds: List<String> = emptyList()) {
-        //TODO: improve by making the builder a property in the application, when replying use the same reference to the add history
         notifications.createNotificationChannel(
             NotificationChannelCompat.Builder(CONVERSATION_CHANNEL_ID, IMPORTANCE_DEFAULT)
                 .setName(string(R.string.notification_channel_conversations_name))
@@ -39,13 +38,16 @@ class NotificationController(private val baseContext: Context) {
 
         conversationsNotificationBuilder = notificationBuilder
 
-        if (bitIds.isNotEmpty()) {
-            val latestBitIds = bitIds.takeLast(3)
-            val bitTexts = ConiferApp.repository.getTextsOfBits(latestBitIds)
-            notificationBuilder.setRemoteInputHistory(bitTexts.toTypedArray())
-                .clearActions()
-                .addAction(createConversationReplyAction(latestBitIds))
-        }
+        val latestBitIds = bitIds.takeLast(3)
+        val bitTexts = ConiferApp.repository.getTextsOfBits(latestBitIds)
+        notificationBuilder
+            .clearActions()
+            .addAction(createConversationReplyAction(latestBitIds))
+            .apply {
+                if (bitTexts.isNotEmpty()) {
+                    setRemoteInputHistory(bitTexts.toTypedArray())
+                }
+            }
 
         if (isNotificationPermissionGranted(context)) {
             @SuppressLint("MissingPermission")
@@ -53,19 +55,14 @@ class NotificationController(private val baseContext: Context) {
         }
     }
 
-    private fun createNewConversationNotification(): NotificationCompat.Builder {
-        val action = createConversationReplyAction()
-
-        return NotificationCompat.Builder(context, CONVERSATION_CHANNEL_ID)
+    private fun createNewConversationNotification(): NotificationCompat.Builder =
+        NotificationCompat.Builder(context, CONVERSATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(string(R.string.notification_conversation_title))
             .setContentText(string(R.string.notification_conversation_message))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .clearActions()
-            .addAction(action)
-    }
 
-    private fun createConversationReplyAction(bitIds: List<String> = emptyList()): NotificationCompat.Action {
+    private fun createConversationReplyAction(bitIds: List<String>): NotificationCompat.Action {
         val replyLabel = string(R.string.notification_conversation_action_enter)
         val remoteInput = RemoteInput.Builder(CONVERSATION_ENTER_KEY)
             .setLabel(replyLabel)
