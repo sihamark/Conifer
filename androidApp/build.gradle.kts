@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -11,7 +10,6 @@ android {
     defaultConfig {
         applicationId = AppConfig.namespace
         minSdk = AppConfig.minSdk
-        targetSdk = AppConfig.targetSdk
         versionCode = AppConfig.versionCode
         versionName = AppConfig.versionName
     }
@@ -34,9 +32,6 @@ android {
 kotlin {
     compilerOptions {
         optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
-        compilerOptions {
-            freeCompilerArgs.add("-Xexplicit-backing-fields")
-        }
     }
 }
 
@@ -48,6 +43,5 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core)
-    implementation(libs.androidx.palette)
     implementation(libs.napier)
 }

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -26,13 +28,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import conifer.composeapp.generated.resources.Res
+import conifer.composeapp.generated.resources.bits_title
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +48,7 @@ fun BitsPane(
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(title = { Text("Bits") })
+            CenterAlignedTopAppBar(title = { Text(stringResource(Res.string.bits_title)) })
         }
     ) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
@@ -112,6 +118,9 @@ private fun NewBitText(
             value = newBitText,
             onValueChange = onNewBitTextChange,
             label = { Text("New Bit") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions { onClickAdd() },
+            singleLine = true,
             modifier = modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)

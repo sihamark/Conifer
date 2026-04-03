@@ -12,19 +12,24 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+    }
+
     androidLibrary {
-        namespace = AppConfig.namespace
+        namespace = AppConfig.namespace + ".core"
         compileSdk = AppConfig.targetSdk
+        minSdk = AppConfig.minSdk
+
+        packaging {
+            resources.excludes += ("META-INF/MANIFEST.MF")
+        }
+
         compilerOptions {
             val javaVersion = AppConfig.javaVersion
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
         }
-    }
-    compilerOptions {
-        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
-        compilerOptions {
-            freeCompilerArgs.add("-Xexplicit-backing-fields")
-        }
+        androidResources.enable = true
     }
 
     listOf(
@@ -54,7 +59,6 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.jetbrains.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.androidx.palette)
         }
         commonMain.dependencies {
             implementation(libs.jetbrains.compose.runtime)
@@ -102,13 +106,21 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+
+            modules("java.sql", "java.instrument", "jdk.unsupported")
+
             packageName = AppConfig.appName
             packageVersion = AppConfig.versionName
+            description = "A simple and delightful note-taking application."
+            vendor = "HeHa Foundation"
+            copyright = "2025-2026 HeHa Foundation"
+
             windows {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }
             macOS {
                 iconFile = project.file("desktopIcons/app_icon.icns")
+                bundleID = AppConfig.namespace
             }
             linux {
                 iconFile = project.file("desktopIcons/app_icon.png")

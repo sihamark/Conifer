@@ -19,3 +19,4 @@ captures
 node_modules/
 kotlin-js-store
 releases
+/gradle/gradle-daemon-jvm.properties

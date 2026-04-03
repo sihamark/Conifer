@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Conifer</string>
+
+    <string name="bits_title">Bits</string>
 </resources>
