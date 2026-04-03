@@ -4,10 +4,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
@@ -47,6 +51,7 @@ fun BitsPane(
     actions: BitsPaneActions = BitsPaneActions()
 ) {
     Scaffold(
+        contentWindowInsets = WindowInsets(),
         topBar = {
             CenterAlignedTopAppBar(title = { Text(stringResource(Res.string.bits_title)) })
         }
@@ -55,7 +60,7 @@ fun BitsPane(
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
         }
-        Column(modifier = Modifier.padding(innerPadding)) {
+        Column(modifier = Modifier.padding(innerPadding).imePadding()) {
             val permissionRationale = state.permissionRationale
             AnimatedVisibility(permissionRationale != null) {
                 PermissionPrompt(permissionRationale ?: "", actions)
@@ -69,6 +74,12 @@ fun BitsPane(
             LazyColumn {
                 items(state.bits) {
                     BitItem(bit = it, modifier = Modifier.animateItem())
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+                item {
+                    Spacer(
+                        Modifier.windowInsetsBottomHeight(WindowInsets.systemBars)
+                    )
                 }
             }
         }
@@ -144,7 +155,7 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(8.dp)) {
             Text(
                 bit.text,
                 style = MaterialTheme.typography.bodyLarge
