@@ -12,7 +12,8 @@ fun BitsRoute(permissionHandler: ConiferApp.PermissionHandler? = null) {
         actions = BitsPaneActions(
             onClickAdd = { model.onClickAdd() },
             onNewBitTextChange = { model.onNewBitTextChange(it) },
-            onClickRequestPermission = { permissionHandler?.requestPermission() }
+            onClickRequestPermission = { permissionHandler?.requestPermission() },
+            onClickDate = model::selectDate,
         )
     )
 }

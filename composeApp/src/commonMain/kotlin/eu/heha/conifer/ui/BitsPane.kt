@@ -1,6 +1,9 @@
 package eu.heha.conifer.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,11 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -46,6 +53,7 @@ import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
@@ -76,6 +84,13 @@ fun BitsPane(
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester
             )
+            DaySelection(
+                dates = state.dates,
+                selectedDate = state.selectedDate,
+                currentDate = state.today,
+                onClickDate = actions.onClickDate,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
             LazyColumn {
                 state.bitsByDate.forEach { datedBits ->
                     stickyHeader(key = datedBits.date.toEpochDays()) {
@@ -89,6 +104,55 @@ fun BitsPane(
                 item {
                     Spacer(
                         Modifier.windowInsetsBottomHeight(WindowInsets.systemBars)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DaySelection(
+    dates: List<LocalDate>,
+    selectedDate: LocalDate?,
+    currentDate: LocalDate,
+    onClickDate: (LocalDate) -> Unit,
+    modifier: Modifier
+) {
+    LazyRow(
+        state = rememberLazyListState(initialFirstVisibleItemIndex = 10),
+        modifier = modifier
+    ) {
+        items(31, key = { it }) { dayIndex ->
+            val dayOffset = dayIndex - 15
+            val date = LocalDate.fromEpochDays(currentDate.toEpochDays() + dayOffset)
+            val isSelected = date == selectedDate
+            val isCurrent = date == currentDate
+            val hasEntries = date in dates
+            val day = date.day
+            val month = date.month.number
+            Surface(
+                color = MaterialTheme.colorScheme.let {
+                    if (isCurrent) it.surfaceVariant else it.surface
+                },
+                onClick = { onClickDate(date) },
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface)
+                    .takeIf { isSelected },
+                shape = CircleShape
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (hasEntries) {
+                        Box(Modifier.size(2.dp).background(MaterialTheme.colorScheme.onSurface))
+                    }
+                    Text(
+                        text = day.toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    Text(
+                        text = month.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
             }
@@ -197,7 +261,10 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
 data class BitsPaneState(
     val permissionRationale: String? = null,
     val newBitText: String = "",
-    val bitsByDate: List<DatedBits> = emptyList(),
+    val selectedDate: LocalDate? = null,
+    val today: LocalDate = now().date,
+    val dates: List<LocalDate> = emptyList(),
+    val bitsByDate: List<DatedBits> = emptyList()
 )
 
 data class DatedBits(
@@ -209,6 +276,7 @@ class BitsPaneActions(
     val onClickAdd: () -> Unit = {},
     val onNewBitTextChange: (String) -> Unit = {},
     val onClickRequestPermission: () -> Unit = {},
+    val onClickDate: (LocalDate) -> Unit = {}
 )
 
 @Preview
