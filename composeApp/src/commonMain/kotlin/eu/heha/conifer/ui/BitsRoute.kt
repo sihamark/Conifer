@@ -14,6 +14,7 @@ fun BitsRoute(permissionHandler: ConiferApp.PermissionHandler? = null) {
             onNewBitTextChange = { model.onNewBitTextChange(it) },
             onClickRequestPermission = { permissionHandler?.requestPermission() },
             onClickDate = model::selectDate,
+            onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,
         )
     )
 }

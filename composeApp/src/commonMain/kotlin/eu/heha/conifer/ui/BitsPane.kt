@@ -26,11 +26,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -96,7 +98,12 @@ fun BitsPane(
             LazyColumn {
                 state.bitsByDate.forEach { datedBits ->
                     stickyHeader(key = datedBits.date.toEpochDays()) {
-                        DateHeader(datedBits.date)
+                        DateHeader(
+                            date = datedBits.date,
+                            onClickCopy = {
+                                actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
+                            }
+                        )
                     }
                     items(datedBits.bits, key = { it.id }) {
                         BitItem(bit = it, modifier = Modifier.animateItem())
@@ -177,16 +184,26 @@ fun DaySelection(
 }
 
 @Composable
-private fun DateHeader(date: LocalDate) {
+private fun DateHeader(date: LocalDate, onClickCopy: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            date.print(),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                date.print(),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onClickCopy) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Copy bits of this date to clipboard",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -276,6 +293,7 @@ private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
 
 data class BitsPaneState(
     val permissionRationale: String? = null,
+    val isCopyPossible: Boolean = true,
     val newBitText: String = "",
     val selectedDate: LocalDate? = null,
     val today: LocalDate = now().date,
@@ -292,7 +310,8 @@ class BitsPaneActions(
     val onClickAdd: () -> Unit = {},
     val onNewBitTextChange: (String) -> Unit = {},
     val onClickRequestPermission: () -> Unit = {},
-    val onClickDate: (LocalDate) -> Unit = {}
+    val onClickDate: (LocalDate) -> Unit = {},
+    val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {}
 )
 
 @Preview

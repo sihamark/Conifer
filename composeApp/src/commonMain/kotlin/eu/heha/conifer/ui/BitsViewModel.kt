@@ -23,9 +23,15 @@ class BitsViewModel(
     private val permissionHandler: ConiferApp.PermissionHandler? = null
 ) : ViewModel() {
 
+    private val clipboardController = ConiferApp.clipboardController
+
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
 
-    var state by mutableStateOf(BitsPaneState())
+    var state by mutableStateOf(
+        BitsPaneState(
+            isCopyPossible = clipboardController != null
+        )
+    )
         private set
 
     init {
@@ -110,6 +116,19 @@ class BitsViewModel(
         selectedDate.update { oldDate ->
             // if the same date is selected again, deselect it
             if (oldDate == newDate) null else newDate
+        }
+    }
+
+    fun copyBitsOfDateToClipboard(date: LocalDate) {
+        val clipboardController = clipboardController ?: return
+        val bits = state.bitsByDate.firstOrNull { it.date == date }?.bits ?: return
+        buildString {
+            appendLine("##### Bits of ${date.dayOfWeek}, ${date.day}. ${date.month} ${date.year}:\n")
+            bits.reversed().forEach { bit ->
+                appendLine("- ${bit.text}\n")
+            }
+        }.let { textToCopy ->
+            clipboardController.copyToClipboard(textToCopy)
         }
     }
 }
