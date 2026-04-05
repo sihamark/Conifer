@@ -151,18 +151,25 @@ fun DaySelection(
                 ) {
                     val indicatorColor =
                         if (hasEntries) MaterialTheme.colorScheme.primary else Color.Transparent
-                    Box(Modifier.size(2.dp).background(indicatorColor))
+
+                    @Composable
+                    fun IndicatorDot() = Box(Modifier.size(2.dp).background(indicatorColor))
                     Text(
                         text = day.toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth(0.3f)
+                    ) {
+                        repeat(3) { IndicatorDot() }
+                    }
                     Text(
                         text = month.toString(),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
-                    Spacer(Modifier.height(2.dp))
                 }
             }
         }

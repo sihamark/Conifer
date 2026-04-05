@@ -9,12 +9,21 @@ import eu.heha.conifer.ConiferApp
 import eu.heha.conifer.ConiferApp.repository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
+import kotlin.time.Clock
 
 class BitsViewModel(
     private val permissionHandler: ConiferApp.PermissionHandler? = null
 ) : ViewModel() {
+
+    private val selectedDate = MutableStateFlow<LocalDate?>(null)
 
     var state by mutableStateOf(BitsPaneState())
         private set
@@ -22,18 +31,28 @@ class BitsViewModel(
     init {
         viewModelScope.launch {
             launch {
-                repository.getBits().collect { bits ->
+                combine(
+                    repository.getBits(),
+                    selectedDate
+                ) { bits, selectedDate ->
+                    bits to selectedDate
+                }.collect { (bits, selectedDate) ->
                     Napier.d { "has found ${bits.size} bits" }
                     var dates: List<LocalDate> = listOf()
                     var datedBits: List<DatedBits> = listOf()
 
-                    bits.forEach { bit ->
+                    for (bit in bits) {
                         val date = bit.date.dateTimeInDefaultTz().date
-                        if (!dates.contains(date)) {
-                            dates = dates + date
-                            datedBits = datedBits + DatedBits(date, listOf(bit))
+                        if (date !in dates) dates = dates + date
+
+                        if (selectedDate != null && date != selectedDate) {
+                            // skip bits that don't match the selected date
+                            continue
+                        }
+                        datedBits = if (datedBits.none { it.date == date }) {
+                            datedBits + DatedBits(date, listOf(bit))
                         } else {
-                            datedBits = datedBits.map { datedBit ->
+                            datedBits.map { datedBit ->
                                 if (datedBit.date == date) {
                                     datedBit.copy(bits = datedBit.bits + bit)
                                 } else {
@@ -44,6 +63,7 @@ class BitsViewModel(
                     }
 
                     state = state.copy(
+                        selectedDate = selectedDate,
                         dates = dates,
                         bitsByDate = datedBits
                     )
@@ -66,7 +86,17 @@ class BitsViewModel(
         val newBitText = state.newBitText
         if (newBitText.isNotBlank()) {
             viewModelScope.launch {
-                repository.add(Bit(text = newBitText))
+                val date =
+                    selectedDate.value
+                        ?.atTime(12, 0)
+                        ?.toInstant(TimeZone.currentSystemDefault())
+                        ?: Clock.System.now()
+                repository.add(
+                    Bit(
+                        text = newBitText,
+                        date = date
+                    )
+                )
                 state = state.copy(newBitText = "")
             }
         }
@@ -76,9 +106,10 @@ class BitsViewModel(
         state = state.copy(newBitText = newBit)
     }
 
-    fun selectDate(date: LocalDate) {
-        state = state.copy(
-            selectedDate = date.takeIf { it != state.selectedDate }
-        )
+    fun selectDate(newDate: LocalDate) {
+        selectedDate.update { oldDate ->
+            // if the same date is selected again, deselect it
+            if (oldDate == newDate) null else newDate
+        }
     }
 }
