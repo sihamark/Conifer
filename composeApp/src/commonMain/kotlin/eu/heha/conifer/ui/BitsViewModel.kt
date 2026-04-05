@@ -123,9 +123,9 @@ class BitsViewModel(
         val clipboardController = clipboardController ?: return
         val bits = state.bitsByDate.firstOrNull { it.date == date }?.bits ?: return
         buildString {
-            appendLine("##### Bits of ${date.dayOfWeek}, ${date.day}. ${date.month} ${date.year}:\n")
+            appendLine("##### Bits of ${date.dayOfWeek}, ${date.day}. ${date.month} ${date.year}:")
             bits.reversed().forEach { bit ->
-                appendLine("- ${bit.text}\n")
+                appendLine("- ${bit.text}")
             }
         }.let { textToCopy ->
             clipboardController.copyToClipboard(textToCopy)
