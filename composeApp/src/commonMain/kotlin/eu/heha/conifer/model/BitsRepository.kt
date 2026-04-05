@@ -22,7 +22,12 @@ class BitsRepository {
             // this simply adds 1 millisecond so the order remains the same
             date = date.plus(1.milliseconds)
         }
-        dao().upsert(bit.copy(date = date))
+        dao().upsert(
+            bit.copy(
+                text = bit.text.trim(),
+                date = date
+            )
+        )
     }
 
     suspend fun getTextsOfBits(bitIds: List<String>) = withContext(Dispatchers.IO) {
