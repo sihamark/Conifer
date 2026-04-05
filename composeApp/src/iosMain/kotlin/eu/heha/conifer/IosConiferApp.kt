@@ -6,6 +6,11 @@ import io.github.aakira.napier.DebugAntilog
 object IosConiferApp {
 
     fun initialize() {
-        ConiferApp.initialize(DebugAntilog(), IosPlatform, IosDatabaseInitializer)
+        ConiferApp.initialize(
+            antilog = DebugAntilog(),
+            platform = IosPlatform,
+            databaseInitializer = IosDatabaseInitializer,
+            clipboardController = IosClipboardController
+        )
     }
 }

@@ -4,9 +4,9 @@ import android.content.ClipData
 import android.content.Context
 import androidx.core.content.getSystemService
 
-class AndroidClipboardManager(
+class AndroidClipboardController(
     private val context: Context
-) : ClipboardManager {
+) : ClipboardController {
     override fun copyToClipboard(text: String) {
         val clipboardManager = context.getSystemService<android.content.ClipboardManager>()
         val clip = ClipData.newPlainText("Entry", text)
