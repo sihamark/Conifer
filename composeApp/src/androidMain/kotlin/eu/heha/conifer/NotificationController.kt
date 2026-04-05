@@ -61,6 +61,14 @@ class NotificationController(private val baseContext: Context) {
             .setContentTitle(string(R.string.notification_conversation_title))
             .setContentText(string(R.string.notification_conversation_message))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context.applicationContext,
+                    100,
+                    getAppIntent(),
+                    PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
 
     private fun createConversationReplyAction(bitIds: List<String>): NotificationCompat.Action {
         val replyLabel = string(R.string.notification_conversation_action_enter)
@@ -69,7 +77,7 @@ class NotificationController(private val baseContext: Context) {
             .build()
         val pendingIntent = PendingIntent.getBroadcast(
             context.applicationContext,
-            100,
+            200,
             getConversationEnterIntent(bitIds),
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -89,6 +97,12 @@ class NotificationController(private val baseContext: Context) {
                 putExtra(EXTRA_PREVIOUS_BIT_IDS, bitIds.toTypedArray())
             }
         }
+
+    private fun getAppIntent(): Intent {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        return launchIntent
+            ?: error("Unable to get launch intent for package ${context.packageName}")
+    }
 
     companion object {
 
