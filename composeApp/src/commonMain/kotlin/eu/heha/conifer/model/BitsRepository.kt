@@ -6,6 +6,7 @@ import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 class BitsRepository {
 
@@ -15,7 +16,13 @@ class BitsRepository {
 
     suspend fun add(bit: Bit): Unit = withContext(Dispatchers.IO) {
         Napier.d { "add new bit $bit" }
-        dao().upsert(bit)
+        var date = bit.date
+        while (dao().hasBitAtDate(date)) {
+            // this is to ensure the order inserted bits is the same when the date is the same,
+            // this simply adds 1 millisecond so the order remains the same
+            date = date.plus(1.milliseconds)
+        }
+        dao().upsert(bit.copy(date = date))
     }
 
     suspend fun getTextsOfBits(bitIds: List<String>) = withContext(Dispatchers.IO) {
