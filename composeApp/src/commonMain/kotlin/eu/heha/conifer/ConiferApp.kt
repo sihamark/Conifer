@@ -19,15 +19,20 @@ object ConiferApp {
     var databaseInitializer: DatabaseInitializer? = null
         private set
 
+    var clipboardManager: ClipboardManager? = null
+        private set
+
     fun initialize(
         antilog: Antilog,
         platform: Platform,
         databaseInitializer: DatabaseInitializer,
+        clipboardManager: ClipboardManager? = null
     ) {
         Napier.base(antilog)
 
         this.platform = platform
         this.databaseInitializer = databaseInitializer
+        this.clipboardManager = clipboardManager
     }
 
     interface PermissionHandler {
@@ -50,4 +55,8 @@ interface Platform {
 
 interface DatabaseInitializer {
     fun createBuilder(): RoomDatabase.Builder<AppDatabase>
+}
+
+interface ClipboardManager {
+    fun copyToClipboard(text: String)
 }

@@ -6,6 +6,11 @@ import io.github.aakira.napier.DebugAntilog
 class ConiferApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        ConiferApp.initialize(DebugAntilog(), AndroidPlatform, AndroidDatabaseInitializer(this))
+        ConiferApp.initialize(
+            DebugAntilog(),
+            AndroidPlatform,
+            AndroidDatabaseInitializer(this),
+            AndroidClipboardManager(this)
+        )
     }
 }

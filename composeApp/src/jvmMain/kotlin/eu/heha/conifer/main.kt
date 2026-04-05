@@ -10,7 +10,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 fun main() = application {
-    ConiferApp.initialize(DebugAntilog(), JvmPlatform, JvmDatabaseInitializer)
+    ConiferApp.initialize(DebugAntilog(), JvmPlatform, JvmDatabaseInitializer, JvmClipboardManager)
     Window(
         onCloseRequest = ::exitApplication,
         icon = painterResource(Res.drawable.app_icon),
