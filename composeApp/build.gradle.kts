@@ -130,6 +130,7 @@ compose.desktop {
 }
 
 tasks.register<CopyDesktopArtifacts>("buildDesktopRelease") {
+    description = "Builds the release distributable for the desktop application."
     group = "release"
     intoFolder = rootDir.resolve("releases")
     version = AppConfig.versionName
