@@ -1,4 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,7 +5,6 @@ plugins {
     alias(libs.plugins.android.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.compose.hot.reload)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
 }
@@ -85,6 +83,14 @@ kotlin {
     }
 }
 
+// The generated Compose resources accessor (`Res`) is consumed by the standalone
+// :desktopApp module, so it must be public. The package is pinned so it stays stable
+// regardless of the module name.
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "conifer.shared.generated.resources"
+}
+
 dependencies {
     add("kspAndroid", libs.androidx.room.compiler)
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
@@ -94,47 +100,4 @@ dependencies {
 
 room {
     schemaDirectory("$projectDir/schemas")
-}
-
-compose.desktop {
-    application {
-        mainClass = "eu.heha.conifer.MainKt"
-
-        buildTypes.release.proguard {
-            configurationFiles.from(project.file("compose-desktop.pro"))
-        }
-
-        nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-
-            modules("java.sql", "java.instrument", "jdk.unsupported")
-
-            packageName = AppConfig.appName
-            packageVersion = AppConfig.versionName
-            description = "A simple and delightful note-taking application."
-            vendor = "HeHa Foundation"
-            copyright = "2025-2026 HeHa Foundation"
-
-            windows {
-                iconFile = project.file("desktopIcons/app_icon.ico")
-            }
-            macOS {
-                iconFile = project.file("desktopIcons/app_icon.icns")
-                bundleID = AppConfig.namespace
-            }
-            linux {
-                iconFile = project.file("desktopIcons/app_icon.png")
-            }
-        }
-    }
-}
-
-tasks.register<CopyDesktopArtifacts>("buildDesktopRelease") {
-    description = "Builds the release distributable for the desktop application."
-    group = "release"
-    intoFolder = rootDir.resolve("releases")
-    version = AppConfig.versionName
-    artifactName = AppConfig.appName
-    appPackage = AppConfig.namespace
-    dependsOn("createReleaseDistributable")
 }

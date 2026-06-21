@@ -1,0 +1,88 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
+
+## What this is
+
+Conifer is a Kotlin Multiplatform + Compose Multiplatform note-taking app targeting **Android, iOS,
+and JVM Desktop**. A "Bit" is a single dated note; the whole app is essentially one screen for
+adding bits and viewing them grouped by date.
+
+The project follows
+the [new KMP default structure](https://blog.jetbrains.com/kotlin/2026/05/new-kmp-default-structure/):
+one `shared` library module consumed by separate per-platform application modules (`androidApp`,
+`desktopApp`, and the `iosApp` Xcode project).
+
+Web targets (JS/Wasm) exist as empty source dirs but are **disabled** in `shared/build.gradle.kts` —
+they are incompatible with Room (see `changelog.md`). Don't try to re-enable them without addressing
+that.
+
+## Build & run
+
+```bash
+./gradlew :desktopApp:run                 # run desktop (JVM) app
+./gradlew :androidApp:assembleDebug       # build Android APK
+./gradlew :shared:assembleDebug           # build the shared library (Android variant)
+./gradlew :desktopApp:buildDesktopRelease # package desktop release into ./releases (custom task)
+```
+
+iOS: open `iosApp/` in Xcode and run (the iOS entry point calls `IosConiferApp.initialize()`).
+
+### Tests
+
+```bash
+./gradlew :shared:allTests                              # all platforms
+./gradlew :shared:jvmTest                               # JVM only
+./gradlew :shared:jvmTest --tests "*ComposeAppCommonTest.example"   # single test
+```
+
+Common tests live in `shared/src/commonTest`.
+
+## Architecture
+
+**Module layout:** `shared` is the KMP library (common/android/ios/jvm source sets) where
+essentially all real code lives, including the Compose UI and the platform-specific implementations
+in `androidMain`/`iosMain`/`jvmMain`. Each platform has a thin application module that depends on
+`shared` and only holds its entry point: `androidApp` (Android `Application`/`Activity`),
+`desktopApp` (a plain `kotlin("jvm")` module with `main.kt` plus the `compose.desktop` packaging
+config and the `buildDesktopRelease` task), and `iosApp` (Xcode project; the iOS entry calls
+`IosConiferApp.initialize()`).
+
+**Compose resources across modules:** the generated `Res` accessor is owned by `shared`, with its
+package pinned to `conifer.shared.generated.resources` and `publicResClass = true` (in
+`shared/build.gradle.kts`) so `desktopApp` can use it for the window icon/title. `desktopApp` sets
+`generateResClass = never` since it has no resources of its own. If you add resources, put them
+under `shared/src/commonMain/composeResources`.
+
+**Dependency injection without expect/actual.** Per the changelog, this project deliberately avoids
+`expect`/`actual` declarations in favor of an initializer pattern. `ConiferApp` (in `commonMain`) is
+a singleton holding `Platform`, `DatabaseInitializer`, and `ClipboardController` interfaces. Each
+platform's entry point calls `ConiferApp.initialize(...)` passing its concrete implementations (e.g.
+`JvmDatabaseInitializer`, `AndroidClipboardController`). The **only** remaining `expect`/`actual` is
+`AppDatabaseConstructor`, which Room's compiler generates. When adding platform-specific behavior,
+add an interface to `ConiferApp` and a per-platform impl rather than an `expect fun`.
+
+**Data flow:** `BitDao` (Room) → `DatabaseController` (singleton, builds the DB lazily from the
+injected `DatabaseInitializer`, uses `BundledSQLiteDriver` on `Dispatchers.IO`) → `BitsRepository` →
+`BitsViewModel` → `BitsRoute`/`BitsPane` (Compose UI). The ViewModel exposes a single `state` (
+`mutableStateOf`) and collects `getAllBits()` as a Flow, grouping bits by local date.
+
+**Room database** lives in `commonMain/.../model/database`. Schema is at version 2 with an
+`AutoMigration` and JSON schemas exported to `shared/schemas`. KSP generates the Room code for
+android/ios/jvm targets (see the `ksp*` dependency lines and the `room { schemaDirectory(...) }`
+block). If you change an entity, bump `version`, add a migration, and the new schema JSON should be
+committed.
+
+## Conventions & config
+
+- **`buildSrc/src/main/kotlin/AppConfig.kt`** is the single source of truth for `versionName`,
+  `versionCode`, `minSdk` (30), `targetSdk` (37), `javaVersion` (21), `namespace` (
+  `eu.heha.conifer`), and `appName`. Edit there, not in individual build files.
+- Versions/plugins are centralized in `gradle/libs.versions.toml`.
+- Opt-ins `kotlin.time.ExperimentalTime` and `kotlin.uuid.ExperimentalUuidApi` are enabled
+  project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx
+  variants).
+- Logging uses **Napier** (`Napier.d/i/e`), initialized via the `antilog` passed into
+  `ConiferApp.initialize`.
+- Gradle configuration cache and build cache are enabled.

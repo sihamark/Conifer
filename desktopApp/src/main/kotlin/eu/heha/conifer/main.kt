@@ -2,9 +2,9 @@ package eu.heha.conifer
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import conifer.composeapp.generated.resources.Res
-import conifer.composeapp.generated.resources.app_icon
-import conifer.composeapp.generated.resources.app_name
+import conifer.shared.generated.resources.Res
+import conifer.shared.generated.resources.app_icon
+import conifer.shared.generated.resources.app_name
 import io.github.aakira.napier.DebugAntilog
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource

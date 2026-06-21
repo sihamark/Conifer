@@ -5,18 +5,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import conifer.composeapp.generated.resources.Res
-import conifer.composeapp.generated.resources.lato_black
-import conifer.composeapp.generated.resources.lato_black_italic
-import conifer.composeapp.generated.resources.lato_bold
-import conifer.composeapp.generated.resources.lato_bold_italic
-import conifer.composeapp.generated.resources.lato_italic
-import conifer.composeapp.generated.resources.lato_light
-import conifer.composeapp.generated.resources.lato_light_italic
-import conifer.composeapp.generated.resources.lato_regular
-import conifer.composeapp.generated.resources.lato_thin
-import conifer.composeapp.generated.resources.lato_thin_italic
-import conifer.composeapp.generated.resources.story_script_regular
+import conifer.shared.generated.resources.Res
+import conifer.shared.generated.resources.lato_black
+import conifer.shared.generated.resources.lato_black_italic
+import conifer.shared.generated.resources.lato_bold
+import conifer.shared.generated.resources.lato_bold_italic
+import conifer.shared.generated.resources.lato_italic
+import conifer.shared.generated.resources.lato_light
+import conifer.shared.generated.resources.lato_light_italic
+import conifer.shared.generated.resources.lato_regular
+import conifer.shared.generated.resources.lato_thin
+import conifer.shared.generated.resources.lato_thin_italic
+import conifer.shared.generated.resources.story_script_regular
 import org.jetbrains.compose.resources.Font
 
 

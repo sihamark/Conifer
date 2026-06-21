@@ -36,7 +36,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":composeApp"))
+    implementation(project(":shared"))
     debugImplementation(libs.jetbrains.compose.ui.tooling)
 
     implementation(libs.jetbrains.compose.ui.tooling.preview)
