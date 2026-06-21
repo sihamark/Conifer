@@ -14,7 +14,7 @@ kotlin {
         optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
     }
 
-    androidLibrary {
+    android {
         namespace = AppConfig.namespace + ".core"
         compileSdk = AppConfig.targetSdk
         minSdk = AppConfig.minSdk

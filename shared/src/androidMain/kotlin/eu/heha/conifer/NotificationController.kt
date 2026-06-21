@@ -112,6 +112,7 @@ class NotificationController(private val baseContext: Context) {
 
         const val CONVERSATION_ENTER_KEY = "conversation_enter"
 
+        @SuppressLint("StaticFieldLeak")
         private var conversationsNotificationBuilder: NotificationCompat.Builder? = null
 
         fun isNotificationPermissionGranted(context: Context): Boolean =

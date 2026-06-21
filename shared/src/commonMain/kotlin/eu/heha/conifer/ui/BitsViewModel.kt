@@ -125,7 +125,7 @@ class BitsViewModel(
         buildString {
             appendLine("##### Bits of ${date.dayOfWeek}, ${date.day}. ${date.month} ${date.year}:")
             bits.reversed().forEach { bit ->
-                appendLine("- ${bit.text}")
+                appendLine(bit.text)
             }
         }.let { textToCopy ->
             clipboardController.copyToClipboard(textToCopy)
