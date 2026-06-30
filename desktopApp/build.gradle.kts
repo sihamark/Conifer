@@ -14,6 +14,13 @@ kotlin {
     }
 }
 
+// Mark `./gradlew :desktopApp:run` as a debug launch so DebugAntilog is installed; packaged
+// release distributables don't set this property and therefore run without it. The compose
+// plugin creates the `run` task lazily, so configure it via the lazy task collection.
+tasks.withType<JavaExec>().matching { it.name == "run" }.configureEach {
+    systemProperty("conifer.debug", "true")
+}
+
 // The Compose resources accessor (`Res`) is generated and owned by :shared; this
 // module only consumes it, so it generates no class of its own.
 compose.resources {

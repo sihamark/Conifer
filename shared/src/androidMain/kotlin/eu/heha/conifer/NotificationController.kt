@@ -16,12 +16,16 @@ import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.graphics.drawable.IconCompat
 import eu.heha.conifer.ConversationBroadcastReceiver.Companion.EXTRA_PREVIOUS_BIT_IDS
 import eu.heha.conifer.core.R
+import eu.heha.conifer.model.BitsRepository
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 
-class NotificationController(private val baseContext: Context) {
+class NotificationController(private val baseContext: Context) : KoinComponent {
 
     private val context get() = baseContext.applicationContext
     private val notifications = NotificationManagerCompat.from(context)
+    private val repository: BitsRepository by inject()
 
     private fun string(stringRes: Int): String = context.getString(stringRes)
 
@@ -39,7 +43,7 @@ class NotificationController(private val baseContext: Context) {
         conversationsNotificationBuilder = notificationBuilder
 
         val latestBitIds = bitIds.takeLast(3)
-        val bitTexts = ConiferApp.repository.getTextsOfBits(latestBitIds)
+        val bitTexts = repository.getTextsOfBits(latestBitIds)
         notificationBuilder
             .clearActions()
             .addAction(createConversationReplyAction(latestBitIds))

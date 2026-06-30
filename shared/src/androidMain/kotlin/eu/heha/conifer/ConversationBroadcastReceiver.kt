@@ -5,11 +5,16 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
 import eu.heha.conifer.NotificationController.Companion.CONVERSATION_ENTER_KEY
+import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.runBlocking
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class ConversationBroadcastReceiver : BroadcastReceiver() {
+class ConversationBroadcastReceiver : BroadcastReceiver(), KoinComponent {
+
+    private val repository: BitsRepository by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val results = RemoteInput.getResultsFromIntent(intent)
@@ -28,7 +33,7 @@ class ConversationBroadcastReceiver : BroadcastReceiver() {
             ?.toList() ?: emptyList()
         runBlocking {
             val newBit = Bit(text = enteredText)
-            ConiferApp.repository.add(newBit)
+            repository.add(newBit)
             NotificationController(context)
                 .conversationNotification(previousBitIds + newBit.id)
         }

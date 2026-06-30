@@ -1,13 +1,11 @@
 package eu.heha.conifer
 
-import io.github.aakira.napier.DebugAntilog
-
 @Suppress("unused")
 object IosConiferApp {
 
-    fun initialize() {
+    fun initialize(isDebug: Boolean) {
         ConiferApp.initialize(
-            antilog = DebugAntilog(),
+            isDebug = isDebug,
             platform = IosPlatform,
             databaseInitializer = IosDatabaseInitializer,
             clipboardController = IosClipboardController

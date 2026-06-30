@@ -1,12 +1,13 @@
 package eu.heha.conifer.ui
 
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel
-import eu.heha.conifer.ConiferApp
+import eu.heha.conifer.PermissionHandler
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
-fun BitsRoute(permissionHandler: ConiferApp.PermissionHandler? = null) {
-    val model = viewModel { BitsViewModel(permissionHandler) }
+fun BitsRoute(permissionHandler: PermissionHandler? = null) {
+    val model = koinViewModel<BitsViewModel> { parametersOf(permissionHandler) }
     BitsPane(
         state = model.state,
         actions = BitsPaneActions(

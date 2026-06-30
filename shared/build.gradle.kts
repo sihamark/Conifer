@@ -60,6 +60,11 @@ kotlin {
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.datetime)
+            // api: KoinComponent is a public supertype of NotificationController (androidMain),
+            // which the :androidApp module instantiates, so koin must be on its classpath.
+            api(libs.koin.core)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
             implementation(libs.napier)
         }
         commonTest.dependencies {

@@ -8,9 +8,11 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
-class BitsRepository {
+class BitsRepository(
+    private val databaseController: DatabaseController
+) {
 
-    private suspend fun dao() = DatabaseController.bitDao()
+    private suspend fun dao() = databaseController.bitDao()
 
     suspend fun getBits() = dao().getAllBits()
 

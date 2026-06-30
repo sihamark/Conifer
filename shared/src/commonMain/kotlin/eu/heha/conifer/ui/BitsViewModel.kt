@@ -5,8 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import eu.heha.conifer.ConiferApp
-import eu.heha.conifer.ConiferApp.repository
+import eu.heha.conifer.ClipboardController
+import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,10 +21,10 @@ import kotlinx.datetime.toInstant
 import kotlin.time.Clock
 
 class BitsViewModel(
-    private val permissionHandler: ConiferApp.PermissionHandler? = null
+    private val repository: BitsRepository,
+    private val clipboardController: ClipboardController? = null,
+    private val permissionHandler: PermissionHandler? = null
 ) : ViewModel() {
-
-    private val clipboardController = ConiferApp.clipboardController
 
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
 

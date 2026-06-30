@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class NotificationPermissionHandler(
     private val activity: Activity
-) : ConiferApp.PermissionHandler {
+) : PermissionHandler {
 
     private val _isPermissionGranted = MutableStateFlow(false)
     override val isPermissionGranted = _isPermissionGranted.asStateFlow()

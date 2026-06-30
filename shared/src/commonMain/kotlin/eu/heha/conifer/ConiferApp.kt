@@ -1,44 +1,33 @@
 package eu.heha.conifer
 
 import androidx.compose.runtime.Composable
-import androidx.room.RoomDatabase
-import eu.heha.conifer.model.BitsRepository
-import eu.heha.conifer.model.database.AppDatabase
+import eu.heha.conifer.di.coreModule
+import eu.heha.conifer.di.platformModule
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.theme.ConiferTheme
-import io.github.aakira.napier.Antilog
+import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.flow.StateFlow
+import org.koin.core.context.startKoin
 
 object ConiferApp {
 
-    val repository by lazy { BitsRepository() }
-    var platform: Platform? = null
-        private set
-
-    var databaseInitializer: DatabaseInitializer? = null
-        private set
-
-    var clipboardController: ClipboardController? = null
-        private set
-
     fun initialize(
-        antilog: Antilog,
+        isDebug: Boolean,
         platform: Platform,
         databaseInitializer: DatabaseInitializer,
         clipboardController: ClipboardController? = null
     ) {
-        Napier.base(antilog)
-
-        this.platform = platform
-        this.databaseInitializer = databaseInitializer
-        this.clipboardController = clipboardController
-    }
-
-    interface PermissionHandler {
-        val isPermissionGranted: StateFlow<Boolean>
-        val permissionRationale: String
-        fun requestPermission()
+        // DebugAntilog derives its tag from the runtime stack trace, which breaks under
+        // R8/ProGuard optimization in release builds — so only install it for debug builds.
+        if (isDebug) {
+            Napier.base(DebugAntilog())
+        }
+        startKoin {
+            modules(
+                coreModule,
+                platformModule(platform, databaseInitializer, clipboardController)
+            )
+        }
     }
 
     @Composable
@@ -47,16 +36,4 @@ object ConiferApp {
             BitsRoute(permissionHandler)
         }
     }
-}
-
-interface Platform {
-    val name: String
-}
-
-interface DatabaseInitializer {
-    fun createBuilder(): RoomDatabase.Builder<AppDatabase>
-}
-
-interface ClipboardController {
-    fun copyToClipboard(text: String)
 }
