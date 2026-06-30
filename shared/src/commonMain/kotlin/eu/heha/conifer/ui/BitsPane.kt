@@ -104,6 +104,7 @@ fun BitsPane(
                 selectedDate = state.selectedDate,
                 selectedTime = state.selectedTime,
                 currentDate = state.today,
+                currentTime = state.currentTime,
                 onClickDate = actions.onClickDate,
                 onSelectTime = actions.onSelectTime,
                 onResetToNow = actions.onResetToNow
@@ -144,14 +145,13 @@ private fun DateTimeSelector(
     selectedDate: LocalDate?,
     selectedTime: LocalTime?,
     currentDate: LocalDate,
+    currentTime: LocalTime,
     onClickDate: (LocalDate) -> Unit,
     onSelectTime: (LocalTime) -> Unit,
     onResetToNow: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    // Frozen at first composition so an untouched slider sits at "now" without drifting.
-    val currentTime = remember { now().time }
     val effectiveDate = selectedDate ?: currentDate
     val effectiveTime = selectedTime ?: currentTime
 
@@ -440,6 +440,7 @@ data class BitsPaneState(
     val selectedDate: LocalDate? = null,
     val selectedTime: LocalTime? = null,
     val today: LocalDate = now().date,
+    val currentTime: LocalTime = now().time,
     val dates: List<LocalDate> = emptyList(),
     val bitsByDate: List<DatedBits> = emptyList()
 )

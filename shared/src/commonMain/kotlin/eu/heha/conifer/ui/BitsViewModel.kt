@@ -10,16 +10,19 @@ import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 class BitsViewModel(
@@ -86,6 +89,7 @@ class BitsViewModel(
                     state = state.copy(selectedTime = time)
                 }
             }
+            launch { trackCurrentDateTime() }
             launch {
                 permissionHandler?.let { handler ->
                     handler.isPermissionGranted.collect { isGranted ->
@@ -96,6 +100,25 @@ class BitsViewModel(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Keeps [BitsPaneState.today] and [BitsPaneState.currentTime] in sync with the wall clock so
+     * the time display progresses and the date rolls over at midnight. Re-aligns to the start of
+     * each minute (the displayed resolution) so updates land right after the minute changes.
+     */
+    private suspend fun trackCurrentDateTime() {
+        while (true) {
+            yield()
+            val current = now()
+            state = state.copy(
+                today = current.date,
+                currentTime = current.time
+            )
+            val millisToNextMinute = (60 - current.second) * 1_000L -
+                    current.nanosecond / 1_000_000
+            delay(millisToNextMinute.milliseconds)
         }
     }
 
