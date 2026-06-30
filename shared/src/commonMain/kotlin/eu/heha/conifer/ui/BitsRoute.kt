@@ -15,6 +15,8 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onNewBitTextChange = { model.onNewBitTextChange(it) },
             onClickRequestPermission = { permissionHandler?.requestPermission() },
             onClickDate = model::selectDate,
+            onSelectTime = model::selectTime,
+            onResetToNow = model::resetToNow,
             onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,
         )
     )

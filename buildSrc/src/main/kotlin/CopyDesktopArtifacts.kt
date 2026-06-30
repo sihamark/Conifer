@@ -4,8 +4,9 @@ import org.gradle.api.internal.file.FileOperations
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
-import org.gradle.kotlin.dsl.support.zipTo
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 
 abstract class CopyDesktopArtifacts @Inject constructor(
@@ -43,6 +44,27 @@ abstract class CopyDesktopArtifacts @Inject constructor(
             intoFolder.get().resolve("${artifactName.get()}.${version.get()}.$osSlug.zip"),
             tempArtifactFolder.asFile
         )
+    }
+
+    /**
+     * Zips the contents of [baseDir] (recursively) into [zipFile], with entries stored relative
+     * to [baseDir]. Replaces `org.gradle.kotlin.dsl.support.zipTo`, which was removed in Gradle 9.6.
+     */
+    private fun zipTo(zipFile: File, baseDir: File) {
+        ZipOutputStream(zipFile.outputStream().buffered()).use { zip ->
+            baseDir.walkTopDown().forEach { file ->
+                if (file == baseDir) return@forEach
+                val relativePath = file.relativeTo(baseDir).invariantSeparatorsPath
+                if (file.isDirectory) {
+                    zip.putNextEntry(ZipEntry("$relativePath/"))
+                    zip.closeEntry()
+                } else {
+                    zip.putNextEntry(ZipEntry(relativePath))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+            }
+        }
     }
 
     enum class OS(val id: String) {
