@@ -13,6 +13,8 @@ import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse
 import java.util.Base64
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Uploads the contents of [sourceFolder] (recursively) to a Nextcloud instance over WebDAV.
@@ -84,12 +86,29 @@ abstract class UploadToNextcloud : DefaultTask() {
         remoteDirs.forEach { dir -> createCollection(client, "$filesRoot/${dir.encodePath()}") }
 
         files.forEach { file ->
-            val relative = file.relativeTo(source).invariantSeparatorsPath
+            // Android browsers refuse to download raw .apk files, so wrap them in a .zip that the
+            // user can download and extract on-device.
+            val upload =
+                if (file.extension.equals("apk", ignoreCase = true)) zipFile(file) else file
+            val relative = file.relativeTo(source).invariantSeparatorsPath.let { rel ->
+                if (upload === file) rel else "$rel.zip"
+            }
             val target = "$filesRoot/${"$basePath/$relative".encodePath()}"
-            uploadFile(client, target, file)
+            uploadFile(client, target, upload)
         }
 
         logger.lifecycle("Uploaded ${files.size} artifact(s) to ${serverUrl.get()} at /$basePath")
+    }
+
+    /** Wraps [file] in a `<name>.zip` inside the task's temp dir and returns the archive. */
+    private fun zipFile(file: File): File {
+        val zip = File(temporaryDir, "${file.name}.zip")
+        ZipOutputStream(zip.outputStream().buffered()).use { out ->
+            out.putNextEntry(ZipEntry(file.name))
+            file.inputStream().buffered().use { it.copyTo(out) }
+            out.closeEntry()
+        }
+        return zip
     }
 
     private fun createCollection(client: HttpClient, url: String) {
