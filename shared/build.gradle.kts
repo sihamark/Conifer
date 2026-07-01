@@ -45,6 +45,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.jetbrains.compose.ui.tooling.preview)
+            implementation(libs.jetbrains.compose.ui.tooling)
             implementation(libs.androidx.activity.compose)
         }
         commonMain.dependencies {

@@ -3,7 +3,9 @@ package eu.heha.conifer.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,28 +24,37 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -96,8 +108,10 @@ fun BitsPane(
             }
             NewBitText(
                 newBitText = state.newBitText,
+                isEditing = state.editingBitId != null,
                 onNewBitTextChange = actions.onNewBitTextChange,
                 onClickAdd = actions.onClickAdd,
+                onCancelEdit = actions.onCancelEdit,
                 focusRequester = focusRequester
             )
             DateTimeSelector(
@@ -120,8 +134,15 @@ fun BitsPane(
                             }
                         )
                     }
-                    items(datedBits.bits, key = { it.id }) {
-                        BitItem(bit = it, modifier = Modifier.animateItem())
+                    items(datedBits.bits, key = { it.id }) { bit ->
+                        BitItem(
+                            bit = bit,
+                            isEditing = state.editingBitId == bit.id,
+                            onClickStartEdit = { actions.onClickEditBit(bit) },
+                            onClickCancelEdit = actions.onCancelEdit,
+                            onClickDelete = { actions.onDeleteBit(bit) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -284,6 +305,7 @@ fun DaySelection(
             val isSelected = date == selectedDate
             val isCurrent = date == currentDate
             val hasEntries = date in dates
+            val dayOfWeek = date.dayOfWeek.name.take(3).lowercase()
             val day = date.day
             val month = date.month.number
             Surface(
@@ -293,7 +315,7 @@ fun DaySelection(
                 onClick = { onClickDate(date) },
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface)
                     .takeIf { isSelected },
-                shape = CircleShape,
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .size(48.dp)
                     .padding(2.dp)
@@ -309,7 +331,7 @@ fun DaySelection(
                     @Composable
                     fun IndicatorDot() = Box(Modifier.size(2.dp).background(indicatorColor))
                     Text(
-                        text = day.toString(),
+                        text = dayOfWeek,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
@@ -320,7 +342,7 @@ fun DaySelection(
                         repeat(3) { IndicatorDot() }
                     }
                     Text(
-                        text = month.toString(),
+                        text = "$day.$month",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
@@ -384,8 +406,10 @@ private fun PermissionPrompt(
 @Composable
 private fun NewBitText(
     newBitText: String,
+    isEditing: Boolean,
     onNewBitTextChange: (String) -> Unit,
     onClickAdd: () -> Unit,
+    onCancelEdit: () -> Unit,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
@@ -398,7 +422,7 @@ private fun NewBitText(
         OutlinedTextField(
             value = newBitText,
             onValueChange = onNewBitTextChange,
-            label = { Text("New Bit") },
+            label = { Text(if (isEditing) "Edit Bit" else "New Bit") },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions { onClickAdd() },
             singleLine = true,
@@ -407,35 +431,126 @@ private fun NewBitText(
                 .focusRequester(focusRequester)
                 .weight(1f)
         )
+        AnimatedVisibility(isEditing) {
+            Row {
+                Spacer(Modifier.width(8.dp))
+                OutlinedIconButton(onClick = onCancelEdit) {
+                    Icon(Icons.Default.Close, contentDescription = "Cancel editing")
+                }
+            }
+        }
         AnimatedVisibility(newBitText.isNotBlank()) {
             Row {
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(onClick = onClickAdd) {
-                    Icon(Icons.Default.Check, contentDescription = "Add Bit")
+                    if (isEditing) {
+                        Icon(Icons.Default.Edit, contentDescription = "Save Bit")
+                    } else {
+                        Icon(Icons.Default.Check, contentDescription = "Add Bit")
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BitItem(bit: Bit, modifier: Modifier = Modifier) {
+private fun BitItem(
+    bit: Bit,
+    isEditing: Boolean,
+    onClickStartEdit: () -> Unit,
+    onClickCancelEdit: () -> Unit,
+    onClickDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
     Card(
-        modifier
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline)
+            .takeIf { isEditing },
+        modifier = modifier
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
+            .clip(CardDefaults.shape)
+            .combinedClickable(
+                onClick = {},
+                // Double-clicking a bit starts editing it, mirroring the "Edit" menu action.
+                onDoubleClick = onClickStartEdit
+            )
     ) {
-        Column(Modifier.padding(8.dp)) {
-            Text(
-                bit.text,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
-            Text(
-                date.time.print(),
-                style = MaterialTheme.typography.bodySmall
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    bit.text,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
+                Text(
+                    date.time.print(),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Box {
+                IconButton(onClick = { isMenuExpanded = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "Bit options"
+                    )
+                }
+                DropdownMenu(
+                    expanded = isMenuExpanded,
+                    onDismissRequest = { isMenuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(if (isEditing) "Cancel Edit" else "Edit") },
+                        leadingIcon = {
+                            Icon(
+                                if (isEditing) Icons.Default.Close else Icons.Default.Edit,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            isMenuExpanded = false
+                            if (isEditing) onClickCancelEdit() else onClickStartEdit()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                        onClick = {
+                            isMenuExpanded = false
+                            showDeleteDialog = true
+                        }
+                    )
+                }
+            }
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete bit?") },
+            text = { Text("This bit will be permanently deleted.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onClickDelete()
+                }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -449,7 +564,8 @@ data class BitsPaneState(
     val today: LocalDate = now().date,
     val currentTime: LocalTime = now().time,
     val dates: List<LocalDate> = emptyList(),
-    val bitsByDate: List<DatedBits> = emptyList()
+    val bitsByDate: List<DatedBits> = emptyList(),
+    val editingBitId: String? = null
 )
 
 data class DatedBits(
@@ -464,7 +580,10 @@ class BitsPaneActions(
     val onClickDate: (LocalDate) -> Unit = {},
     val onSelectTime: (LocalTime) -> Unit = {},
     val onResetToNow: () -> Unit = {},
-    val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {}
+    val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},
+    val onClickEditBit: (Bit) -> Unit = {},
+    val onCancelEdit: () -> Unit = {},
+    val onDeleteBit: (Bit) -> Unit = {}
 )
 
 @Preview

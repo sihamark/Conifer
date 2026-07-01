@@ -32,6 +32,16 @@ class BitsRepository(
         )
     }
 
+    suspend fun update(bit: Bit): Unit = withContext(Dispatchers.IO) {
+        Napier.d { "update bit $bit" }
+        dao().upsert(bit.copy(text = bit.text.trim()))
+    }
+
+    suspend fun delete(bit: Bit): Unit = withContext(Dispatchers.IO) {
+        Napier.d { "delete bit $bit" }
+        dao().delete(bit)
+    }
+
     suspend fun getTextsOfBits(bitIds: List<String>) = withContext(Dispatchers.IO) {
         Napier.d { "get texts of bits with ids $bitIds" }
         dao().getBitsByIds(bitIds).map { it.text }

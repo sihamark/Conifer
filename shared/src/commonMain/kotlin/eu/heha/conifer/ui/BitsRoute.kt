@@ -18,6 +18,9 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onSelectTime = model::selectTime,
             onResetToNow = model::resetToNow,
             onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,
+            onClickEditBit = model::startEditing,
+            onCancelEdit = model::cancelEdit,
+            onDeleteBit = model::deleteBit,
         )
     )
 }

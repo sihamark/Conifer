@@ -36,6 +36,9 @@ class BitsViewModel(
     // null means "use the current time when the bit is added"
     private val selectedTime = MutableStateFlow<LocalTime?>(null)
 
+    // The bit currently being edited inline, if any. Retained so its id/createdAt survive a save.
+    private var editingBit: Bit? = null
+
     var state by mutableStateOf(
         BitsPaneState(
             isCopyPossible = clipboardController != null
@@ -122,18 +125,25 @@ class BitsViewModel(
         }
     }
 
+    /**
+     * Confirms the text field: updates the bit currently being edited, or adds a new one when not
+     * editing. Blank text is ignored.
+     */
     fun onClickAdd() {
         val newBitText = state.newBitText
-        if (newBitText.isNotBlank()) {
-            viewModelScope.launch {
-                repository.add(
-                    Bit(
-                        text = newBitText,
-                        date = newBitInstant()
-                    )
-                )
-                state = state.copy(newBitText = "")
+        if (newBitText.isBlank()) return
+        val edited = editingBit
+        viewModelScope.launch {
+            val date = newBitInstant()
+            if (edited != null) {
+                repository.update(edited.copy(text = newBitText, date = date))
+            } else {
+                repository.add(Bit(text = newBitText, date = date))
             }
+            editingBit = null
+            selectedDate.update { null }
+            selectedTime.update { null }
+            state = state.copy(newBitText = "", editingBitId = null)
         }
     }
 
@@ -153,6 +163,32 @@ class BitsViewModel(
 
     fun onNewBitTextChange(newBit: String) {
         state = state.copy(newBitText = newBit)
+    }
+
+    /**
+     * Starts editing [bit] by loading its text into the shared new-bit text field and its date and
+     * time into the date/time selector, so the existing input controls are reused for editing.
+     */
+    fun startEditing(bit: Bit) {
+        editingBit = bit
+        val dateTime = bit.date.dateTimeInDefaultTz()
+        selectedDate.update { dateTime.date }
+        selectedTime.update { dateTime.time }
+        state = state.copy(newBitText = bit.text, editingBitId = bit.id)
+    }
+
+    /** Leaves edit mode without saving, clearing the shared input controls. */
+    fun cancelEdit() {
+        editingBit = null
+        selectedDate.update { null }
+        selectedTime.update { null }
+        state = state.copy(newBitText = "", editingBitId = null)
+    }
+
+    fun deleteBit(bit: Bit) {
+        viewModelScope.launch {
+            repository.delete(bit)
+        }
     }
 
     fun selectDate(newDate: LocalDate) {
