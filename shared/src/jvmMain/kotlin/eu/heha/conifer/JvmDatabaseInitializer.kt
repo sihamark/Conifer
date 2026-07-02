@@ -9,8 +9,7 @@ import java.io.File
 
 object JvmDatabaseInitializer : DatabaseInitializer {
     override fun createBuilder(): RoomDatabase.Builder<AppDatabase> {
-        val jarFilePath = ConiferApp::class.java.protectionDomain.codeSource.location.file
-            .replace("%20", " ")// as an uri it escapes spaces TODO: automate decode url
+        val jarFilePath = ConiferApp::class.java.protectionDomain.codeSource.location.toURI()
 
         val rootFile = File(jarFilePath)
             .parentFile //app folder
