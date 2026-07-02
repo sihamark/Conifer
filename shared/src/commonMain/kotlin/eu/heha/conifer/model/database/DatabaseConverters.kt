@@ -1,13 +1,13 @@
 package eu.heha.conifer.model.database
 
-import androidx.room.TypeConverter
+import androidx.room3.ColumnTypeConverter
 import kotlin.time.Instant
 
 object DatabaseConverters {
-    @TypeConverter
+    @ColumnTypeConverter
     fun instantFromLong(value: Long?): Instant? =
         value?.let { Instant.fromEpochMilliseconds(it) }
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun longFromInstant(value: Instant?): Long? = value?.toEpochMilliseconds()
 }

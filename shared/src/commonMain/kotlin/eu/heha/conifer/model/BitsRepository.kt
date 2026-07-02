@@ -3,20 +3,17 @@ package eu.heha.conifer.model
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.model.database.DatabaseController
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 class BitsRepository(
     private val databaseController: DatabaseController
 ) {
 
-    private suspend fun dao() = databaseController.bitDao()
+    private fun dao() = databaseController.bitDao()
 
-    suspend fun getBits() = dao().getAllBits()
+    fun getBits() = dao().getAllBits()
 
-    suspend fun add(bit: Bit): Unit = withContext(Dispatchers.IO) {
+    suspend fun add(bit: Bit) {
         Napier.d { "add new bit $bit" }
         var date = bit.date
         while (dao().hasBitAtDate(date)) {
@@ -32,18 +29,18 @@ class BitsRepository(
         )
     }
 
-    suspend fun update(bit: Bit): Unit = withContext(Dispatchers.IO) {
+    suspend fun update(bit: Bit) {
         Napier.d { "update bit $bit" }
         dao().upsert(bit.copy(text = bit.text.trim()))
     }
 
-    suspend fun delete(bit: Bit): Unit = withContext(Dispatchers.IO) {
+    suspend fun delete(bit: Bit) {
         Napier.d { "delete bit $bit" }
         dao().delete(bit)
     }
 
-    suspend fun getTextsOfBits(bitIds: List<String>) = withContext(Dispatchers.IO) {
+    suspend fun getTextsOfBits(bitIds: List<String>): List<String> {
         Napier.d { "get texts of bits with ids $bitIds" }
-        dao().getBitsByIds(bitIds).map { it.text }
+        return dao().getBitsByIds(bitIds).map { it.text }
     }
 }

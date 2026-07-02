@@ -1,8 +1,8 @@
 package eu.heha.conifer.model.database
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.ColumnInfo
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid

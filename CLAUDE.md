@@ -14,17 +14,27 @@ the [new KMP default structure](https://blog.jetbrains.com/kotlin/2026/05/new-km
 one `shared` library module consumed by separate per-platform application modules (`androidApp`,
 `desktopApp`, and the `iosApp` Xcode project).
 
-Web targets (JS/Wasm) exist as empty source dirs but are **disabled** in `shared/build.gradle.kts` —
-they are incompatible with Room (see `changelog.md`). Don't try to re-enable them without addressing
-that.
+The **wasmJs (web)** target is enabled: `shared` declares `wasmJs { browser() }` and the standalone
+`webApp` module (Compose `ComposeViewport`) is the browser entry point. Web was previously disabled
+because Room 2 couldn't target it; Room 3 (`androidx.room3`) added web support. On web, Room uses
+`WebWorkerSQLiteDriver` (`androidx.sqlite:sqlite-web`) backed by the vendored `sqlite-web-worker`
+npm
+package under `shared/` (the androidx example worker + `@sqlite.org/sqlite-wasm`), persisting to
+OPFS.
+OPFS requires cross-origin isolation, so the dev server sets COOP/COEP headers via
+`webApp/webpack.config.d/` (a production host must send the same headers). Plain JS is still not a
+target.
 
 ## Build & run
 
 ```bash
-./gradlew :desktopApp:run                 # run desktop (JVM) app
-./gradlew :androidApp:assembleDebug       # build Android APK
-./gradlew :shared:assembleDebug           # build the shared library (Android variant)
-./gradlew :desktopApp:buildDesktopRelease # package desktop release into ./releases (custom task)
+./gradlew :desktopApp:run                    # run desktop (JVM) app
+./gradlew :androidApp:assembleDebug          # build Android APK
+./gradlew :shared:assembleDebug              # build the shared library (Android variant)
+./gradlew :desktopApp:buildDesktopRelease    # package desktop release into ./releases (custom task)
+./gradlew :webApp:wasmJsBrowserDevelopmentRun # run the web (wasmJs) app in the browser
+./gradlew :webApp:wasmJsBrowserDistribution   # build the production web bundle
+# after changing npm deps, refresh the lock with: ./gradlew kotlinWasmUpgradeYarnLock
 ```
 
 iOS: open `iosApp/` in Xcode and run (the iOS entry point calls `IosConiferApp.initialize()`).
@@ -46,8 +56,10 @@ essentially all real code lives, including the Compose UI and the platform-speci
 in `androidMain`/`iosMain`/`jvmMain`. Each platform has a thin application module that depends on
 `shared` and only holds its entry point: `androidApp` (Android `Application`/`Activity`),
 `desktopApp` (a plain `kotlin("jvm")` module with `main.kt` plus the `compose.desktop` packaging
-config and the `buildDesktopRelease` task), and `iosApp` (Xcode project; the iOS entry calls
-`IosConiferApp.initialize()`).
+config and the `buildDesktopRelease` task), `iosApp` (Xcode project; the iOS entry calls
+`IosConiferApp.initialize()`), and `webApp` (a wasmJs `kotlin.multiplatform` module whose `main.kt`
+calls `ConiferApp.initialize(...)` with `WasmDatabaseInitializer` and mounts the UI via
+`ComposeViewport`).
 
 **Compose resources across modules:** the generated `Res` accessor is owned by `shared`, with its
 package pinned to `conifer.shared.generated.resources` and `publicResClass = true` (in
@@ -63,8 +75,8 @@ platform's entry point calls `ConiferApp.initialize(...)` passing its concrete i
 `AppDatabaseConstructor`, which Room's compiler generates. When adding platform-specific behavior,
 add an interface to `ConiferApp` and a per-platform impl rather than an `expect fun`.
 
-**Data flow:** `BitDao` (Room) → `DatabaseController` (singleton, builds the DB lazily from the
-injected `DatabaseInitializer`, uses `BundledSQLiteDriver` on `Dispatchers.IO`) → `BitsRepository` →
+**Data flow:** `BitDao` (Room) → `DatabaseController` (singleton, lazily holds the `AppDatabase`
+built by the injected `DatabaseInitializer`) → `BitsRepository` →
 `BitsViewModel` → `BitsRoute`/`BitsPane` (Compose UI). The ViewModel exposes a single `state` (
 `mutableStateOf`) and collects `getAllBits()` as a Flow, grouping bits by local date.
 

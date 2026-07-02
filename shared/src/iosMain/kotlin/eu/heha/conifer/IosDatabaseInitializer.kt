@@ -1,18 +1,23 @@
 package eu.heha.conifer
 
-import androidx.room.Room
-import androidx.room.RoomDatabase
+import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import eu.heha.conifer.model.database.AppDatabase
 import eu.heha.conifer.model.database.DATABASE_NAME
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
 object IosDatabaseInitializer : DatabaseInitializer {
-    override fun createBuilder(): RoomDatabase.Builder<AppDatabase> {
+    override fun createDatabase(): AppDatabase {
         val dbFilePath = documentDirectory() + "/" + DATABASE_NAME
         return Room.databaseBuilder<AppDatabase>(name = dbFilePath)
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.IO)
+            .build()
     }
 
     @OptIn(ExperimentalForeignApi::class)

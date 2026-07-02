@@ -1,0 +1,11 @@
+{
+  "name": "sqlite-web-worker",
+  "version": "0.0.0",
+  "description": "SQLite Web Worker backing androidx WebWorkerSQLiteDriver (vendored from the androidx sqlite-web-worker-test example).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "worker.js",
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.50.1-build1"
+  }
+}

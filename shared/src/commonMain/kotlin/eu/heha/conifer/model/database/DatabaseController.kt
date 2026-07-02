@@ -1,28 +1,14 @@
 package eu.heha.conifer.model.database
 
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import eu.heha.conifer.DatabaseInitializer
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 
 class DatabaseController(
     private val databaseInitializer: DatabaseInitializer
 ) {
-    private val database: AppDatabase by lazy { getRoomDatabase() }
+    // Built lazily on first access. Room 3 defers opening the connection to its query context, so
+    // constructing the database off a background dispatcher is no longer required here (and lets
+    // this stay free of Dispatchers.IO, which does not exist on the web target).
+    private val database: AppDatabase by lazy { databaseInitializer.createDatabase() }
 
-    private fun databaseFlow(): Flow<AppDatabase> =
-        flow { emit(database) }
-            .flowOn(Dispatchers.IO)
-
-    suspend fun bitDao() = databaseFlow().first().bitDao()
-
-    fun getRoomDatabase(): AppDatabase =
-        databaseInitializer.createBuilder()
-            .setDriver(BundledSQLiteDriver())
-            .setQueryCoroutineContext(Dispatchers.IO)
-            .build()
+    fun bitDao() = database.bitDao()
 }

@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -42,11 +43,17 @@ kotlin {
 
     jvm()
 
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
+
     sourceSets {
         androidMain.dependencies {
             implementation(libs.jetbrains.compose.ui.tooling.preview)
             implementation(libs.jetbrains.compose.ui.tooling)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.sqlite.bundled)
         }
         commonMain.dependencies {
             implementation(libs.jetbrains.compose.runtime)
@@ -59,7 +66,9 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodel)
             implementation(libs.jetbrains.lifecycle.runtime)
             implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
+            // execSQL is not available to common code spanning web + non-web targets;
+            // the async executeSQL from sqlite-async is the common replacement.
+            implementation(libs.androidx.sqlite.async)
             implementation(libs.kotlinx.datetime)
             // api: KoinComponent is a public supertype of NotificationController (androidMain),
             // which the :androidApp module instantiates, so koin must be on its classpath.
@@ -71,9 +80,21 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        // BundledSQLiteDriver is only published for the native/JVM/Android targets, so it lives in
+        // the per-platform source sets rather than commonMain (the web target uses sqlite-web).
+        iosMain.dependencies {
+            implementation(libs.androidx.sqlite.bundled)
+        }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.androidx.sqlite.bundled)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.androidx.sqlite.web)
+            // The Web Worker that backs WebWorkerSQLiteDriver is not shipped by androidx; we vendor
+            // their example worker as a local npm package (it pulls in @sqlite.org/sqlite-wasm).
+            implementation(npm("sqlite-web-worker", project.file("sqlite-web-worker")))
         }
     }
 }
@@ -91,8 +112,9 @@ dependencies {
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
     add("kspIosArm64", libs.androidx.room.compiler)
     add("kspJvm", libs.androidx.room.compiler)
+    add("kspWasmJs", libs.androidx.room.compiler)
 }
 
-room {
+room3 {
     schemaDirectory("$projectDir/schemas")
 }
