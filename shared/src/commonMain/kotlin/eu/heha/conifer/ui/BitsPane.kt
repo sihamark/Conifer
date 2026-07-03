@@ -121,6 +121,7 @@ fun BitsPane(
                 // shorter than the viewport; it has no effect once the list fills the screen.
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier.weight(1f)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
             ) {
                 state.bitsByDate.asReversed().forEach { datedBits ->
                     stickyHeader(key = datedBits.date.toEpochDays()) {
@@ -128,10 +129,7 @@ fun BitsPane(
                             date = datedBits.date,
                             onClickCopy = {
                                 actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
-                            },
-                            modifier = Modifier.windowInsetsPadding(
-                                WindowInsets.systemBars.only(WindowInsetsSides.Top)
-                            )
+                            }
                         )
                     }
                     items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
@@ -435,6 +433,7 @@ private fun DateHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
+            Spacer(Modifier.width(8.dp))
             HorizontalDivider(modifier = Modifier.weight(1f))
             IconButton(onClick = onClickCopy) {
                 Icon(
