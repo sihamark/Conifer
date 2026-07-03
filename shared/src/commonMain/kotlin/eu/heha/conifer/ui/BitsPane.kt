@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
@@ -366,14 +369,22 @@ private fun TimeSlider(
         Spacer(Modifier.width(12.dp))
         // The slider works in 15-minute slots (0 = 00:00 … LAST = 23:45) so the discrete
         // steps line up exactly and draw a tick mark at every quarter hour.
+        val interactionSource = remember { MutableInteractionSource() }
         Slider(
             value = ((time.hour * 60 + time.minute) / MINUTES_PER_STEP).toFloat(),
             onValueChange = { slotIndex ->
                 val minutes = slotIndex.roundToInt() * MINUTES_PER_STEP
                 onSelectTime(LocalTime(minutes / 60, minutes % 60))
             },
+            interactionSource = interactionSource,
             valueRange = 0f..LAST_STEP_SLOT.toFloat(),
             steps = INTERMEDIATE_STEPS,
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource,
+                    thumbSize = DpSize(8.dp, 24.dp)
+                )
+            },
             modifier = Modifier.weight(1f)
         )
     }
