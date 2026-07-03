@@ -206,9 +206,7 @@ private fun DateTimeSelector(
     Column(modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Surface(
                 onClick = { isExpanded = !isExpanded },
@@ -230,7 +228,8 @@ private fun DateTimeSelector(
                     } else {
                         MaterialTheme.colorScheme.outlineVariant
                     }
-                )
+                ),
+                modifier = Modifier.padding(start = 16.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -283,8 +282,7 @@ private fun DateTimeSelector(
                     dates = dates,
                     selectedDate = selectedDate,
                     currentDate = currentDate,
-                    onClickDate = onClickDate,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    onClickDate = onClickDate
                 )
                 TimeSlider(
                     time = effectiveTime,
@@ -354,12 +352,13 @@ fun DaySelection(
     selectedDate: LocalDate?,
     currentDate: LocalDate,
     onClickDate: (LocalDate) -> Unit,
-    modifier: Modifier
+    modifier: Modifier = Modifier
 ) {
     LazyRow(
         reverseLayout = true,
         modifier = modifier
     ) {
+        item { Spacer(Modifier.width(14.dp)) }
         items(30, key = { it }) { dayIndex ->
             val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
             val isSelected = date == selectedDate
@@ -419,6 +418,7 @@ fun DaySelection(
                 }
             }
         }
+        item { Spacer(Modifier.width(14.dp)) }
     }
 }
 
