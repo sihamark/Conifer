@@ -663,6 +663,9 @@ private fun BitItem(
     Card(
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline)
             .takeIf { isEditing },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
@@ -677,15 +680,28 @@ private fun BitItem(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(8.dp)
         ) {
-            Column(Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.weight(1f)
+            ) {
+                val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                ) {
+                    Text(
+                        date.time.print(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(
                     bit.text,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
-                Text(
-                    date.time.print(),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
                 )
             }
             Box {
