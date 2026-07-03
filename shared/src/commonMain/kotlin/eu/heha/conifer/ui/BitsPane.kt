@@ -12,18 +12,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -35,20 +39,18 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -69,12 +71,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import conifer.shared.generated.resources.Res
-import conifer.shared.generated.resources.bits_title
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
@@ -82,7 +83,6 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,49 +92,49 @@ fun BitsPane(
     actions: BitsPaneActions = BitsPaneActions()
 ) {
     Scaffold(
-        contentWindowInsets = WindowInsets(),
-        topBar = {
-            CenterAlignedTopAppBar(title = { Text(stringResource(Res.string.bits_title)) })
-        }
+        contentWindowInsets = WindowInsets()
     ) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
         }
-        Column(modifier = Modifier.padding(innerPadding).imePadding()) {
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
             val permissionRationale = state.permissionRationale
             AnimatedVisibility(permissionRationale != null) {
                 PermissionPrompt(permissionRationale ?: "", actions)
             }
-            NewBitText(
-                newBitText = state.newBitText,
-                isEditing = state.editingBitId != null,
-                onNewBitTextChange = actions.onNewBitTextChange,
-                onClickAdd = actions.onClickAdd,
-                onCancelEdit = actions.onCancelEdit,
-                focusRequester = focusRequester
-            )
-            DateTimeSelector(
-                dates = state.dates,
-                selectedDate = state.selectedDate,
-                selectedTime = state.selectedTime,
-                currentDate = state.today,
-                currentTime = state.currentTime,
-                onClickDate = actions.onClickDate,
-                onSelectTime = actions.onSelectTime,
-                onResetToNow = actions.onResetToNow
-            )
-            LazyColumn {
-                state.bitsByDate.forEach { datedBits ->
+            // The DAO delivers bits newest-first; presenting everything reversed puts the newest
+            // bits at the bottom next to the input while sticky day headers still pin to the top.
+            val listState = rememberLazyListState()
+            LaunchedEffect(state.bitsByDate) {
+                val totalItems = state.bitsByDate.sumOf { it.bits.size + 1 }
+                if (totalItems > 0) listState.scrollToItem(totalItems)
+            }
+            LazyColumn(
+                state = listState,
+                // Bottom arrangement keeps the bits anchored to the input when the list is
+                // shorter than the viewport; it has no effect once the list fills the screen.
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.weight(1f)
+            ) {
+                state.bitsByDate.asReversed().forEach { datedBits ->
                     stickyHeader(key = datedBits.date.toEpochDays()) {
                         DateHeader(
                             date = datedBits.date,
                             onClickCopy = {
                                 actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
-                            }
+                            },
+                            modifier = Modifier.windowInsetsPadding(
+                                WindowInsets.systemBars.only(WindowInsetsSides.Top)
+                            )
                         )
                     }
-                    items(datedBits.bits, key = { it.id }) { bit ->
+                    items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
                         BitItem(
                             bit = bit,
                             isEditing = state.editingBitId == bit.id,
@@ -146,20 +146,37 @@ fun BitsPane(
                     }
                 }
                 item { Spacer(Modifier.height(8.dp)) }
-                item {
-                    Spacer(
-                        Modifier.windowInsetsBottomHeight(WindowInsets.systemBars)
-                    )
-                }
+            }
+            Column(Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                DateTimeSelector(
+                    dates = state.dates,
+                    selectedDate = state.selectedDate,
+                    selectedTime = state.selectedTime,
+                    currentDate = state.today,
+                    currentTime = state.currentTime,
+                    isEditing = state.editingBitId != null,
+                    onClickDate = actions.onClickDate,
+                    onSelectTime = actions.onSelectTime,
+                    onResetToNow = actions.onResetToNow,
+                    onCancelEdit = actions.onCancelEdit
+                )
+                NewBitText(
+                    newBitText = state.newBitText,
+                    isEditing = state.editingBitId != null,
+                    onNewBitTextChange = actions.onNewBitTextChange,
+                    onClickAdd = actions.onClickAdd,
+                    focusRequester = focusRequester
+                )
             }
         }
     }
 }
 
 /**
- * Compact date & time control. Collapsed it only shows the current date and time; expanding it
- * reveals the day picker and a slim time slider. While collapsed the current date and time are
- * always used, so closing the picker reverts any custom selection back to "now".
+ * Compact date & time control presented as a chip. Collapsed it shows the effective date and
+ * time; a custom selection highlights the chip and a "back to now" text button clears it, so a
+ * selection survives collapsing the picker. While editing a bit, a "cancel edit" text button is
+ * offered instead. Expanding the chip reveals the day picker and a slim time slider.
  */
 @Composable
 private fun DateTimeSelector(
@@ -168,53 +185,90 @@ private fun DateTimeSelector(
     selectedTime: LocalTime?,
     currentDate: LocalDate,
     currentTime: LocalTime,
+    isEditing: Boolean,
     onClickDate: (LocalDate) -> Unit,
     onSelectTime: (LocalTime) -> Unit,
     onResetToNow: () -> Unit,
+    onCancelEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    val hasCustomSelection = selectedDate != null || selectedTime != null
     val effectiveDate = selectedDate ?: currentDate
     val effectiveTime = selectedTime ?: currentTime
 
-    fun toggle() {
-        isExpanded = !isExpanded
-        // Closing the picker means "use now" again, so drop any custom date/time.
-        if (!isExpanded) onResetToNow()
-    }
-
     Column(modifier) {
-        Surface(
-            onClick = ::toggle,
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            Surface(
+                onClick = { isExpanded = !isExpanded },
+                shape = MaterialTheme.shapes.extraLarge,
+                color = if (hasCustomSelection) {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                contentColor = if (hasCustomSelection) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (hasCustomSelection) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
+                )
             ) {
-                Icon(
-                    Icons.Default.Event,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "${effectiveDate.label(currentDate)} · ${effectiveTime.print()}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(Modifier.weight(1f))
-                val chevronRotation by animateFloatAsState(
-                    targetValue = if (isExpanded) 180f else 0f,
-                    label = "chevronRotation"
-                )
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) "Hide date picker" else "Show date picker",
-                    modifier = Modifier
-                        .size(18.dp)
-                        .rotate(chevronRotation)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Event,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    val label = if (hasCustomSelection) {
+                        "${effectiveDate.label(currentDate)} · ${effectiveTime.print()}"
+                    } else {
+                        "Now · ${currentTime.print()}"
+                    }
+                    Text(text = label, style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(8.dp))
+                    val chevronRotation by animateFloatAsState(
+                        targetValue = if (isExpanded) 180f else 0f,
+                        label = "chevronRotation"
+                    )
+                    Icon(
+                        Icons.Default.ExpandMore,
+                        contentDescription = if (isExpanded) {
+                            "Hide date picker"
+                        } else {
+                            "Show date picker"
+                        },
+                        modifier = Modifier
+                            .size(18.dp)
+                            .rotate(chevronRotation)
+                    )
+                }
+            }
+            AnimatedVisibility(hasCustomSelection && !isEditing) {
+                TextButton(onClick = onResetToNow) {
+                    Text("back to now", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            AnimatedVisibility(isEditing) {
+                TextButton(onClick = onCancelEdit) {
+                    Text("cancel edit", style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
         AnimatedVisibility(isExpanded) {
@@ -246,12 +300,19 @@ private fun TimeSlider(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth()
     ) {
-        Icon(
-            Icons.Default.Schedule,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.width(8.dp))
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Text(
+                text = time.print(),
+                style = MaterialTheme.typography.titleSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
         // The slider works in 15-minute slots (0 = 00:00 … LAST = 23:45) so the discrete
         // steps line up exactly and draw a tick mark at every quarter hour.
         Slider(
@@ -263,13 +324,6 @@ private fun TimeSlider(
             valueRange = 0f..LAST_STEP_SLOT.toFloat(),
             steps = INTERMEDIATE_STEPS,
             modifier = Modifier.weight(1f)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = time.print(),
-            style = MaterialTheme.typography.titleSmall,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.primary
         )
     }
 }
@@ -305,46 +359,56 @@ fun DaySelection(
             val isSelected = date == selectedDate
             val isCurrent = date == currentDate
             val hasEntries = date in dates
-            val dayOfWeek = date.dayOfWeek.name.take(3).lowercase()
-            val day = date.day
-            val month = date.month.number
             Surface(
-                color = MaterialTheme.colorScheme.let {
-                    if (isCurrent) it.surfaceVariant else it.surface
-                },
                 onClick = { onClickDate(date) },
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface)
-                    .takeIf { isSelected },
-                shape = MaterialTheme.shapes.small,
+                shape = MaterialTheme.shapes.medium,
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                contentColor = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (isCurrent) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
+                ).takeIf { !isSelected },
                 modifier = Modifier
-                    .size(48.dp)
+                    .width(52.dp)
                     .padding(2.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize()
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(vertical = 6.dp)
                 ) {
-                    val indicatorColor =
-                        if (hasEntries) MaterialTheme.colorScheme.primary else Color.Transparent
-
-                    @Composable
-                    fun IndicatorDot() = Box(Modifier.size(2.dp).background(indicatorColor))
                     Text(
-                        text = dayOfWeek,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        text = date.dayOfWeek.name.take(3),
+                        style = MaterialTheme.typography.labelSmall
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        modifier = Modifier.fillMaxWidth(0.3f)
-                    ) {
-                        repeat(3) { IndicatorDot() }
-                    }
                     Text(
-                        text = "$day.$month",
+                        text = "${date.day}.${date.month.number}",
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        fontWeight = FontWeight.Bold
+                    )
+                    Box(
+                        Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (hasEntries) {
+                                    MaterialTheme.colorScheme.tertiary
+                                } else {
+                                    Color.Transparent
+                                }
+                            )
                     )
                 }
             }
@@ -353,18 +417,25 @@ fun DaySelection(
 }
 
 @Composable
-private fun DateHeader(date: LocalDate, onClickCopy: () -> Unit) {
+private fun DateHeader(
+    date: LocalDate,
+    onClickCopy: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
         color = MaterialTheme.colorScheme.background,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
             Text(
                 date.print(),
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                modifier = Modifier.padding(vertical = 4.dp)
             )
-            Spacer(Modifier.weight(1f))
+            HorizontalDivider(modifier = Modifier.weight(1f))
             IconButton(onClick = onClickCopy) {
                 Icon(
                     Icons.Default.ContentCopy,
@@ -409,7 +480,6 @@ private fun NewBitText(
     isEditing: Boolean,
     onNewBitTextChange: (String) -> Unit,
     onClickAdd: () -> Unit,
-    onCancelEdit: () -> Unit,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
@@ -417,7 +487,8 @@ private fun NewBitText(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp)
     ) {
         OutlinedTextField(
             value = newBitText,
@@ -431,14 +502,6 @@ private fun NewBitText(
                 .focusRequester(focusRequester)
                 .weight(1f)
         )
-        AnimatedVisibility(isEditing) {
-            Row {
-                Spacer(Modifier.width(8.dp))
-                OutlinedIconButton(onClick = onCancelEdit) {
-                    Icon(Icons.Default.Close, contentDescription = "Cancel editing")
-                }
-            }
-        }
         AnimatedVisibility(newBitText.isNotBlank()) {
             Row {
                 Spacer(Modifier.width(8.dp))
@@ -593,11 +656,13 @@ private fun BitsPanePreview() {
         BitsPane(
             state = BitsPaneState(
                 newBitText = "This is a new bit",
+                editingBitId = "1",
+                selectedTime = LocalTime(1, 0, 0),
                 bitsByDate = listOf(
                     DatedBits(
                         date = LocalDate(2024, 6, 1),
                         bits = listOf(
-                            Bit(text = "First bit"),
+                            Bit(id = "1", text = "First bit"),
                             Bit(text = "Second bit"),
                             Bit(text = "Third bit")
                         )
