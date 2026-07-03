@@ -75,6 +75,30 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import conifer.shared.generated.resources.Res
+import conifer.shared.generated.resources.app_name
+import conifer.shared.generated.resources.bits_action_back_to_now
+import conifer.shared.generated.resources.bits_action_bit_options
+import conifer.shared.generated.resources.bits_action_cancel
+import conifer.shared.generated.resources.bits_action_cancel_edit
+import conifer.shared.generated.resources.bits_action_delete
+import conifer.shared.generated.resources.bits_action_grant_permission
+import conifer.shared.generated.resources.bits_action_hide_date_picker
+import conifer.shared.generated.resources.bits_action_menu_cancel_edit
+import conifer.shared.generated.resources.bits_action_menu_edit
+import conifer.shared.generated.resources.bits_action_show_date_picker
+import conifer.shared.generated.resources.bits_content_copy_date_to_clipboard
+import conifer.shared.generated.resources.bits_content_edit_bit
+import conifer.shared.generated.resources.bits_content_save_bit
+import conifer.shared.generated.resources.bits_label_counter
+import conifer.shared.generated.resources.bits_label_date_time_now
+import conifer.shared.generated.resources.bits_label_new_bit
+import conifer.shared.generated.resources.bits_label_today
+import conifer.shared.generated.resources.bits_message_beginning
+import conifer.shared.generated.resources.bits_message_delete_bit
+import conifer.shared.generated.resources.bits_message_empty
+import conifer.shared.generated.resources.bits_message_empty_filtered
+import conifer.shared.generated.resources.bits_title_delete_bit
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
@@ -82,6 +106,8 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +121,15 @@ fun BitsPane(
         contentWindowInsets = WindowInsets(),
         topBar = {
             TopAppBar(
-                title = { Text("Conifer") },
+                title = { Text(stringResource(Res.string.app_name)) },
+                actions = {
+                    val bitsCount = state.bitsByDate.sumOf { it.bits.size }
+                    Text(
+                        pluralStringResource(Res.plurals.bits_label_counter, bitsCount, bitsCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
+                },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -247,11 +281,12 @@ private fun DateTimeSelector(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    val label = if (hasCustomSelection) {
-                        "${effectiveDate.label(currentDate)} · ${effectiveTime.print()}"
+                    val day = if (hasCustomSelection) {
+                        effectiveDate.label(currentDate)
                     } else {
-                        "Now · ${currentTime.print()}"
+                        stringResource(Res.string.bits_label_date_time_now)
                     }
+                    val label = day + " · " + effectiveTime.print()
                     Text(text = label, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.width(8.dp))
                     val chevronRotation by animateFloatAsState(
@@ -261,9 +296,9 @@ private fun DateTimeSelector(
                     Icon(
                         Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) {
-                            "Hide date picker"
+                            stringResource(Res.string.bits_action_hide_date_picker)
                         } else {
-                            "Show date picker"
+                            stringResource(Res.string.bits_action_show_date_picker)
                         },
                         modifier = Modifier
                             .size(18.dp)
@@ -273,12 +308,18 @@ private fun DateTimeSelector(
             }
             AnimatedVisibility(hasCustomSelection && !isEditing) {
                 TextButton(onClick = onResetToNow) {
-                    Text("back to now", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        stringResource(Res.string.bits_action_back_to_now),
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
             AnimatedVisibility(isEditing) {
                 TextButton(onClick = onCancelEdit) {
-                    Text("cancel edit", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        stringResource(Res.string.bits_action_cancel_edit),
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
         }
@@ -349,8 +390,9 @@ private const val LAST_STEP_SLOT = STEP_SLOTS - 1
 // Slider `steps` counts the marks strictly between the endpoints.
 private const val INTERMEDIATE_STEPS = STEP_SLOTS - 2
 
+@Composable
 private fun LocalDate.label(today: LocalDate): String =
-    if (this == today) "Today" else print()
+    if (this == today) stringResource(Res.string.bits_label_today) else print()
 
 @Composable
 fun DaySelection(
@@ -441,7 +483,7 @@ private fun BeginningNote(modifier: Modifier = Modifier) {
         Text(text = "🌱", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "This is where your Conifer sprouted.\nKeep adding bits and watch it grow!",
+            text = stringResource(Res.string.bits_message_beginning),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -463,11 +505,13 @@ private fun EmptyState(isFilteredByDate: Boolean, modifier: Modifier = Modifier)
         Text(text = "🌲", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            text = if (isFilteredByDate) {
-                "No bits on this day yet.\nWrite one below — it will land here."
-            } else {
-                "No bits yet.\nWrite your first one below."
-            },
+            text = stringResource(
+                if (isFilteredByDate) {
+                    Res.string.bits_message_empty_filtered
+                } else {
+                    Res.string.bits_message_empty
+                }
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -499,7 +543,7 @@ private fun DateHeader(
             IconButton(onClick = onClickCopy) {
                 Icon(
                     Icons.Default.ContentCopy,
-                    contentDescription = "Copy bits of this date to clipboard",
+                    contentDescription = stringResource(Res.string.bits_content_copy_date_to_clipboard),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -528,7 +572,7 @@ private fun PermissionPrompt(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(actions.onClickRequestPermission) {
-                Text("Grant Permission")
+                Text(stringResource(Res.string.bits_action_grant_permission))
             }
         }
     }
@@ -553,7 +597,17 @@ private fun NewBitText(
         OutlinedTextField(
             value = newBitText,
             onValueChange = onNewBitTextChange,
-            label = { Text(if (isEditing) "Edit Bit" else "New Bit") },
+            label = {
+                Text(
+                    stringResource(
+                        if (isEditing) {
+                            Res.string.bits_content_edit_bit
+                        } else {
+                            Res.string.bits_label_new_bit
+                        }
+                    )
+                )
+            },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions { onClickAdd() },
             singleLine = true,
@@ -566,11 +620,16 @@ private fun NewBitText(
             Row {
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(onClick = onClickAdd) {
-                    if (isEditing) {
-                        Icon(Icons.Default.Edit, contentDescription = "Save Bit")
+                    val icon = if (isEditing) Icons.Default.Edit else Icons.Default.Check
+                    val contentDescriptionRes = if (isEditing) {
+                        Res.string.bits_content_save_bit
                     } else {
-                        Icon(Icons.Default.Check, contentDescription = "Add Bit")
+                        Res.string.bits_content_edit_bit
                     }
+                    Icon(
+                        icon,
+                        contentDescription = stringResource(contentDescriptionRes)
+                    )
                 }
             }
         }
@@ -622,7 +681,7 @@ private fun BitItem(
                 IconButton(onClick = { isMenuExpanded = true }) {
                     Icon(
                         Icons.Default.MoreVert,
-                        contentDescription = "Bit options"
+                        contentDescription = stringResource(Res.string.bits_action_bit_options)
                     )
                 }
                 DropdownMenu(
@@ -630,7 +689,17 @@ private fun BitItem(
                     onDismissRequest = { isMenuExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text(if (isEditing) "Cancel Edit" else "Edit") },
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (isEditing) {
+                                        Res.string.bits_action_menu_cancel_edit
+                                    } else {
+                                        Res.string.bits_action_menu_edit
+                                    }
+                                )
+                            )
+                        },
                         leadingIcon = {
                             Icon(
                                 if (isEditing) Icons.Default.Close else Icons.Default.Edit,
@@ -643,7 +712,7 @@ private fun BitItem(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete") },
+                        text = { Text(stringResource(Res.string.bits_action_delete)) },
                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                         onClick = {
                             isMenuExpanded = false
@@ -656,25 +725,36 @@ private fun BitItem(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete bit?") },
-            text = { Text("This bit will be permanently deleted.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    onClickDelete()
-                }) {
-                    Text("Delete")
-                }
+        DeleteConfirmationDialog(
+            onClickDelete = {
+                showDeleteDialog = false
+                onClickDelete()
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { showDeleteDialog = false }
         )
     }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(
+    onClickDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.bits_title_delete_bit)) },
+        text = { Text(stringResource(Res.string.bits_message_delete_bit)) },
+        confirmButton = {
+            TextButton(onClick = onClickDelete) {
+                Text(stringResource(Res.string.bits_action_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onDismiss) {
+                Text(stringResource(Res.string.bits_action_cancel))
+            }
+        }
+    )
 }
 
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.1.0 (XX.XX.XXXX)
+## Version 1.1.0 (03.07.2026)
 
 - major styling improvement
 - editing and deleting of bits is now possible

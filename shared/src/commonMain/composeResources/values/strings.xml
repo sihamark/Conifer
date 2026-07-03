@@ -1,5 +1,34 @@
 <resources>
     <string name="app_name">Conifer</string>
 
-    <string name="bits_title">Bits</string>
+    <plurals name="bits_label_counter">
+        <item quantity="one">%1$d Bit</item>
+        <item quantity="other">%1$d Bits</item>
+    </plurals>
+
+    <string name="bits_action_add_bit">Add Bit</string>
+    <string name="bits_action_back_to_now">back to now</string>
+    <string name="bits_action_bit_options">Bit options</string>
+    <string name="bits_action_cancel">Cancel</string>
+    <string name="bits_action_cancel_edit">cancel edit</string>
+    <string name="bits_content_copy_date_to_clipboard">Copy bits of this date to clipboard</string>
+    <string name="bits_action_delete">Delete</string>
+    <string name="bits_action_grant_permission">Grant Permission</string>
+    <string name="bits_action_hide_date_picker">Hide date picker</string>
+    <string name="bits_action_menu_edit">Edit</string>
+    <string name="bits_action_menu_cancel_edit">Cancel Edit</string>
+    <string name="bits_content_save_bit">Save Bit</string>
+    <string name="bits_action_show_date_picker">Show date picker</string>
+
+    <string name="bits_label_date_time_now">Now</string>
+    <string name="bits_content_edit_bit">Edit Bit</string>
+    <string name="bits_label_new_bit">New Bit</string>
+    <string name="bits_label_today">Today</string>
+
+    <string name="bits_title_delete_bit">Delete bit?</string>
+    <string name="bits_message_delete_bit">This bit will be permanently deleted.</string>
+
+    <string name="bits_message_beginning">This is where your Conifer sprouted.\nKeep adding bits and watch it grow!</string>
+    <string name="bits_message_empty">No bits yet.\nWrite your first one below.</string>
+    <string name="bits_message_empty_filtered">No bits on this day yet.\nWrite one below — it will land here.</string>
 </resources>
