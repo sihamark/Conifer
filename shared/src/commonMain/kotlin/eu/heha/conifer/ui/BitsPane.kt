@@ -677,12 +677,15 @@ private fun BitItem(
             )
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
             modifier = Modifier.padding(8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.weight(1f)
+                    .align(Alignment.CenterVertically)
+                    .padding(vertical = 8.dp)
+                    .padding(start = 8.dp)
             ) {
                 val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
                 Surface(
@@ -697,7 +700,7 @@ private fun BitItem(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     )
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     bit.text,
                     style = MaterialTheme.typography.bodyLarge,
@@ -831,7 +834,7 @@ private fun BitsPanePreview() {
                         bits = listOf(
                             Bit(id = "1", text = "First bit"),
                             Bit(text = "Second bit"),
-                            Bit(text = "Third bit")
+                            Bit(text = (0..10).joinToString { "This is a new bit" })
                         )
                     )
                 )
