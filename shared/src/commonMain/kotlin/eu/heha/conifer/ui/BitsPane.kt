@@ -112,17 +112,25 @@ fun BitsPane(
             // bits at the bottom next to the input while sticky day headers still pin to the top.
             val listState = rememberLazyListState()
             LaunchedEffect(state.bitsByDate) {
-                val totalItems = state.bitsByDate.sumOf { it.bits.size + 1 }
-                if (totalItems > 0) listState.scrollToItem(totalItems)
+                // Leading encouragement note + one header per day + bits + trailing spacer.
+                val lastIndex = state.bitsByDate.sumOf { it.bits.size + 1 } + 1
+                if (state.bitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
             }
-            LazyColumn(
+            val listModifier = Modifier.weight(1f)
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+            if (state.bitsByDate.isEmpty()) {
+                EmptyState(
+                    isFilteredByDate = state.selectedDate != null && state.dates.isNotEmpty(),
+                    modifier = listModifier.fillMaxWidth()
+                )
+            } else LazyColumn(
                 state = listState,
                 // Bottom arrangement keeps the bits anchored to the input when the list is
                 // shorter than the viewport; it has no effect once the list fills the screen.
                 verticalArrangement = Arrangement.Bottom,
-                modifier = Modifier.weight(1f)
-                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                modifier = listModifier
             ) {
+                item(key = "beginning") { BeginningNote() }
                 state.bitsByDate.asReversed().forEach { datedBits ->
                     stickyHeader(key = datedBits.date.toEpochDays()) {
                         DateHeader(
@@ -411,6 +419,53 @@ fun DaySelection(
                 }
             }
         }
+    }
+}
+
+/** Marks the very beginning of the list with a wink, nudging the user to keep adding bits. */
+@Composable
+private fun BeginningNote(modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 24.dp)
+    ) {
+        Spacer(Modifier.height(32.dp))
+        Text(text = "🌱", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "This is where your Conifer sprouted.\nKeep adding bits and watch it grow!",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * Shown instead of the list when there is nothing to display — either because no bits exist yet
+ * or because the selected day has none.
+ */
+@Composable
+private fun EmptyState(isFilteredByDate: Boolean, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier.padding(horizontal = 32.dp, vertical = 48.dp)
+    ) {
+        Text(text = "🌲", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = if (isFilteredByDate) {
+                "No bits on this day yet.\nWrite one below — it will land here."
+            } else {
+                "No bits yet.\nWrite your first one below."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
