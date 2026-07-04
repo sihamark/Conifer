@@ -1,0 +1,16 @@
+# Configuration for the `uploadReleasesToNextcloud` Gradle task.
+# Copy this file to `nextcloud.properties` (git-ignored) and fill in your values.
+# Prefer a Nextcloud "app password" (Settings > Security) over your account password.
+
+# Base URL of the Nextcloud server (no trailing /remote.php path).
+nextcloud.url=https://cloud.example.com
+
+# Nextcloud account (login) name.
+nextcloud.username=your-username
+
+# App password or account password.
+nextcloud.password=your-app-password
+
+# Optional. Target folder relative to your Nextcloud files root.
+# Defaults to "<appName>/<versionName>" (e.g. Conifer/1.0.0) when omitted.
+#nextcloud.remoteFolder=Conifer/1.0.0

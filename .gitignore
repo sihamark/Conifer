@@ -20,4 +20,5 @@ node_modules/
 kotlin-js-store
 releases
 keystore.properties
+nextcloud.properties
 /gradle/gradle-daemon-jvm.properties
