@@ -10,15 +10,20 @@ import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 class BitsViewModel(
     private val repository: BitsRepository,
@@ -27,6 +32,9 @@ class BitsViewModel(
 ) : ViewModel() {
 
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
+
+    // null means "use the current time when the bit is added"
+    private val selectedTime = MutableStateFlow<LocalTime?>(null)
 
     var state by mutableStateOf(
         BitsPaneState(
@@ -77,6 +85,12 @@ class BitsViewModel(
                 }
             }
             launch {
+                selectedTime.collect { time ->
+                    state = state.copy(selectedTime = time)
+                }
+            }
+            launch { trackCurrentDateTime() }
+            launch {
                 permissionHandler?.let { handler ->
                     handler.isPermissionGranted.collect { isGranted ->
                         Napier.e { "notification permission granted: $isGranted" }
@@ -89,24 +103,52 @@ class BitsViewModel(
         }
     }
 
+    /**
+     * Keeps [BitsPaneState.today] and [BitsPaneState.currentTime] in sync with the wall clock so
+     * the time display progresses and the date rolls over at midnight. Re-aligns to the start of
+     * each minute (the displayed resolution) so updates land right after the minute changes.
+     */
+    private suspend fun trackCurrentDateTime() {
+        while (true) {
+            yield()
+            val current = now()
+            state = state.copy(
+                today = current.date,
+                currentTime = current.time
+            )
+            val millisToNextMinute = (60 - current.second) * 1_000L -
+                    current.nanosecond / 1_000_000
+            delay(millisToNextMinute.milliseconds)
+        }
+    }
+
     fun onClickAdd() {
         val newBitText = state.newBitText
         if (newBitText.isNotBlank()) {
             viewModelScope.launch {
-                val date =
-                    selectedDate.value
-                        ?.atTime(12, 0)
-                        ?.toInstant(TimeZone.currentSystemDefault())
-                        ?: Clock.System.now()
                 repository.add(
                     Bit(
                         text = newBitText,
-                        date = date
+                        date = newBitInstant()
                     )
                 )
                 state = state.copy(newBitText = "")
             }
         }
+    }
+
+    /**
+     * Combines the (optionally) selected date and time. When neither is selected the exact
+     * current instant is used; a selected date keeps the current time-of-day and vice versa.
+     */
+    private fun newBitInstant(): Instant {
+        val date = selectedDate.value
+        val time = selectedTime.value
+        if (date == null && time == null) return Clock.System.now()
+        val current = now()
+        return (date ?: current.date)
+            .atTime(time ?: current.time)
+            .toInstant(TimeZone.currentSystemDefault())
     }
 
     fun onNewBitTextChange(newBit: String) {
@@ -118,6 +160,16 @@ class BitsViewModel(
             // if the same date is selected again, deselect it
             if (oldDate == newDate) null else newDate
         }
+    }
+
+    fun selectTime(newTime: LocalTime) {
+        selectedTime.update { newTime }
+    }
+
+    /** Drops any custom date/time so the current date and time are used when a bit is added. */
+    fun resetToNow() {
+        selectedDate.update { null }
+        selectedTime.update { null }
     }
 
     fun copyBitsOfDateToClipboard(date: LocalDate) {

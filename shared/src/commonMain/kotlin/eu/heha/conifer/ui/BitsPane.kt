@@ -1,6 +1,7 @@
 package eu.heha.conifer.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,16 +41,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,10 +66,12 @@ import conifer.shared.generated.resources.bits_title
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,12 +100,15 @@ fun BitsPane(
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester
             )
-            DaySelection(
+            DateTimeSelector(
                 dates = state.dates,
                 selectedDate = state.selectedDate,
+                selectedTime = state.selectedTime,
                 currentDate = state.today,
+                currentTime = state.currentTime,
                 onClickDate = actions.onClickDate,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                onSelectTime = actions.onSelectTime,
+                onResetToNow = actions.onResetToNow
             )
             LazyColumn {
                 state.bitsByDate.forEach { datedBits ->
@@ -119,6 +134,138 @@ fun BitsPane(
         }
     }
 }
+
+/**
+ * Compact date & time control. Collapsed it only shows the current date and time; expanding it
+ * reveals the day picker and a slim time slider. While collapsed the current date and time are
+ * always used, so closing the picker reverts any custom selection back to "now".
+ */
+@Composable
+private fun DateTimeSelector(
+    dates: List<LocalDate>,
+    selectedDate: LocalDate?,
+    selectedTime: LocalTime?,
+    currentDate: LocalDate,
+    currentTime: LocalTime,
+    onClickDate: (LocalDate) -> Unit,
+    onSelectTime: (LocalTime) -> Unit,
+    onResetToNow: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val effectiveDate = selectedDate ?: currentDate
+    val effectiveTime = selectedTime ?: currentTime
+
+    fun toggle() {
+        isExpanded = !isExpanded
+        // Closing the picker means "use now" again, so drop any custom date/time.
+        if (!isExpanded) onResetToNow()
+    }
+
+    Column(modifier) {
+        Surface(
+            onClick = ::toggle,
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Event,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${effectiveDate.label(currentDate)} · ${effectiveTime.print()}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.weight(1f))
+                val chevronRotation by animateFloatAsState(
+                    targetValue = if (isExpanded) 180f else 0f,
+                    label = "chevronRotation"
+                )
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Hide date picker" else "Show date picker",
+                    modifier = Modifier
+                        .size(18.dp)
+                        .rotate(chevronRotation)
+                )
+            }
+        }
+        AnimatedVisibility(isExpanded) {
+            Column {
+                DaySelection(
+                    dates = dates,
+                    selectedDate = selectedDate,
+                    currentDate = currentDate,
+                    onClickDate = onClickDate,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                TimeSlider(
+                    time = effectiveTime,
+                    onSelectTime = onSelectTime,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeSlider(
+    time: LocalTime,
+    onSelectTime: (LocalTime) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Icon(
+            Icons.Default.Schedule,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        // The slider works in 15-minute slots (0 = 00:00 … LAST = 23:45) so the discrete
+        // steps line up exactly and draw a tick mark at every quarter hour.
+        Slider(
+            value = ((time.hour * 60 + time.minute) / MINUTES_PER_STEP).toFloat(),
+            onValueChange = { slotIndex ->
+                val minutes = slotIndex.roundToInt() * MINUTES_PER_STEP
+                onSelectTime(LocalTime(minutes / 60, minutes % 60))
+            },
+            valueRange = 0f..LAST_STEP_SLOT.toFloat(),
+            steps = INTERMEDIATE_STEPS,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = time.print(),
+            style = MaterialTheme.typography.titleSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+private const val MINUTES_PER_STEP = 15
+
+// Number of 15-minute slots in a day (96: 00:00 … 23:45).
+private const val STEP_SLOTS = 24 * 60 / MINUTES_PER_STEP
+
+// Highest slider value (slot 95 == 23:45).
+private const val LAST_STEP_SLOT = STEP_SLOTS - 1
+
+// Slider `steps` counts the marks strictly between the endpoints.
+private const val INTERMEDIATE_STEPS = STEP_SLOTS - 2
+
+private fun LocalDate.label(today: LocalDate): String =
+    if (this == today) "Today" else print()
 
 @Composable
 fun DaySelection(
@@ -298,7 +445,9 @@ data class BitsPaneState(
     val isCopyPossible: Boolean = true,
     val newBitText: String = "",
     val selectedDate: LocalDate? = null,
+    val selectedTime: LocalTime? = null,
     val today: LocalDate = now().date,
+    val currentTime: LocalTime = now().time,
     val dates: List<LocalDate> = emptyList(),
     val bitsByDate: List<DatedBits> = emptyList()
 )
@@ -313,10 +462,12 @@ class BitsPaneActions(
     val onNewBitTextChange: (String) -> Unit = {},
     val onClickRequestPermission: () -> Unit = {},
     val onClickDate: (LocalDate) -> Unit = {},
+    val onSelectTime: (LocalTime) -> Unit = {},
+    val onResetToNow: () -> Unit = {},
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {}
 )
 
-@Preview(apiLevel = 36)
+@Preview
 @Composable
 private fun BitsPanePreview() {
     ConiferTheme {
