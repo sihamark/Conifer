@@ -5,7 +5,7 @@
 object AppConfig {
     const val appName = "Conifer"
     const val minSdk = 30
-    const val targetSdk = 36
+    const val targetSdk = 37
     const val versionCode = 1
     const val versionName = "1.0.0"
     const val javaVersion = 21

@@ -4,7 +4,12 @@ import ConiferApp
 @main
 struct iOSApp: App {
     init() {
-        IosConiferApp.shared.initialize()
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        IosConiferApp.shared.initialize(isDebug: isDebug)
     }
 
     var body: some Scene {
