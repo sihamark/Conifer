@@ -1,17 +1,17 @@
 package eu.heha.conifer.model.database
 
-import androidx.room.DeleteColumn
-import androidx.room.migration.AutoMigrationSpec
+import androidx.room3.DeleteColumn
+import androidx.room3.migration.AutoMigrationSpec
 import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.execSQL
+import androidx.sqlite.async.executeSQL
 
 @DeleteColumn(
     tableName = "bits",
     columnName = "concerned_at"
 )
 class Migration1to2 : AutoMigrationSpec {
-    override fun onPostMigrate(connection: SQLiteConnection) {
+    override suspend fun onPostMigrate(connection: SQLiteConnection) {
         //added date column to bit, which is initialized with created_at
-        connection.execSQL("UPDATE bits SET date = created_at")
+        connection.executeSQL("UPDATE bits SET date = created_at")
     }
 }
