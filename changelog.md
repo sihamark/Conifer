@@ -5,6 +5,8 @@
 - changed exported display of exported bits (show complete date dd.MM.yyyy)
 - when editing a bits, the cursor in the text field is now always at the end of the text
 - the keyboard now auto-capitalizes the start of sentences in the bit text field
+- a selected date/time is kept after adding a bit, so several bits can be entered for the same
+  date/time in a row
 
 ## Version 1.1.1 (07.07.2026)
 

@@ -138,12 +138,15 @@ class BitsViewModel(
             val date = newBitInstant()
             if (edited != null) {
                 repository.update(edited.copy(text = newBitText, date = date))
+                // The selection was loaded from the edited bit; drop it so it doesn't leak into
+                // the next new bit. A manually chosen selection is kept when adding, so several
+                // bits can be entered for the same date/time in a row.
+                editingBit = null
+                selectedDate.update { null }
+                selectedTime.update { null }
             } else {
                 repository.add(Bit(text = newBitText, date = date))
             }
-            editingBit = null
-            selectedDate.update { null }
-            selectedTime.update { null }
             state = state.copy(newBitText = "", editingBitId = null)
         }
     }
