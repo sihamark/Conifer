@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.1.2 (XX.07.2026)
+
+## Version 1.1.1 (07.07.2026)
+
+- reduced size of time slider thumb
+- time of a bit is now in a column in front of the actual text
+- adjusted padding of a card
+
 ## Version 1.1.0 (03.07.2026)
 
 - major styling improvement

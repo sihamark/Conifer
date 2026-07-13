@@ -71,9 +71,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
@@ -141,6 +143,9 @@ fun BitsPane(
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
+        }
+        LaunchedEffect(state.editingBitId) {
+            if (state.editingBitId != null) focusRequester.requestFocus()
         }
         Column(
             modifier = Modifier
@@ -598,6 +603,14 @@ private fun NewBitText(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
+    // Track the selection locally; when the text is replaced from outside (an edit starts or the
+    // field is cleared) place the cursor at the end instead of wherever it happened to be.
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(newBitText, TextRange(newBitText.length)))
+    }
+    if (textFieldValue.text != newBitText) {
+        textFieldValue = TextFieldValue(newBitText, TextRange(newBitText.length))
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -606,8 +619,11 @@ private fun NewBitText(
             .padding(bottom = 16.dp)
     ) {
         OutlinedTextField(
-            value = newBitText,
-            onValueChange = onNewBitTextChange,
+            value = textFieldValue,
+            onValueChange = { value ->
+                textFieldValue = value
+                if (value.text != newBitText) onNewBitTextChange(value.text)
+            },
             label = {
                 Text(
                     stringResource(
