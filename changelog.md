@@ -2,6 +2,9 @@
 
 ## Version 1.1.2 (XX.07.2026)
 
+- changed exported display of exported bits (show complete date dd.MM.yyyy)
+- when editing a bits, the cursor in the text field is now always at the end of the text
+
 ## Version 1.1.1 (07.07.2026)
 
 - reduced size of time slider thumb
