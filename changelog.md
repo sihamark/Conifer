@@ -8,6 +8,9 @@
 - a selected date/time is kept after adding a bit, so several bits can be entered for the same
   date/time in a row
 - the top bar is hidden while the keyboard is open, leaving more room for reading existing bits
+- the day selection chips are more compact, showing weekday and date on a single line
+- the day chip indicator now shows up to three dots: one for any bit, two when both morning and
+  afternoon have one, three when the day additionally holds more than three bits
 
 ## Version 1.1.1 (07.07.2026)
 

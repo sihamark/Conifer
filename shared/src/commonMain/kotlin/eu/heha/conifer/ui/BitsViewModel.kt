@@ -57,17 +57,10 @@ class BitsViewModel(
                     bits to selectedDate
                 }.collect { (bits, selectedDate) ->
                     Napier.d { "has found ${bits.size} bits" }
-                    var dates: List<LocalDate> = listOf()
                     var datedBits: List<DatedBits> = listOf()
 
                     for (bit in bits) {
                         val date = bit.date.dateTimeInDefaultTz().date
-                        if (date !in dates) dates = dates + date
-
-                        if (selectedDate != null && date != selectedDate) {
-                            // skip bits that don't match the selected date
-                            continue
-                        }
                         datedBits = if (datedBits.none { it.date == date }) {
                             datedBits + DatedBits(date, listOf(bit))
                         } else {
@@ -81,9 +74,10 @@ class BitsViewModel(
                         }
                     }
 
+                    // All days stay in the state; the selected date only filters what the list
+                    // shows, so the day chips keep their indicators while filtering.
                     state = state.copy(
                         selectedDate = selectedDate,
-                        dates = dates,
                         bitsByDate = datedBits
                     )
                 }
