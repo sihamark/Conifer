@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -59,6 +60,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -126,9 +128,6 @@ fun BitsPane(
     state: BitsPaneState = BitsPaneState(),
     actions: BitsPaneActions = BitsPaneActions()
 ) {
-    // While typing, the IME already claims a large share of the screen, so the top bar is hidden
-    // to leave as much room as possible for reading existing bits.
-    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
@@ -149,61 +148,74 @@ fun BitsPane(
             val visibleBitsByDate = state.selectedDate?.let { selected ->
                 state.bitsByDate.filter { it.date == selected }
             } ?: state.bitsByDate
-            // The top bar lives in the content column instead of the Scaffold's topBar slot, so
-            // hiding it while the IME is open animates smoothly with the rest of the layout.
-            AnimatedVisibility(!isImeVisible) {
-                val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-                Topbar(bitsCount)
-            }
             val permissionRationale = state.permissionRationale
             AnimatedVisibility(permissionRationale != null) {
                 PermissionPrompt(permissionRationale ?: "", actions)
             }
-            // The DAO delivers bits newest-first; presenting everything reversed puts the newest
-            // bits at the bottom next to the input while sticky day headers still pin to the top.
-            val listState = rememberLazyListState()
-            LaunchedEffect(visibleBitsByDate) {
-                // Leading encouragement note + one header per day + bits + trailing spacer.
-                val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 1
-                if (visibleBitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
-            }
-            val listModifier = Modifier.weight(1f)
-            if (visibleBitsByDate.isEmpty()) {
-                EmptyState(
-                    isFilteredByDate = state.selectedDate != null && state.bitsByDate.isNotEmpty(),
-                    modifier = listModifier.fillMaxWidth()
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    // Bottom arrangement keeps the bits anchored to the input when the list is
-                    // shorter than the viewport; it has no effect once the list fills the screen.
-                    verticalArrangement = Arrangement.Bottom,
-                    modifier = listModifier
-                ) {
-                    item(key = "beginning") { BeginningNote() }
-                    visibleBitsByDate.asReversed().forEach { datedBits ->
-                        stickyHeader(key = datedBits.date.toEpochDays()) {
-                            DateHeader(
-                                date = datedBits.date,
-                                onClickCopy = {
-                                    actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
-                                }
-                            )
-                        }
-                        items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
-                            BitItem(
-                                bit = bit,
-                                isEditing = state.editingBitId == bit.id,
-                                onClickStartEdit = { actions.onClickEditBit(bit) },
-                                onClickCancelEdit = actions.onCancelEdit,
-                                onClickDelete = { actions.onDeleteBit(bit) },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
-                    }
-                    item { Spacer(Modifier.height(8.dp)) }
+            // The list and the top bar share a Box so the bar floats above the list instead of
+            // pushing it down (and the bottom bits under the input) when it reappears. The list
+            // may start underneath the bar, but its first item is the BeginningNote whose top
+            // padding keeps the text clear of the bar.
+            Box(Modifier.weight(1f)) {
+                // The DAO delivers bits newest-first; presenting everything reversed puts the
+                // newest bits at the bottom next to the input while sticky day headers still pin
+                // to the top.
+                val listState = rememberLazyListState()
+                LaunchedEffect(visibleBitsByDate) {
+                    // Leading top-bar spacer + encouragement note + one header per day + bits +
+                    // trailing spacer.
+                    val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 2
+                    if (visibleBitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
                 }
+                val listModifier = Modifier.fillMaxSize()
+                if (visibleBitsByDate.isEmpty()) {
+                    EmptyState(
+                        isFilteredByDate = state.selectedDate != null &&
+                                state.bitsByDate.isNotEmpty(),
+                        modifier = listModifier
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        // Bottom arrangement keeps the bits anchored to the input when the list
+                        // is shorter than the viewport; it has no effect once the list fills the
+                        // screen.
+                        verticalArrangement = Arrangement.Bottom,
+                        modifier = listModifier
+                    ) {
+                        // Makes up for the height of the floating top bar so the top of the
+                        // list can scroll fully out from underneath it.
+                        item(key = "top-bar-spacer") {
+                            Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+                        }
+                        item(key = "beginning") { BeginningNote() }
+                        visibleBitsByDate.asReversed().forEach { datedBits ->
+                            stickyHeader(key = datedBits.date.toEpochDays()) {
+                                DateHeader(
+                                    date = datedBits.date,
+                                    onClickCopy = {
+                                        actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
+                                    }
+                                )
+                            }
+                            items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
+                                BitItem(
+                                    bit = bit,
+                                    isEditing = state.editingBitId == bit.id,
+                                    onClickStartEdit = { actions.onClickEditBit(bit) },
+                                    onClickCancelEdit = actions.onCancelEdit,
+                                    onClickDelete = { actions.onDeleteBit(bit) },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
+                }
+                // Hidden while the IME is open, since the keyboard already claims a large share
+                // of the screen.
+                val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
+                Topbar(bitsCount)
             }
             Column(
                 Modifier
@@ -240,22 +252,27 @@ fun BitsPane(
 
 @Composable
 private fun Topbar(bitsCount: Int) {
-    TopAppBar(
-        title = { Text(stringResource(Res.string.app_name)) },
-        actions = {
-            Text(
-                pluralStringResource(
-                    Res.plurals.bits_label_counter,
-                    bitsCount,
-                    bitsCount
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(end = 16.dp)
-            )
-        },
-        // The column already handles the status bar inset.
-        windowInsets = WindowInsets()
-    )
+    // While typing, the IME already claims a large share of the screen, so the top bar is hidden
+    // to leave as much room as possible for reading existing bits.
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    AnimatedVisibility(visible = !isImeVisible, modifier = Modifier.fillMaxWidth()) {
+        TopAppBar(
+            title = { Text(stringResource(Res.string.app_name)) },
+            actions = {
+                Text(
+                    pluralStringResource(
+                        Res.plurals.bits_label_counter,
+                        bitsCount,
+                        bitsCount
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+            },
+            // The column already handles the status bar inset.
+            windowInsets = WindowInsets()
+        )
+    }
 }
 
 /**
