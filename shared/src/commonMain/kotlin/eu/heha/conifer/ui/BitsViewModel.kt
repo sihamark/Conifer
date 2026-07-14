@@ -93,7 +93,8 @@ class BitsViewModel(
                     handler.isPermissionGranted.collect { isGranted ->
                         Napier.e { "notification permission granted: $isGranted" }
                         state = state.copy(
-                            permissionRationale = handler.permissionRationale.takeUnless { isGranted },
+                            permissionRationale = handler.permissionRationale
+                                .takeUnless { isGranted }
                         )
                     }
                 }

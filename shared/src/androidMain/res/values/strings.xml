@@ -5,4 +5,7 @@
     <string name="notification_conversation_action_enter">Reply</string>
     <string name="notification_conversation_title">What\'s been up?</string>
     <string name="notification_conversation_message">What has happened?</string>
+
+    <string name="notification_permission_rationale_lead">Add bits from anywhere.</string>
+    <string name="notification_permission_rationale">Allow notifications and reply to the Conifer conversation to capture a bit without opening the app.</string>
 </resources>

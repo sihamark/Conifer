@@ -30,7 +30,7 @@ target.
 ```bash
 ./gradlew :desktopApp:run                    # run desktop (JVM) app
 ./gradlew :androidApp:assembleDebug          # build Android APK
-./gradlew :shared:assembleDebug              # build the shared library (Android variant)
+./gradlew :shared:compileAndroidMain         # compile the shared library (Android target)
 ./gradlew :desktopApp:buildDesktopRelease    # package desktop release into ./releases (custom task)
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun # run the web (wasmJs) app in the browser
 ./gradlew :webApp:wasmJsBrowserDistribution   # build the production web bundle

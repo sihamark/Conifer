@@ -4,6 +4,7 @@ import android.Manifest.permission.POST_NOTIFICATIONS
 import android.app.Activity
 import android.os.Build
 import androidx.core.app.ActivityCompat
+import eu.heha.conifer.core.R
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,8 +16,10 @@ class NotificationPermissionHandler(
     private val _isPermissionGranted = MutableStateFlow(false)
     override val isPermissionGranted = _isPermissionGranted.asStateFlow()
 
-    override val permissionRationale =
-        "This app needs the notification permission to enable you to quickly add bits to your app via a notification."
+    override val permissionRationale = PermissionRationale(
+        lead = activity.getString(R.string.notification_permission_rationale_lead),
+        text = activity.getString(R.string.notification_permission_rationale)
+    )
 
     fun checkPermission() {
         Napier.e { "check permission" }

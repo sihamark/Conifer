@@ -22,6 +22,19 @@ interface ClipboardController {
 
 interface PermissionHandler {
     val isPermissionGranted: StateFlow<Boolean>
-    val permissionRationale: String
+
+    /**
+     * Why the permission is needed. Platform-specific because the wording depends on what the
+     * permission enables there (e.g. replying to a notification on Android); the implementation
+     * resolves the already localized strings from its platform resources.
+     */
+    val permissionRationale: PermissionRationale
+
     fun requestPermission()
 }
+
+/** A permission rationale as a highlighted lead-in plus the actual explanation. */
+data class PermissionRationale(
+    val lead: String,
+    val text: String
+)
