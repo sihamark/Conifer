@@ -80,6 +80,11 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        jvmTest.dependencies {
+            implementation(libs.androidx.room.testing)
+            implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.kotlinx.coroutines.test)
+        }
         // BundledSQLiteDriver is only published for the native/JVM/Android targets, so it lives in
         // the per-platform source sets rather than commonMain (the web target uses sqlite-web).
         iosMain.dependencies {

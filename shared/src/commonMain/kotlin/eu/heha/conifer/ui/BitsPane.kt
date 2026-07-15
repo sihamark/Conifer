@@ -124,9 +124,7 @@ import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -814,13 +812,12 @@ private fun BitItem(
                     .padding(vertical = 8.dp)
                     .padding(start = 8.dp)
             ) {
-                val date = bit.date.toLocalDateTime(TimeZone.currentSystemDefault())
                 Surface(
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Text(
-                        date.time.print(),
+                        bit.date.time.print(),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -936,8 +933,8 @@ data class DatedBits(
      * the afternoon have one, three when on top of that the day holds more than three bits.
      */
     val dots: Int = run {
-        val hasMorningBit = bits.any { it.date.dateTimeInDefaultTz().hour < 12 }
-        val hasAfternoonBit = bits.any { it.date.dateTimeInDefaultTz().hour >= 12 }
+        val hasMorningBit = bits.any { it.date.hour < 12 }
+        val hasAfternoonBit = bits.any { it.date.hour >= 12 }
         when {
             hasMorningBit && hasAfternoonBit && bits.size > 3 -> 3
             hasMorningBit && hasAfternoonBit -> 2

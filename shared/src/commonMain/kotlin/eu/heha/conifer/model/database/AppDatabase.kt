@@ -11,9 +11,10 @@ const val DATABASE_NAME = "conifer_database.db"
 
 @Database(
     entities = [Bit::class],
-    version = 2,
+    version = 3,
     autoMigrations = [
-        AutoMigration(from = 1, to = 2, spec = Migration1to2::class)
+        AutoMigration(from = 1, to = 2, spec = Migration1to2::class),
+        AutoMigration(from = 2, to = 3, spec = Migration2to3::class)
     ]
 )
 @ColumnTypeConverters(DatabaseConverters::class)
