@@ -15,6 +15,8 @@
   highlighted lead sentence, dashed border and an "Allow" button
 - the date/time of a bit is now stored as a zone-less local date-time (database schema v3), so
   bits keep the day and time they were entered with even when the device's time zone changes
+- after adding or editing a bit, the list now scrolls to that bit (unless it is already visible),
+  so a bit saved with a custom date/time doesn't disappear off-screen
 
 ## Version 1.1.1 (07.07.2026)
 

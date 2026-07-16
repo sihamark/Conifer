@@ -128,8 +128,10 @@ class BitsViewModel(
         val edited = editingBit
         viewModelScope.launch {
             val date = newBitDateTime()
+            val submittedBitId: String
             if (edited != null) {
                 repository.update(edited.copy(text = newBitText, date = date))
+                submittedBitId = edited.id
                 // The selection was loaded from the edited bit; drop it so it doesn't leak into
                 // the next new bit. A manually chosen selection is kept when adding, so several
                 // bits can be entered for the same date/time in a row.
@@ -137,9 +139,15 @@ class BitsViewModel(
                 selectedDate.update { null }
                 selectedTime.update { null }
             } else {
-                repository.add(Bit(text = newBitText, date = date))
+                val newBit = Bit(text = newBitText, date = date)
+                repository.add(newBit)
+                submittedBitId = newBit.id
             }
-            state = state.copy(newBitText = "", editingBitId = null)
+            state = state.copy(
+                newBitText = "",
+                editingBitId = null,
+                scrollToBitId = submittedBitId
+            )
         }
     }
 
@@ -174,6 +182,11 @@ class BitsViewModel(
         selectedDate.update { null }
         selectedTime.update { null }
         state = state.copy(newBitText = "", editingBitId = null)
+    }
+
+    /** Called by the UI once it has scrolled to (or verified visibility of) the submitted bit. */
+    fun onScrolledToBit() {
+        state = state.copy(scrollToBitId = null)
     }
 
     fun deleteBit(bit: Bit) {

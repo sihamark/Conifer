@@ -165,11 +165,31 @@ fun BitsPane(
                 // newest bits at the bottom next to the input while sticky day headers still pin
                 // to the top.
                 val listState = rememberLazyListState()
+                // Keyed on the list only: it runs when the database flow delivers the updated
+                // bits, at which point a pending scrollToBitId (set right after saving) is
+                // already in the state. Clearing the id afterwards must not rerun the effect,
+                // or it would jump to the bottom right after scrolling to the bit.
                 LaunchedEffect(visibleBitsByDate) {
-                    // Leading top-bar spacer + permission prompt + encouragement note + one
-                    // header per day + bits + trailing spacer.
-                    val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 3
-                    if (visibleBitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
+                    if (visibleBitsByDate.isEmpty()) return@LaunchedEffect
+                    val targetId = state.scrollToBitId
+                    val targetIndex = targetId?.let { visibleBitsByDate.indexOfBit(it) }
+                    if (targetIndex != null) {
+                        val isAlreadyVisible = listState.layoutInfo.visibleItemsInfo
+                            .any { it.key == targetId }
+                        if (!isAlreadyVisible) {
+                            // A negative offset lands the bit a third down the viewport, clear
+                            // of the floating top bar and the pinned sticky day header.
+                            listState.animateScrollToItem(
+                                index = targetIndex,
+                                scrollOffset = -listState.layoutInfo.viewportSize.height / 3
+                            )
+                        }
+                        actions.onScrolledToBit()
+                    } else {
+                        val lastIndex =
+                            visibleBitsByDate.sumOf { it.bits.size + 1 } + LEADING_LIST_ITEMS
+                        listState.scrollToItem(lastIndex)
+                    }
                 }
                 val listModifier = Modifier.fillMaxSize()
                 if (visibleBitsByDate.isEmpty()) {
@@ -263,6 +283,26 @@ fun BitsPane(
             }
         }
     }
+}
+
+// Items preceding the first day header: top-bar spacer, permission prompt, beginning note.
+private const val LEADING_LIST_ITEMS = 3
+
+/**
+ * Index of the bit with [bitId] in the LazyColumn, mirroring how the list lays the days out:
+ * the leading items, then per day (oldest day first) a sticky header followed by its bits
+ * (oldest first). Null when the bit is not in the (possibly filtered) list.
+ */
+private fun List<DatedBits>.indexOfBit(bitId: String): Int? {
+    var index = LEADING_LIST_ITEMS
+    for (datedBits in asReversed()) {
+        index++ // the day's sticky header
+        val bitsOldestFirst = datedBits.bits.asReversed()
+        val position = bitsOldestFirst.indexOfFirst { it.id == bitId }
+        if (position >= 0) return index + position
+        index += bitsOldestFirst.size
+    }
+    return null
 }
 
 @Composable
@@ -921,7 +961,9 @@ data class BitsPaneState(
     val today: LocalDate = now().date,
     val currentTime: LocalTime = now().time,
     val bitsByDate: List<DatedBits> = emptyList(),
-    val editingBitId: String? = null
+    val editingBitId: String? = null,
+    /** One-shot request to scroll the list to this bit after it was added or edited. */
+    val scrollToBitId: String? = null
 )
 
 data class DatedBits(
@@ -953,7 +995,8 @@ class BitsPaneActions(
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},
     val onClickEditBit: (Bit) -> Unit = {},
     val onCancelEdit: () -> Unit = {},
-    val onDeleteBit: (Bit) -> Unit = {}
+    val onDeleteBit: (Bit) -> Unit = {},
+    val onScrolledToBit: () -> Unit = {}
 )
 
 @PreviewLightDark

@@ -21,6 +21,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickEditBit = model::startEditing,
             onCancelEdit = model::cancelEdit,
             onDeleteBit = model::deleteBit,
+            onScrolledToBit = model::onScrolledToBit,
         )
     )
 }
