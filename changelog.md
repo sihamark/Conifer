@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.1.2 (XX.07.2026)
+## Version 1.1.2 (17.07.2026)
 
 - changed exported display of exported bits (show complete date dd.MM.yyyy)
 - when editing a bits, the cursor in the text field is now always at the end of the text
