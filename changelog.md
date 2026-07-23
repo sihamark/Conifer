@@ -12,6 +12,10 @@
 - sync preferences (root ETag, last sync time, device id, server URL, app root) in a
   DataStore-backed store, wired per platform via the initializer pattern; on web they persist
   to localStorage (DataStore 1.3 WebLocalStorage)
+- Nextcloud sync groundwork (spec §10 point ②): a Ktor-based WebDAV transport (`KtorWebDavStore`)
+  implementing PROPFIND/GET/PUT/MKCOL and a bulk-upload fast path with automatic fallback, with a
+  hand-rolled multistatus XML parser; verified against a real, containerized Nextcloud via
+  Testcontainers
 
 ## Version 1.1.2 (17.07.2026)
 
