@@ -26,7 +26,7 @@ private const val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 </d:propfind>"""
 
 /**
- * WebDAV [RemoteStore] against a Nextcloud (or any WebDAV) server (spec §4). [path] parameters
+ * WebDAV [RemoteStore] against a Nextcloud (or any WebDAV) server (spec §4). path parameters
  * are relative to `remote.php/dav/files/{username}/` — the sync engine (spec §5, not yet
  * implemented) is responsible for prefixing them with `appRoot`/`.sync` as needed.
  *

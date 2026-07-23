@@ -43,7 +43,31 @@ interface RemoteStore {
 
     data class Entry(val name: String, val etag: String, val isDirectory: Boolean)
 
-    data class BulkFile(val path: String, val body: ByteArray, val mtime: Long)
+    data class BulkFile(
+        val path: String,
+        val body: ByteArray,
+        val mtime: Long
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other == null || this::class != other::class) return false
+
+            other as BulkFile
+
+            if (mtime != other.mtime) return false
+            if (path != other.path) return false
+            if (!body.contentEquals(other.body)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = mtime.hashCode()
+            result = 31 * result + path.hashCode()
+            result = 31 * result + body.contentHashCode()
+            return result
+        }
+    }
 }
 
 /** [RemoteStore.list] found no resource at the requested path. */
