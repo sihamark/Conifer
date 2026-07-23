@@ -5,6 +5,8 @@ androidx-activity = "1.13.0"
 androidx-appcompat = "1.7.1"
 androidx-core = "1.19.0"
 androidx-lifecycle = "2.11.0"
+# 1.3.0-alpha09: first version whose wasmJs artifacts actually implement persistence
+androidx-datastore = "1.3.0-alpha09"
 androidx-room = "3.0.0"
 androidx-sqlite = "2.7.0"
 
@@ -42,6 +44,8 @@ jetbrains-lifecycle-runtime = { module = "org.jetbrains.androidx.lifecycle:lifec
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "androidx-datastore" }
+androidx-datastore-core = { module = "androidx.datastore:datastore-core", version.ref = "androidx-datastore" }
 androidx-sqlite-async = { module = "androidx.sqlite:sqlite-async", version.ref = "androidx-sqlite" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidx-sqlite" }
 androidx-sqlite-web = { module = "androidx.sqlite:sqlite-web", version.ref = "androidx-sqlite" }

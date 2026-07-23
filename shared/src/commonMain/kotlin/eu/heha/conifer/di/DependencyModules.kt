@@ -3,8 +3,10 @@ package eu.heha.conifer.di
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.Platform
+import eu.heha.conifer.SyncPrefsInitializer
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
+import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.ui.BitsViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
@@ -17,6 +19,7 @@ import org.koin.dsl.module
  */
 val coreModule = module {
     singleOf(::DatabaseController)
+    single { SyncPrefs(get<SyncPrefsInitializer>().createSyncPrefsStore()) }
     singleOf(::BitsRepository)
     viewModel {
         BitsViewModel(
@@ -34,9 +37,11 @@ val coreModule = module {
 fun platformModule(
     platform: Platform,
     databaseInitializer: DatabaseInitializer,
+    syncPrefsInitializer: SyncPrefsInitializer,
     clipboardController: ClipboardController?
 ) = module {
     single { platform }
     single { databaseInitializer }
+    single { syncPrefsInitializer }
     clipboardController?.let { controller -> single { controller } }
 }

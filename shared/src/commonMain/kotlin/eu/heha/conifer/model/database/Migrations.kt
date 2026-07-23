@@ -3,7 +3,6 @@ package eu.heha.conifer.model.database
 import androidx.room3.DeleteColumn
 import androidx.room3.migration.AutoMigrationSpec
 import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.async.executeSQL
 import androidx.sqlite.async.prepare
 import androidx.sqlite.async.step
@@ -54,9 +53,29 @@ class Migration2to3 : AutoMigrationSpec {
     }
 }
 
-private inline fun <R> SQLiteStatement.use(block: (SQLiteStatement) -> R): R =
-    try {
-        block(this)
-    } finally {
-        close()
+/**
+ * Adds the sync bookkeeping columns for the Nextcloud sync (spec §3.3) plus the sync state
+ * tables. The column defaults already mark every existing bit as dirty with no remote ETag, so
+ * the first sync pushes it as a new file; here the remaining backfills run: `modified_at`
+ * starts as the creation time and `bucket` is the bit's fixed `yyyy-MM` server folder derived
+ * from `created_at` via [bucketOf].
+ */
+class Migration3to4 : AutoMigrationSpec {
+    override suspend fun onPostMigrate(connection: SQLiteConnection) {
+        connection.executeSQL("UPDATE bits SET modified_at = created_at")
+        val bucketsById = mutableMapOf<String, String>()
+        connection.prepare("SELECT id, created_at FROM bits").use { select ->
+            while (select.step()) {
+                val createdAt = Instant.fromEpochMilliseconds(select.getLong(1))
+                bucketsById[select.getText(0)] = bucketOf(createdAt)
+            }
+        }
+        bucketsById.forEach { (id, bucket) ->
+            connection.prepare("UPDATE bits SET bucket = ? WHERE id = ?").use { update ->
+                update.bindText(1, bucket)
+                update.bindText(2, id)
+                update.step()
+            }
+        }
     }
+}

@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 1.2.0 (XX.XX.2026)
+
+- groundwork for Nextcloud sync (spec §10 point ①): bits now carry sync bookkeeping (modification
+  time and device, tombstone flag, dirty marker, remote ETag, fixed month bucket) — database
+  schema v4 with a migration that keeps existing data and marks it for a first push
+- new local sync state tables (bucket ETags, readable-day hashes and pending queue) with a
+  dedicated sync DAO; deleting an already-synced bit now leaves a hidden tombstone instead of
+  removing the row
+- last-write-wins merge policy (per-bit, deterministic device-id tiebreaker) as pure, tested logic
+- sync preferences (root ETag, last sync time, device id, server URL, app root) in a
+  DataStore-backed store, wired per platform via the initializer pattern; on web they persist
+  to localStorage (DataStore 1.3 WebLocalStorage)
+
 ## Version 1.1.2 (17.07.2026)
 
 - changed exported display of exported bits (show complete date dd.MM.yyyy)

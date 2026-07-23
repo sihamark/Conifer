@@ -1,5 +1,7 @@
 package eu.heha.conifer
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
 
@@ -14,6 +16,15 @@ interface DatabaseInitializer {
      * `Dispatchers.IO` and uses a different, Web Worker–backed driver.
      */
     fun createDatabase(): AppDatabase
+}
+
+interface SyncPrefsInitializer {
+    /**
+     * Creates the Preferences DataStore backing `SyncPrefs`. Platform-specific because each
+     * platform chooses its own storage location (and the web target has no usable file system
+     * for DataStore yet, so it falls back to an in-memory store).
+     */
+    fun createSyncPrefsStore(): DataStore<Preferences>
 }
 
 interface ClipboardController {

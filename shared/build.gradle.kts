@@ -66,6 +66,8 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodel)
             implementation(libs.jetbrains.lifecycle.runtime)
             implementation(libs.androidx.room.runtime)
+            implementation(libs.androidx.datastore.preferences.core)
+            implementation(libs.androidx.datastore.core)
             // execSQL is not available to common code spanning web + non-web targets;
             // the async executeSQL from sqlite-async is the common replacement.
             implementation(libs.androidx.sqlite.async)
@@ -79,6 +81,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
         jvmTest.dependencies {
             implementation(libs.androidx.room.testing)

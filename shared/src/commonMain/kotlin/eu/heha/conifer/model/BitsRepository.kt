@@ -2,13 +2,16 @@ package eu.heha.conifer.model
 
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.model.database.DatabaseController
+import eu.heha.conifer.prefs.SyncPrefs
 import io.github.aakira.napier.Napier
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import kotlin.time.Clock
 
 class BitsRepository(
-    private val databaseController: DatabaseController
+    private val databaseController: DatabaseController,
+    private val syncPrefs: SyncPrefs
 ) {
 
     private fun dao() = databaseController.bitDao()
@@ -26,19 +29,40 @@ class BitsRepository(
         dao().upsert(
             bit.copy(
                 text = bit.text.trim(),
-                date = date
+                date = date,
+                modifiedBy = syncPrefs.deviceId()
             )
         )
     }
 
     suspend fun update(bit: Bit) {
         Napier.d { "update bit $bit" }
-        dao().upsert(bit.copy(text = bit.text.trim()))
+        dao().upsert(
+            bit.copy(
+                text = bit.text.trim(),
+                dirty = true,
+                modifiedAt = Clock.System.now(),
+                modifiedBy = syncPrefs.deviceId()
+            )
+        )
     }
 
     suspend fun delete(bit: Bit) {
         Napier.d { "delete bit $bit" }
-        dao().delete(bit)
+        if (bit.remoteEtag == null) {
+            // never reached the server, so no other device can know it — no tombstone needed
+            dao().delete(bit)
+        } else {
+            dao().upsert(
+                bit.copy(
+                    text = "",
+                    deleted = true,
+                    dirty = true,
+                    modifiedAt = Clock.System.now(),
+                    modifiedBy = syncPrefs.deviceId()
+                )
+            )
+        }
     }
 
     suspend fun getTextsOfBits(bitIds: List<String>): List<String> {

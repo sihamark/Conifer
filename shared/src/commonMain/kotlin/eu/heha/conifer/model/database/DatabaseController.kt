@@ -11,4 +11,6 @@ class DatabaseController(
     private val database: AppDatabase by lazy { databaseInitializer.createDatabase() }
 
     fun bitDao() = database.bitDao()
+
+    fun syncDao() = database.syncDao()
 }

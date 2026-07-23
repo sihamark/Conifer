@@ -9,6 +9,7 @@ class ConiferApplication : Application() {
             isDebug = BuildConfig.DEBUG,
             platform = AndroidPlatform,
             databaseInitializer = AndroidDatabaseInitializer(this),
+            syncPrefsInitializer = AndroidSyncPrefsInitializer(this),
             clipboardController = AndroidClipboardController(this)
         )
     }

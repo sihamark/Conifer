@@ -15,6 +15,7 @@ object ConiferApp {
         isDebug: Boolean,
         platform: Platform,
         databaseInitializer: DatabaseInitializer,
+        syncPrefsInitializer: SyncPrefsInitializer,
         clipboardController: ClipboardController? = null
     ) {
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
@@ -25,7 +26,12 @@ object ConiferApp {
         startKoin {
             modules(
                 coreModule,
-                platformModule(platform, databaseInitializer, clipboardController)
+                platformModule(
+                    platform,
+                    databaseInitializer,
+                    syncPrefsInitializer,
+                    clipboardController
+                )
             )
         }
     }

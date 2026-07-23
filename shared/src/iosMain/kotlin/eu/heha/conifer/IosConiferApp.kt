@@ -8,6 +8,7 @@ object IosConiferApp {
             isDebug = isDebug,
             platform = IosPlatform,
             databaseInitializer = IosDatabaseInitializer,
+            syncPrefsInitializer = IosSyncPrefsInitializer,
             clipboardController = IosClipboardController
         )
     }
