@@ -16,6 +16,13 @@
   implementing PROPFIND/GET/PUT/MKCOL and a bulk-upload fast path with automatic fallback, with a
   hand-rolled multistatus XML parser; verified against a real, containerized Nextcloud via
   Testcontainers
+- Nextcloud sync engine (spec §10 point ③): `SyncEngine` runs the fast-path check, pull, push, and
+  finalize steps against any `RemoteStore`, resolving conflicts through the last-write-wins merge
+  policy and recovering from a stale ETag on push by refetching, merging, and retrying; bits'
+  JSON wire format (`BitJson`, kotlinx.serialization) keeps the app's zoneless local date-time
+  instead of the generic spec's zoned timestamps, so synced bits still can't drift across time
+  zones; verified against an in-memory fake WebDAV server, including a genuine cross-device race
+  and a sync aborted partway through
 
 ## Version 1.1.2 (17.07.2026)
 

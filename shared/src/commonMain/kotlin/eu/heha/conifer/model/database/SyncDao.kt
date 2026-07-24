@@ -3,6 +3,7 @@ package eu.heha.conifer.model.database
 import androidx.room3.Dao
 import androidx.room3.Delete
 import androidx.room3.Query
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import kotlinx.datetime.LocalDate
 
@@ -24,6 +25,10 @@ interface SyncDao {
     @Query("SELECT * FROM bits WHERE dirty = 1 AND remote_etag IS NOT NULL")
     suspend fun dirtyModified(): List<Bit>
 
+    /** Fast-path check (sync spec §5 step 1): any unpushed local change at all. */
+    @Query("SELECT EXISTS(SELECT 1 FROM bits WHERE dirty = 1)")
+    suspend fun hasDirtyBits(): Boolean
+
     /**
      * The visible bits of a day in their deterministic rendering order (sync spec §7.3:
      * display order, then id as tiebreaker). The stored ISO date-time strings start with the
@@ -43,6 +48,26 @@ interface SyncDao {
 
     @Query("UPDATE bits SET dirty = 0, remote_etag = :etag WHERE id = :id")
     suspend fun setClean(id: String, etag: String)
+
+    /**
+     * Atomically reads the current local row for [remote]'s id, resolves it against [remote]
+     * via [merge] (in practice [eu.heha.conifer.sync.MergePolicy.merged]), and stores the
+     * result - so a concurrent local edit can never interleave between the read and the write
+     * (Nextcloud sync spec §6: "Run merge inside a Room transaction together with the
+     * surrounding bookkeeping updates"). Takes the merge function as a parameter rather than
+     * calling [eu.heha.conifer.sync.MergePolicy] directly so this DAO stays free of business
+     * logic and [eu.heha.conifer.sync.MergePolicy] stays a plain, DB-free, unit-testable function.
+     */
+    @Transaction
+    suspend fun mergeAndStore(
+        remote: Bit,
+        remoteEtag: String,
+        merge: (local: Bit?, remote: Bit, remoteEtag: String) -> Bit,
+    ): Bit {
+        val merged = merge(bit(remote.id), remote, remoteEtag)
+        upsert(merged)
+        return merged
+    }
 
     @Query("SELECT etag FROM bucket_state WHERE bucket = :bucket")
     suspend fun bucketEtag(bucket: String): String?
