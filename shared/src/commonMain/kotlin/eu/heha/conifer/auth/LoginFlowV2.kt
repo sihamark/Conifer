@@ -9,11 +9,11 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.Parameters
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import eu.heha.conifer.AppJson as json
 
 /**
  * Nextcloud Login Flow v2: a stock, unauthenticated Nextcloud endpoint that lets a device obtain
@@ -25,7 +25,6 @@ class LoginFlowV2(
     client: HttpClient = HttpClient(),
 ) {
     private val client: HttpClient = client.config { expectSuccess = false }
-    private val json = Json { ignoreUnknownKeys = true }
 
     /** `POST {serverUrl}/index.php/login/v2`: starts a new session. */
     suspend fun start(serverUrl: String): Session {

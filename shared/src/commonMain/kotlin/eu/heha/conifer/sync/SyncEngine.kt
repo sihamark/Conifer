@@ -15,9 +15,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+import eu.heha.conifer.AppJson as json
 
 /**
  * Orchestrates one full sync run against [remoteStore]: fast-path check, pull, push, the
@@ -30,7 +33,6 @@ class SyncEngine(
     private val syncPrefs: SyncPrefs,
 ) {
     private val mutex = Mutex()
-    private val json = Json { ignoreUnknownKeys = true }
     private val readableModule = ReadableModule(remoteStore, databaseController)
     private val garbageCollector = GarbageCollector(remoteStore, databaseController)
 
@@ -307,7 +309,22 @@ class SyncEngine(
 
     private fun path(postsRoot: String, bit: Bit) = "$postsRoot/${bit.bucket}/${bit.id}.json"
 
-    private fun encode(bit: Bit): String = json.encodeToString(bit.toJson())
+    /**
+     * Serializes [bit] for the wire, merging our own fields into whatever [Bit.payload] already
+     * holds (the last known server-side JSON) rather than rebuilding the object from scratch -
+     * so a field a newer app version added, which this version doesn't understand, survives a
+     * push made from here instead of being silently dropped (spec §3.1: "unknown fields must be
+     * preserved on merge - take the JSON as a whole, don't rebuild it field by field"). A bit
+     * that's never been synced has no payload yet, so there's nothing to preserve.
+     */
+    private fun encode(bit: Bit): String {
+        val known = json.encodeToJsonElement(bit.toJson()).jsonObject
+        val base = bit.payload?.let { raw ->
+            runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull()
+        }
+        val merged = if (base == null) known else JsonObject(base + known)
+        return json.encodeToString(JsonObject.serializer(), merged)
+    }
 
     private companion object {
         const val MAX_PUSH_ATTEMPTS = 3

@@ -16,6 +16,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,6 +63,43 @@ class SyncEngineTest {
             """{"schema":1}""",
             server.get("Conifer/.sync/meta/manifest.json").decodeToString()
         )
+    }
+
+    @Test
+    fun pushPreservesUnknownJsonFieldsFromAnEarlierPull() = runTest {
+        // Simulates a post whose JSON already carries a field this app version doesn't know
+        // about (e.g. written by a newer client) - a local edit and re-push must not drop it.
+        val server = FakeRemoteStore()
+        val device = device(server)
+        val bit =
+            Bit(text = "original", createdAt = BASE_TIME, date = BASE_DATE, modifiedAt = BASE_TIME)
+        server.mkdirs("Conifer")
+        server.mkdirs("Conifer/.sync")
+        server.mkdirs("Conifer/.sync/posts")
+        server.mkdirs("Conifer/.sync/posts/${bit.bucket}")
+        val path = "Conifer/.sync/posts/${bit.bucket}/${bit.id}.json"
+        val rawJsonFromANewerAppVersion = """
+            {"id":"${bit.id}","text":"original","createdAt":${bit.createdAt.toEpochMilliseconds()},
+            "date":"${bit.date}","modifiedAt":${bit.modifiedAt.toEpochMilliseconds()},
+            "modifiedBy":"","deleted":false,"attachments":["photo.jpg"]}
+        """.trimIndent().replace("\n", "")
+        val etag =
+            server.put(path, rawJsonFromANewerAppVersion.encodeToByteArray(), ifNoneMatchAll = true)
+        device.dao().upsert(
+            bit.copy(
+                text = "edited locally",
+                dirty = true,
+                modifiedAt = BASE_TIME + 1.minutes,
+                remoteEtag = etag,
+                payload = rawJsonFromANewerAppVersion,
+            )
+        )
+
+        device.engine.sync()
+
+        val pushed = Json.parseToJsonElement(server.get(path).decodeToString()).jsonObject
+        assertEquals("edited locally", pushed["text"]?.jsonPrimitive?.content)
+        assertEquals("photo.jpg", pushed["attachments"]?.jsonArray?.get(0)?.jsonPrimitive?.content)
     }
 
     @Test

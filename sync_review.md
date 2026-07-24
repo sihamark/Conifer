@@ -29,22 +29,25 @@ to surface.
 **Needs a product decision** (what does "manual confirmation" look like with no settings UI yet?)
 before implementing — not done.
 
-## 2. Unknown JSON fields are dropped on re-push (spec §3.1)
+## 2. Unknown JSON fields are dropped on re-push (spec §3.1) **fixed**
 
 `BitJson.toBitOrNull` stamps the raw JSON into `Bit.payload` "so a future app version's unknown
-fields survive" — but `SyncEngine.encode(bit)` calls `bit.toJson()`, which rebuilds a `BitJson`
-from scratch using only the fields this app version understands. `payload` is never
-re-serialized. So if this device's copy wins a merge and gets re-pushed, any field a newer app
-version added (e.g. a hypothetical `attachments`) is silently dropped from the server copy. Spec
+fields survive" — but `SyncEngine.encode(bit)` called `bit.toJson()`, which rebuilt a `BitJson`
+from scratch using only the fields this app version understands. `payload` was never
+re-serialized. So if this device's copy won a merge and got re-pushed, any field a newer app
+version added (e.g. a hypothetical `attachments`) was silently dropped from the server copy. Spec
 §3.1 is explicit: "unknown fields must be preserved on merge (take the JSON as a whole, don't
 rebuild it field by field)."
 
-Latent today (there's only one schema version in practice) but real. **Not fixed** — would need
-push to re-merge new field values into the parsed JSON tree from `payload` instead of round-
-tripping through the typed `BitJson`, which is a bigger design change than the mechanical fixes
-below.
+**Fixed:** `encode(bit)` now parses `bit.payload` (the last known server-side JSON, if any) into
+a `JsonObject`, encodes `bit.toJson()` into another `JsonObject` for the fields this app owns, and
+merges the two (`base + known`, so known fields win, everything else survives) before
+serializing. A bit with no prior payload (never synced) just encodes its own fields, same as
+before. Covered by `SyncEngineTest.pushPreservesUnknownJsonFieldsFromAnEarlierPull`.
 
-## 3. Mechanical fixes (small, no design decisions needed)
+*(Status: implemented as a follow-up to this review — see commit history.)*
+
+## 3. Mechanical fixes (small, no design decisions needed) **completed**
 
 - **`dataRoot/meta/manifest.json` was never created.** Spec §9 "First device / empty server":
   `mkdirs` for `posts/` and `meta/`, then create `manifest.json` with `{"schema": 1}` via
