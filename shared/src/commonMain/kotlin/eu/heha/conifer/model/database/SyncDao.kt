@@ -6,6 +6,7 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
  * Queries the sync engine needs (Nextcloud sync spec §3.3). Only sync code uses this DAO; the
@@ -45,6 +46,14 @@ interface SyncDao {
 
     @Delete
     suspend fun delete(bit: Bit)
+
+    /**
+     * Tombstones ready for physical deletion (sync spec §8): already pushed ([Bit.dirty] == 0, so
+     * the deletion itself has actually reached the server and every other device has had a
+     * chance to pull it) and older than the retention window.
+     */
+    @Query("SELECT * FROM bits WHERE deleted = 1 AND dirty = 0 AND modified_at < :threshold")
+    suspend fun eligibleTombstones(threshold: Instant): List<Bit>
 
     /**
      * [payload] is stamped alongside the ETag so a later edit of the same bit can recover the

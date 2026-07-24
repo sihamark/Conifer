@@ -126,6 +126,28 @@ class KtorWebDavStoreIntegrationTest {
     }
 
     @Test
+    fun deleteRemovesAFileAndTakingItsEtagAfterwardsIsNull() = runTest {
+        val store = store() ?: return@runTest
+        val folder = uniqueFolder("delete")
+        store.mkdirs(folder)
+        val path = "$folder/note.json"
+        store.put(path, "gone soon".encodeToByteArray(), ifNoneMatchAll = true)
+
+        store.delete(path)
+
+        assertNull(store.etag(path))
+    }
+
+    @Test
+    fun deleteToleratesAnAlreadyMissingFile() = runTest {
+        val store = store() ?: return@runTest
+        val folder = uniqueFolder("delete-missing")
+        store.mkdirs(folder)
+
+        store.delete("$folder/never-existed.json") // must not throw
+    }
+
+    @Test
     fun etagOfAMissingPathIsNull() = runTest {
         val store = store() ?: return@runTest
 

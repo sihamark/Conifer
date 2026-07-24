@@ -63,6 +63,11 @@ class FakeRemoteStore : RemoteStore {
         return etag
     }
 
+    override suspend fun delete(path: String) {
+        val normalized = normalize(path)
+        if (files.remove(normalized) != null) bumpAncestors(normalized)
+    }
+
     override suspend fun mkdirs(path: String) {
         val normalized = normalize(path)
         if (normalized in directories) return

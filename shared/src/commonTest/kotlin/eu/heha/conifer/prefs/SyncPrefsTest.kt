@@ -35,14 +35,17 @@ class SyncPrefsTest {
         val prefs = prefs()
         assertNull(prefs.rootEtag())
         assertNull(prefs.lastSyncAt())
+        assertNull(prefs.lastGcAt())
         assertNull(prefs.serverUrl())
 
         prefs.setRootEtag("etag-1")
         prefs.setLastSyncAt(Instant.fromEpochMilliseconds(1_752_408_000_000))
+        prefs.setLastGcAt(Instant.fromEpochMilliseconds(1_752_494_400_000))
         prefs.setServerUrl("https://cloud.example.org")
 
         assertEquals("etag-1", prefs.rootEtag())
         assertEquals(Instant.fromEpochMilliseconds(1_752_408_000_000), prefs.lastSyncAt())
+        assertEquals(Instant.fromEpochMilliseconds(1_752_494_400_000), prefs.lastGcAt())
         assertEquals("https://cloud.example.org", prefs.serverUrl())
     }
 }

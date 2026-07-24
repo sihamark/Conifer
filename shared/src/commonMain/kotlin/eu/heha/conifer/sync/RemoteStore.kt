@@ -32,6 +32,9 @@ interface RemoteStore {
     /** MKCOL; tolerates the folder already existing (405). */
     suspend fun mkdirs(path: String)
 
+    /** DELETE. Tolerates the resource already being gone (404) — physical GC (spec §8) is idempotent. */
+    suspend fun delete(path: String)
+
     /**
      * Bulk upload of multiple small files via `remote.php/dav/bulk` (multipart/related). For new
      * files only (no conditional semantics) — falls back to sequential [put] if the server

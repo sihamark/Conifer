@@ -260,6 +260,38 @@ class SyncEngineTest {
         assertEquals(false, device.dao().hasPendingReadableDays())
     }
 
+    @Test
+    fun syncGarbageCollectsAnEligibleTombstoneAndStampsLastGcAt() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        server.mkdirs("Conifer")
+        server.mkdirs("Conifer/.sync")
+        server.mkdirs("Conifer/.sync/posts")
+        server.mkdirs("Conifer/.sync/posts/2025-07")
+        val path = "Conifer/.sync/posts/2025-07/old-tombstone.json"
+        val etag = server.put(path, "{}".encodeToByteArray(), ifNoneMatchAll = true)
+        device.dao().upsert(
+            Bit(
+                id = "old-tombstone",
+                text = "",
+                createdAt = BASE_TIME,
+                date = BASE_DATE,
+                deleted = true,
+                dirty = false,
+                modifiedAt = BASE_TIME, // 2025-07-13, far past the 90-day retention window
+                remoteEtag = etag,
+                bucket = "2025-07",
+            )
+        )
+        assertEquals(null, device.syncPrefs.lastGcAt())
+
+        device.engine.sync()
+
+        assertEquals(null, device.dao().bit("old-tombstone"))
+        assertEquals(null, server.etag(path))
+        assertEquals(true, device.syncPrefs.lastGcAt() != null)
+    }
+
     private fun device(remoteStore: RemoteStore): TestDevice {
         val dbFile = Files.createTempDirectory("conifer-sync-engine-test").resolve("test.db")
         val database = Room.databaseBuilder<AppDatabase>(name = dbFile.toString())
@@ -333,6 +365,11 @@ private class CountingRemoteStore(private val delegate: RemoteStore) : RemoteSto
     override suspend fun mkdirs(path: String) {
         callCount++
         delegate.mkdirs(path)
+    }
+
+    override suspend fun delete(path: String) {
+        callCount++
+        delegate.delete(path)
     }
 
     override suspend fun bulkPut(files: List<RemoteStore.BulkFile>): List<String> {

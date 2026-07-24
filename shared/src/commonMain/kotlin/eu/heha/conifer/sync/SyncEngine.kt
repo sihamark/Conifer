@@ -12,11 +12,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 /**
  * Orchestrates one full sync run against [remoteStore]: fast-path check, pull, push, the
- * readable module, and finalize (Nextcloud sync spec §5). A run is exclusive against
- * concurrent calls on the same instance.
+ * readable module, tombstone GC, and finalize (Nextcloud sync spec §5). A run is exclusive
+ * against concurrent calls on the same instance.
  */
 class SyncEngine(
     private val remoteStore: RemoteStore,
@@ -26,6 +27,7 @@ class SyncEngine(
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
     private val readableModule = ReadableModule(remoteStore, databaseController)
+    private val garbageCollector = GarbageCollector(remoteStore, databaseController)
 
     // Buckets confirmed/created on the server during this instance's lifetime, so a normal sync
     // doesn't re-issue the same redundant MKCOLs every single run. RemoteStore.mkdirs() tolerates
@@ -44,6 +46,7 @@ class SyncEngine(
         pull(postsRoot)
         push(postsRoot)
         readableModule.render(appRoot)
+        collectGarbageIfDue(postsRoot)
         finalize(postsRoot)
     }
 
@@ -51,7 +54,21 @@ class SyncEngine(
         val remoteRootEtag = remoteStore.etag(postsRoot) ?: return false
         return remoteRootEtag == syncPrefs.rootEtag() &&
                 !dao().hasDirtyBits() &&
-                !dao().hasPendingReadableDays()
+                !dao().hasPendingReadableDays() &&
+                !garbageCollectionIsDue()
+    }
+
+    // --- tombstone GC (spec §8) -------------------------------------------------------------
+
+    private suspend fun collectGarbageIfDue(postsRoot: String) {
+        if (!garbageCollectionIsDue()) return
+        garbageCollector.collect(postsRoot)
+        syncPrefs.setLastGcAt(Clock.System.now())
+    }
+
+    private suspend fun garbageCollectionIsDue(): Boolean {
+        val lastGcAt = syncPrefs.lastGcAt() ?: return true
+        return Clock.System.now() - lastGcAt >= GC_INTERVAL
     }
 
     // --- pull (spec §5 step 2) ---------------------------------------------------------------
@@ -250,5 +267,6 @@ class SyncEngine(
 
     private companion object {
         const val MAX_PUSH_ATTEMPTS = 3
+        val GC_INTERVAL = 7.days
     }
 }

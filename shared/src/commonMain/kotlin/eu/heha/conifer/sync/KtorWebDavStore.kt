@@ -131,6 +131,14 @@ class KtorWebDavStore(
         }
     }
 
+    override suspend fun delete(path: String) {
+        val response = client.request(urlFor(path)) { method = HttpMethod.Delete }
+        when (response.status.value) {
+            in 200..299, 404 -> return
+            else -> throw WebDavException(path, response.status.value)
+        }
+    }
+
     override suspend fun bulkPut(files: List<RemoteStore.BulkFile>): List<String> {
         if (files.isEmpty()) return emptyList()
 

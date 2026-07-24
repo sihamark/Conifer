@@ -29,6 +29,13 @@ class SyncPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[LAST_SYNC_AT] = time.toEpochMilliseconds() }
     }
 
+    /** Time of the last completed tombstone garbage-collection pass (sync spec §8). */
+    suspend fun lastGcAt(): Instant? = read(LAST_GC_AT)?.let(Instant::fromEpochMilliseconds)
+
+    suspend fun setLastGcAt(time: Instant) {
+        store.edit { it[LAST_GC_AT] = time.toEpochMilliseconds() }
+    }
+
     /**
      * Stable id of this installation, generated on first use. Stamped into every local change
      * as `modifiedBy`, where it serves as the deterministic merge tiebreaker.
@@ -68,6 +75,7 @@ class SyncPrefs(private val store: DataStore<Preferences>) {
 
         private val ROOT_ETAG = stringPreferencesKey("rootEtag")
         private val LAST_SYNC_AT = longPreferencesKey("lastSyncAt")
+        private val LAST_GC_AT = longPreferencesKey("lastGcAt")
         private val DEVICE_ID = stringPreferencesKey("deviceId")
         private val SERVER_URL = stringPreferencesKey("serverUrl")
         private val APP_ROOT = stringPreferencesKey("appRoot")
