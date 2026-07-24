@@ -89,10 +89,12 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.auth)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ksafe)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         jvmTest.dependencies {
             implementation(libs.androidx.room.testing)

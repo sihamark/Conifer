@@ -10,7 +10,8 @@ fun main() {
         isDebug = true,
         platform = WasmPlatform,
         databaseInitializer = WasmDatabaseInitializer,
-        syncPrefsInitializer = WasmSyncPrefsInitializer
+        syncPrefsInitializer = WasmSyncPrefsInitializer,
+        credentialsInitializer = WasmCredentialsInitializer
     )
     ComposeViewport(document.body!!) {
         ConiferApp.AppContent()

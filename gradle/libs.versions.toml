@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.0"
+agp = "9.3.1"
 
 androidx-activity = "1.13.0"
 androidx-appcompat = "1.7.1"
@@ -25,6 +25,7 @@ napier = "2.7.1"
 ktor = "3.5.1"
 testcontainers = "2.0.5"
 kotlinx-serialization = "1.11.0"
+ksafe = "2.2.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -68,8 +69,11 @@ ktor-client-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 
 testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+
+ksafe = { module = "eu.anifantakis:ksafe", version.ref = "ksafe" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

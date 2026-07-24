@@ -9,6 +9,7 @@ object IosConiferApp {
             platform = IosPlatform,
             databaseInitializer = IosDatabaseInitializer,
             syncPrefsInitializer = IosSyncPrefsInitializer,
+            credentialsInitializer = IosCredentialsInitializer,
             clipboardController = IosClipboardController
         )
     }
