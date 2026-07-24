@@ -13,8 +13,9 @@ import kotlin.time.Duration.Companion.days
  * had a chance to pull them (Nextcloud sync spec §8). Deliberately conservative: only considers
  * tombstones that are already clean (their deletion has actually reached the server, not just
  * this device) and older than [TOMBSTONE_RETENTION]; a device that stays offline longer than that
- * risks re-uploading a post GC'd elsewhere in the meantime ("resurrection") — an accepted v1
- * trade-off per the spec, not handled here.
+ * risks re-uploading a post GC'd elsewhere in the meantime ("resurrection") - [SyncEngine] guards
+ * against the sharpest edge of that (see its `isReturningFromLongOffline` stopgap), but the full
+ * mitigation the spec describes isn't implemented (see `sync_review.md` at the repo root).
  */
 class GarbageCollector(
     private val remoteStore: RemoteStore,
@@ -41,7 +42,10 @@ class GarbageCollector(
         }
     }
 
-    private companion object {
+    internal companion object {
+        // Shared with SyncEngine's own "returning from long offline" check (spec §8's
+        // resurrection-risk mitigation) - a device that's been dark longer than this may find
+        // posts it still thinks are live already GC'd elsewhere.
         val TOMBSTONE_RETENTION = 90.days
     }
 }

@@ -24,6 +24,8 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -345,6 +347,36 @@ class SyncEngineTest {
         assertEquals(null, device.dao().bit("old-tombstone"))
         assertEquals(null, server.etag(path))
         assertEquals(true, device.syncPrefs.lastGcAt() != null)
+    }
+
+    @Test
+    fun aBitWhoseFileWasGcdWhileThisDeviceWasLongOfflineIsNotResurrected() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        val original =
+            Bit(text = "original", createdAt = BASE_TIME, date = BASE_DATE, modifiedAt = BASE_TIME)
+        device.dao().upsert(original)
+        device.engine.sync() // pushed once - now has a remoteEtag
+
+        val synced = device.dao().bit(original.id)!!
+        val path = "Conifer/.sync/posts/${synced.bucket}/${synced.id}.json"
+        // Simulates another device having deleted and then GC'd it while this one was away.
+        server.delete(path)
+
+        device.dao().upsert(
+            synced.copy(
+                text = "edited while offline",
+                dirty = true,
+                modifiedAt = BASE_TIME + 1.minutes
+            )
+        )
+        device.syncPrefs.setLastSyncAt(Clock.System.now() - 91.days)
+
+        device.engine.sync()
+
+        // Stopgap behavior (spec §8, sync_review.md #1): stays dirty rather than resurrecting.
+        assertEquals(true, device.dao().bit(original.id)?.dirty)
+        assertEquals(null, server.etag(path))
     }
 
     private fun device(remoteStore: RemoteStore): TestDevice {

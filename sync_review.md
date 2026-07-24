@@ -3,9 +3,10 @@
 Review of `shared/src/*/kotlin/eu/heha/conifer/{sync,auth}` and the sync-related pieces of
 `model/database`, `prefs`, and DI, against `docs/nexcloud_sync_spec.md`. Ranked by importance.
 
-## 1. Resurrection risk isn't mitigated (spec §8)
+## 1. Resurrection risk isn't mitigated (spec §8) **partially fixed (stopgap)**
 
-`SyncEngine.pushModified`'s 412-conflict handler:
+`SyncEngine.pushModified`'s 412-conflict handler used to unconditionally re-upload a post as new
+once its file was gone:
 
 ```kotlin
 val currentEtag = remoteStore.etag(path)
@@ -16,18 +17,36 @@ if (currentEtag == null) {
 }
 ```
 
-If a post's file is gone, this unconditionally re-uploads it as new. Since stage 5 (GC) now
-physically deletes old tombstones, this path is genuinely reachable: a device offline >90 days
-that still has a dirty edit on a post another device deleted-and-GC'd in the meantime will
-silently resurrect it. The spec calls this out explicitly and prescribes a mitigation: "if the
-own device was offline > 90 days, force a full pull before the first push, and flag dirty posts
-whose remote file is missing **and** which were created before `lastSyncAt` for manual
-confirmation." None of that check exists — there's no comparison against
-`SyncPrefs.lastSyncAt()`, and there's no "flagged for confirmation" state on `Bit` for a future UI
-to surface.
+Since stage 5 (GC) physically deletes old tombstones, this path is genuinely reachable: a device
+offline >90 days that still has a dirty edit on a post another device deleted-and-GC'd in the
+meantime would silently resurrect it. The spec's full prescribed mitigation is: "if the own device
+was offline > 90 days, force a full pull before the first push, and flag dirty posts whose remote
+file is missing **and** which were created before `lastSyncAt` for manual confirmation."
 
-**Needs a product decision** (what does "manual confirmation" look like with no settings UI yet?)
-before implementing — not done.
+**What's implemented (option 1 of 3 considered, see below): detect-and-stall.**
+`SyncEngine.isReturningFromLongOffline()` compares `SyncPrefs.lastSyncAt()` against
+`GarbageCollector.TOMBSTONE_RETENTION` (the same 90-day window GC uses — made `internal` so both
+share one source of truth). When a bit's file has vanished **and** this device is returning from
+a long-offline gap, `pushModified` no longer resurrects it — it logs a warning and leaves the bit
+dirty, same as the existing "gave up after too many conflicts" path. Covered by
+`SyncEngineTest.aBitWhoseFileWasGcdWhileThisDeviceWasLongOfflineIsNotResurrected`.
+
+**What's still missing — deliberately, not an oversight:** this is the safe half only, not a
+resolution. There's a `TODO` on the exact spot in `SyncEngine.pushModified` (search
+`spec §8 resurrection mitigation`). The options considered, for whoever picks this back up:
+
+1. **Detect-and-stall** *(implemented)* — smallest change, no schema/UI. Downside: the edit is now
+   stuck dirty forever with no way to clear it, since nothing surfaces it anywhere.
+2. **Detect-and-auto-resolve** — same detection, but instead of stalling, accept the remote
+   deletion as authoritative: mark the local bit deleted, clear dirty. Converges on its own, but
+   silently discards the user's edit without asking — a different flavor of the same data-loss
+   problem, just picked automatically instead of by accident.
+3. **Full spec fix** — add a `needsConfirmation`-style column (Room schema bump + migration),
+   detect the same condition, and park the bit there for a future settings/inbox screen to
+   resolve. The only option matching spec's actual intent (a human decides), but it's a real
+   schema change for a flag with zero payoff until that UI exists.
+
+Revisit once a settings/sync UI exists to make option 3 worthwhile (see #5).
 
 ## 2. Unknown JSON fields are dropped on re-push (spec §3.1) **fixed**
 

@@ -84,6 +84,18 @@ class SyncEngine(
         return Clock.System.now() - lastGcAt >= GC_INTERVAL
     }
 
+    /**
+     * Whether this device is due for the spec §8 resurrection check: it's been long enough since
+     * [SyncPrefs.lastSyncAt] that another device could have deleted-and-GC'd a post this device
+     * still thinks is live (same window as [GarbageCollector.TOMBSTONE_RETENTION], since that's
+     * the mechanism creating the risk). `null` (never synced before) can't have this problem -
+     * nothing to resurrect yet.
+     */
+    private suspend fun isReturningFromLongOffline(): Boolean {
+        val lastSyncAt = syncPrefs.lastSyncAt() ?: return false
+        return Clock.System.now() - lastSyncAt >= GarbageCollector.TOMBSTONE_RETENTION
+    }
+
     // --- pull (spec §5 step 2) ---------------------------------------------------------------
 
     private suspend fun pull(appRoot: String, postsRoot: String) {
@@ -280,6 +292,21 @@ class SyncEngine(
             }
             val currentEtag = remoteStore.etag(path)
             if (currentEtag == null) {
+                if (isReturningFromLongOffline()) {
+                    // TODO(spec §8 resurrection mitigation): this is only the stopgap half of
+                    //  the spec's fix (see sync_review.md #1 at the repo root) - it avoids the
+                    //  resurrection by refusing to act, not by resolving it. The full fix needs a
+                    //  "flagged for manual confirmation" state on Bit (schema bump) and a UI
+                    //  surface to actually resolve it; revisit once a settings/inbox screen
+                    //  exists. Right now this edit just stays dirty forever with no way to clear
+                    //  it, which is the honest trade-off of doing the safe half without the rest.
+                    Napier.w {
+                        "bit ${bit.id}'s remote file is gone after this device was offline for " +
+                                "a long time - not resurrecting it; it stays dirty until this is " +
+                                "resolved (see the TODO on pushModified)"
+                    }
+                    return
+                }
                 // The file vanished between our failed PUT and this check - push it as new.
                 pushNewSingle(postsRoot, bit.copy(remoteEtag = null))
                 return
