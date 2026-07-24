@@ -48,6 +48,20 @@ class SyncEngineTest {
     }
 
     @Test
+    fun firstSyncOnAnEmptyServerCreatesTheManifest() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        device.dao().upsert(Bit(text = "hello", createdAt = BASE_TIME, date = BASE_DATE))
+
+        device.engine.sync()
+
+        assertEquals(
+            """{"schema":1}""",
+            server.get("Conifer/.sync/meta/manifest.json").decodeToString()
+        )
+    }
+
+    @Test
     fun secondSyncWithNothingChangedTakesTheFastPath() = runTest {
         val server = FakeRemoteStore()
         val device = device(server)

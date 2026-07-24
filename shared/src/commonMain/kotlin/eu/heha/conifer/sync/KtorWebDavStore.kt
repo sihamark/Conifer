@@ -27,8 +27,8 @@ private const val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 
 /**
  * WebDAV [RemoteStore] against a Nextcloud (or any WebDAV) server (spec §4). path parameters
- * are relative to `remote.php/dav/files/{username}/` — the sync engine (spec §5, not yet
- * implemented) is responsible for prefixing them with `appRoot`/`.sync` as needed.
+ * are relative to `remote.php/dav/files/{username}/` — [eu.heha.conifer.sync.SyncEngine] (spec
+ * §5) is responsible for prefixing them with `appRoot`/`.sync` as needed.
  *
  * Authentication is HTTP Basic against an app password (spec §3.2/§10 Login Flow v2); [client]
  * defaults to a plain platform [HttpClient] but can be overridden, e.g. in tests.

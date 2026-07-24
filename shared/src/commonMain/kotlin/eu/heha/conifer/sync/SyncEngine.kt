@@ -5,9 +5,14 @@ import eu.heha.conifer.model.database.BucketState
 import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.model.database.ReadablePending
 import eu.heha.conifer.prefs.SyncPrefs
+import eu.heha.conifer.sync.SyncEngine.Companion.PULL_PARALLELISM
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -35,6 +40,12 @@ class SyncEngine(
     // just slightly wasteful.
     private val knownBuckets = mutableSetOf<String>()
 
+    // Whether this instance has already confirmed/created dataRoot/meta/manifest.json this
+    // session (spec §9 "First device / empty server"). Purely a request-saving cache: once
+    // postsRoot exists remotely (from anyone's first push), pull() never hits the branch that
+    // checks this again anyway, since manifest.json is written once and never touched afterwards.
+    private var manifestConfirmed = false
+
     private fun dao() = databaseController.syncDao()
 
     suspend fun sync() = mutex.withLock {
@@ -43,7 +54,7 @@ class SyncEngine(
 
         if (fastPathApplies(postsRoot)) return@withLock
 
-        pull(postsRoot)
+        pull(appRoot, postsRoot)
         push(postsRoot)
         readableModule.render(appRoot)
         collectGarbageIfDue(postsRoot)
@@ -73,11 +84,12 @@ class SyncEngine(
 
     // --- pull (spec §5 step 2) ---------------------------------------------------------------
 
-    private suspend fun pull(postsRoot: String) {
+    private suspend fun pull(appRoot: String, postsRoot: String) {
         val buckets = try {
             remoteStore.list(postsRoot)
         } catch (_: WebDavNotFoundException) {
-            emptyList() // no device has ever pushed anything yet
+            ensureManifestExists(appRoot, postsRoot) // spec §9 "First device / empty server"
+            emptyList()
         }
         for (bucketEntry in buckets.filter { it.isDirectory }) {
             val bucket = bucketEntry.name
@@ -85,11 +97,43 @@ class SyncEngine(
 
             val entries = remoteStore.list("$postsRoot/$bucket")
                 .filter { !it.isDirectory && it.name.endsWith(".json") }
-            for (entry in entries) {
-                pullEntry(postsRoot, bucket, entry)
-            }
+            pullEntries(postsRoot, bucket, entries)
             dao().upsertBucketState(BucketState(bucket, bucketEntry.etag))
         }
+    }
+
+    /** Downloads and merges [entries] with parallelism ≤ [PULL_PARALLELISM] (spec §4/§9). */
+    private suspend fun pullEntries(
+        postsRoot: String,
+        bucket: String,
+        entries: List<RemoteStore.Entry>,
+    ) = coroutineScope {
+        val permits = Semaphore(PULL_PARALLELISM)
+        for (entry in entries) {
+            launch { permits.withPermit { pullEntry(postsRoot, bucket, entry) } }
+        }
+    }
+
+    /**
+     * Marks a brand-new collection as Conifer's: `dataRoot/posts/`, `dataRoot/meta/`, and
+     * `dataRoot/meta/manifest.json` with `{"schema":1}` (spec §9 "First device / empty server").
+     * Tolerates another device winning the race to create the manifest first.
+     */
+    private suspend fun ensureManifestExists(appRoot: String, postsRoot: String) {
+        if (manifestConfirmed) return
+        mkdirsRecursive(postsRoot)
+        val metaDir = "$appRoot/.sync/meta"
+        mkdirsRecursive(metaDir)
+        try {
+            remoteStore.put(
+                "$metaDir/manifest.json",
+                MANIFEST_JSON.encodeToByteArray(),
+                ifNoneMatchAll = true,
+            )
+        } catch (_: WebDavConflictException) {
+            // Another device created it first - it exists now either way.
+        }
+        manifestConfirmed = true
     }
 
     private suspend fun pullEntry(postsRoot: String, bucket: String, entry: RemoteStore.Entry) {
@@ -267,6 +311,8 @@ class SyncEngine(
 
     private companion object {
         const val MAX_PUSH_ATTEMPTS = 3
+        const val PULL_PARALLELISM = 6
+        const val MANIFEST_JSON = """{"schema":1}"""
         val GC_INTERVAL = 7.days
     }
 }
