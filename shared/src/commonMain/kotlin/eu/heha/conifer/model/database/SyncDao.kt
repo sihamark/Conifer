@@ -46,8 +46,13 @@ interface SyncDao {
     @Delete
     suspend fun delete(bit: Bit)
 
-    @Query("UPDATE bits SET dirty = 0, remote_etag = :etag WHERE id = :id")
-    suspend fun setClean(id: String, etag: String)
+    /**
+     * [payload] is stamped alongside the ETag so a later edit of the same bit can recover the
+     * day it had at this push (see [eu.heha.conifer.sync.SyncEngine]'s re-dating handling) even
+     * though [BitDao], which local edits go through, never touches sync bookkeeping.
+     */
+    @Query("UPDATE bits SET dirty = 0, remote_etag = :etag, payload = :payload WHERE id = :id")
+    suspend fun setClean(id: String, etag: String, payload: String)
 
     /**
      * Atomically reads the current local row for [remote]'s id, resolves it against [remote]

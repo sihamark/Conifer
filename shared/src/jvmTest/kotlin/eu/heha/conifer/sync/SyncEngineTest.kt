@@ -9,6 +9,7 @@ import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.model.database.AppDatabase
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.model.database.DatabaseController
+import eu.heha.conifer.model.database.ReadablePending
 import eu.heha.conifer.prefs.SyncPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -51,13 +52,7 @@ class SyncEngineTest {
         val server = FakeRemoteStore()
         val device = device(server)
         device.dao().upsert(Bit(text = "only bit", createdAt = BASE_TIME, date = BASE_DATE))
-        device.engine.sync()
-
-        // The readable module (spec §7, stage ④) doesn't exist yet, so the day this sync just
-        // touched is still sitting in readable_pending - correctly blocking the fast path until
-        // that stage drains it. Clear it here to isolate what this test actually checks: given no
-        // dirty bits and no pending renders, a matching root ETag short-circuits to one request.
-        for (day in device.dao().pendingReadableDays()) device.dao().clearReadablePending(day)
+        device.engine.sync() // also drains readable_pending via the readable module (spec §7)
 
         val counting = CountingRemoteStore(server)
         SyncEngine(counting, device.databaseController, device.syncPrefs).sync()
@@ -186,6 +181,85 @@ class SyncEngineTest {
         assertEquals(setOf("first", "second"), bitsOnOtherDevice.map { it.text }.toSet())
     }
 
+    @Test
+    fun syncRendersAReadableMarkdownFileForTheBitsDay() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        device.dao().upsert(Bit(text = "hello readable", createdAt = BASE_TIME, date = BASE_DATE))
+
+        device.engine.sync()
+
+        val markdown = server.get("Conifer/2025-07/2025-07-13.md").decodeToString()
+        assertEquals(true, markdown.contains("# 2025-07-13"))
+        assertEquals(true, markdown.contains("hello readable"))
+        assertEquals(false, device.dao().hasPendingReadableDays())
+    }
+
+    @Test
+    fun aReDatedBitDisappearsFromItsOldDayFileAndAppearsInTheNewOneOnAPullingDevice() = runTest {
+        val server = FakeRemoteStore()
+        val deviceA = device(server)
+        val deviceB = device(server)
+
+        val original = Bit(text = "movable", createdAt = BASE_TIME, date = BASE_DATE)
+        deviceA.dao().upsert(original)
+        deviceA.engine.sync()
+        deviceB.engine.sync() // B has a clean copy, day 2025-07-13, and has rendered it too
+
+        val onA = deviceA.dao().bit(original.id)!!
+        deviceA.dao().upsert(
+            onA.copy(date = OTHER_DAY_DATE, dirty = true, modifiedAt = BASE_TIME + 1.minutes)
+        )
+        deviceA.engine.sync() // pushes the re-date
+
+        deviceB.engine.sync() // pulls it - must re-render both the old and new day on B
+
+        val oldDayFile = server.get("Conifer/2025-07/2025-07-13.md").decodeToString()
+        val newDayFile = server.get("Conifer/2025-07/${OTHER_DAY_DATE.date}.md").decodeToString()
+        assertEquals(false, oldDayFile.contains("movable"))
+        assertEquals(true, newDayFile.contains("movable"))
+        // re-dating never changes the immutable bucket (spec invariant I1)
+        assertEquals(original.bucket, deviceB.dao().bit(original.id)?.bucket)
+    }
+
+    @Test
+    fun aBitReDatedAndPushedByTheSameDeviceInvalidatesItsOwnOldDayFile() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        val original = Bit(text = "movable", createdAt = BASE_TIME, date = BASE_DATE)
+        device.dao().upsert(original)
+        device.engine.sync() // pushed and rendered under 2025-07-13
+
+        val stored = device.dao().bit(original.id)!!
+        device.dao().upsert(
+            stored.copy(date = OTHER_DAY_DATE, dirty = true, modifiedAt = BASE_TIME + 1.minutes)
+        )
+        device.engine.sync() // this device both pushes AND re-renders its own old day
+
+        val oldDayFile = server.get("Conifer/2025-07/2025-07-13.md").decodeToString()
+        val newDayFile = server.get("Conifer/2025-07/${OTHER_DAY_DATE.date}.md").decodeToString()
+        assertEquals(false, oldDayFile.contains("movable"))
+        assertEquals(true, newDayFile.contains("movable"))
+    }
+
+    @Test
+    fun aSecondSyncSkipsReUploadingAnUnchangedReadableRendering() = runTest {
+        val server = FakeRemoteStore()
+        val device = device(server)
+        device.dao().upsert(Bit(text = "stable", createdAt = BASE_TIME, date = BASE_DATE))
+        device.engine.sync()
+        val etagAfterFirstRender = server.etag("Conifer/2025-07/2025-07-13.md")
+
+        // Re-queue the day without touching its content - simulates it being pulled back into
+        // readable_pending as a side effect unrelated to this day's own content, e.g. another
+        // day's push. The readable module must recognize the rendering is unchanged and skip it.
+        device.dao().markReadablePending(ReadablePending(BASE_DATE.date))
+        device.engine.sync()
+
+        assertEquals(etagAfterFirstRender, server.etag("Conifer/2025-07/2025-07-13.md"))
+        assertEquals(false, device.dao().hasPendingReadableDays())
+    }
+
     private fun device(remoteStore: RemoteStore): TestDevice {
         val dbFile = Files.createTempDirectory("conifer-sync-engine-test").resolve("test.db")
         val database = Room.databaseBuilder<AppDatabase>(name = dbFile.toString())
@@ -207,6 +281,7 @@ class SyncEngineTest {
 private val BASE_TIME = Instant.fromEpochMilliseconds(1_752_408_000_000) // 2025-07-13T12:00:00Z
 private val BASE_DATE = LocalDateTime(2025, 7, 13, 8, 0)
 private val BASE_DATE2 = LocalDateTime(2025, 7, 13, 8, 1)
+private val OTHER_DAY_DATE = LocalDateTime(2025, 7, 20, 9, 0)
 
 private class TestDevice(
     val databaseController: DatabaseController,

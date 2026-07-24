@@ -8,17 +8,15 @@ import eu.heha.conifer.prefs.SyncPrefs
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 
 /**
- * Orchestrates one full sync run against [remoteStore]: fast-path check, pull, push, finalize
- * (Nextcloud sync spec §5). A run is exclusive against concurrent calls on the same instance.
- *
- * The readable-module step (spec §7, stage ④) isn't implemented yet. This engine still marks
- * every touched day in `readable_pending` (old *and* new day on a re-date, per spec §7.2) so that
- * stage can start directly from an accurate backlog instead of having to re-derive it.
+ * Orchestrates one full sync run against [remoteStore]: fast-path check, pull, push, the
+ * readable module, and finalize (Nextcloud sync spec §5). A run is exclusive against
+ * concurrent calls on the same instance.
  */
 class SyncEngine(
     private val remoteStore: RemoteStore,
@@ -27,6 +25,7 @@ class SyncEngine(
 ) {
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
+    private val readableModule = ReadableModule(remoteStore, databaseController)
 
     // Buckets confirmed/created on the server during this instance's lifetime, so a normal sync
     // doesn't re-issue the same redundant MKCOLs every single run. RemoteStore.mkdirs() tolerates
@@ -37,12 +36,14 @@ class SyncEngine(
     private fun dao() = databaseController.syncDao()
 
     suspend fun sync() = mutex.withLock {
-        val postsRoot = "${syncPrefs.appRoot()}/.sync/posts"
+        val appRoot = syncPrefs.appRoot()
+        val postsRoot = "$appRoot/.sync/posts"
 
         if (fastPathApplies(postsRoot)) return@withLock
 
         pull(postsRoot)
         push(postsRoot)
+        readableModule.render(appRoot)
         finalize(postsRoot)
     }
 
@@ -88,11 +89,31 @@ class SyncEngine(
     private suspend fun mergeRemote(remote: Bit, remoteEtag: String): Bit {
         val previousDay = dao().bit(remote.id)?.date?.date
         val merged = dao().mergeAndStore(remote, remoteEtag, MergePolicy::merged)
-        dao().markReadablePending(ReadablePending(merged.date.date))
-        if (previousDay != null && previousDay != merged.date.date) {
+        markReadablePendingForDayChange(merged.date.date, previousDay)
+        return merged
+    }
+
+    /**
+     * Queues [bit]'s day for re-rendering and, if a local edit re-dated it since the last time
+     * it was pushed, its previous day too - so that day's file stops listing it (spec §7.2).
+     * [Bit.payload] is what makes the previous day recoverable here even though the edit itself
+     * went through [eu.heha.conifer.model.database.BitDao], not this DAO: [pushNewSingle],
+     * [pushModified] and [pushNew] all stamp it with the JSON they just pushed, so the *next*
+     * push can diff against the day it recorded.
+     */
+    private suspend fun markReadablePendingForPush(bit: Bit) {
+        val previousDay = bit.payload?.let(::parse)?.date?.date
+        markReadablePendingForDayChange(bit.date.date, previousDay)
+    }
+
+    private suspend fun markReadablePendingForDayChange(
+        currentDay: LocalDate,
+        previousDay: LocalDate?,
+    ) {
+        dao().markReadablePending(ReadablePending(currentDay))
+        if (previousDay != null && previousDay != currentDay) {
             dao().markReadablePending(ReadablePending(previousDay))
         }
-        return merged
     }
 
     private fun parse(rawJson: String): Bit? = try {
@@ -146,7 +167,7 @@ class SyncEngine(
             val files = new.map { bit ->
                 RemoteStore.BulkFile(
                     path(postsRoot, bit),
-                    encode(bit),
+                    encode(bit).encodeToByteArray(),
                     bit.modifiedAt.epochSeconds
                 )
             }
@@ -154,8 +175,8 @@ class SyncEngine(
         }
         bulkResult.onSuccess { pushed ->
             for ((bit, etag) in pushed) {
-                dao().setClean(bit.id, etag)
-                dao().markReadablePending(ReadablePending(bit.date.date))
+                dao().setClean(bit.id, etag, encode(bit))
+                markReadablePendingForPush(bit)
             }
         }.onFailure {
             // The batch (or KtorWebDavStore's own per-file fallback inside bulkPut) failed
@@ -168,9 +189,10 @@ class SyncEngine(
     private suspend fun pushNewSingle(postsRoot: String, bit: Bit) {
         val path = path(postsRoot, bit)
         try {
-            val etag = remoteStore.put(path, encode(bit), ifNoneMatchAll = true)
-            dao().setClean(bit.id, etag)
-            dao().markReadablePending(ReadablePending(bit.date.date))
+            val payload = encode(bit)
+            val etag = remoteStore.put(path, payload.encodeToByteArray(), ifNoneMatchAll = true)
+            dao().setClean(bit.id, etag, payload)
+            markReadablePendingForPush(bit)
         } catch (e: WebDavConflictException) {
             // Already on the server (a previous attempt's PUT went through but was never
             // recorded locally) - reconcile through the normal merge path instead of assuming
@@ -184,9 +206,10 @@ class SyncEngine(
     private suspend fun pushModified(postsRoot: String, bit: Bit, attempt: Int = 1) {
         val path = path(postsRoot, bit)
         try {
-            val etag = remoteStore.put(path, encode(bit), ifMatch = bit.remoteEtag)
-            dao().setClean(bit.id, etag)
-            dao().markReadablePending(ReadablePending(bit.date.date))
+            val payload = encode(bit)
+            val etag = remoteStore.put(path, payload.encodeToByteArray(), ifMatch = bit.remoteEtag)
+            dao().setClean(bit.id, etag, payload)
+            markReadablePendingForPush(bit)
         } catch (_: WebDavConflictException) {
             if (attempt > MAX_PUSH_ATTEMPTS) {
                 Napier.w { "giving up pushing bit ${bit.id} after $attempt conflicting attempts; it stays dirty for the next sync" }
@@ -223,7 +246,7 @@ class SyncEngine(
 
     private fun path(postsRoot: String, bit: Bit) = "$postsRoot/${bit.bucket}/${bit.id}.json"
 
-    private fun encode(bit: Bit): ByteArray = json.encodeToString(bit.toJson()).encodeToByteArray()
+    private fun encode(bit: Bit): String = json.encodeToString(bit.toJson())
 
     private companion object {
         const val MAX_PUSH_ATTEMPTS = 3
