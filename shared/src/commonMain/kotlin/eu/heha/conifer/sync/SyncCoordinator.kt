@@ -58,7 +58,7 @@ class SyncCoordinator(
      * Runs the Login Flow v2 dance against [serverUrl]: starts a session, opens it in the
      * system browser, and waits for the user to finish signing in there. On success, stores the
      * app password/username and immediately runs a first sync. Cancel the calling coroutine to
-     * give up early (e.g. the user closes the sheet) - [state] falls back to [Disconnected]
+     * give up early (e.g. the user closes the sheet) - [state] falls back to [SyncConnectionState.Disconnected]
      * either way.
      */
     suspend fun connect(serverUrl: String) {
@@ -101,7 +101,7 @@ class SyncCoordinator(
         _state.value = SyncConnectionState.Disconnected
     }
 
-    /** Runs one [SyncEngine.sync] round. A no-op unless [state] is currently [Connected]. */
+    /** Runs one [SyncEngine.sync] round. A no-op unless [state] is currently [SyncConnectionState.Connected]. */
     suspend fun syncNow() {
         val current = _state.value as? SyncConnectionState.Connected ?: return
         if (current.isSyncing) return
