@@ -31,4 +31,40 @@
     <string name="bits_message_beginning">This is where your Conifer sprouted.\nKeep adding bits and watch it grow!</string>
     <string name="bits_message_empty">No bits yet.\nWrite your first one below.</string>
     <string name="bits_message_empty_filtered">No bits on this day yet.\nWrite one below — it will land here.</string>
+
+    <string name="sync_content_status_icon">Sync status</string>
+    <string name="sync_content_syncing">Syncing</string>
+
+    <string name="sync_title">Sync</string>
+    <string name="sync_subtitle">Optional — Conifer works fully offline, on this device only, unless you connect an account below. Nothing is sent anywhere until you do.</string>
+    <string name="sync_label_server_url">Nextcloud server</string>
+    <string name="sync_placeholder_server_url">https://cloud.example.org</string>
+    <string name="sync_action_connect">Connect to Nextcloud</string>
+    <string name="sync_label_app_root">App folder</string>
+    <string name="sync_placeholder_app_root">Conifer</string>
+    <string name="sync_note_app_root">Where your bits are stored on the server, relative to your Nextcloud files root.</string>
+    <string name="sync_action_save_app_root">Save</string>
+    <string name="sync_note_login_flow">Opens your browser to sign in (Login Flow v2) — Conifer never sees your password, only an app-scoped token.</string>
+    <string name="sync_message_connecting">Waiting for you to finish signing in in your browser…</string>
+    <string name="sync_action_cancel_connect">Cancel</string>
+    <string name="sync_status_syncing">Syncing…</string>
+    <string name="sync_status_last_synced">Last synced %1$s</string>
+    <string name="sync_status_never_synced">Never synced yet</string>
+    <string name="sync_action_sync_now">Sync now</string>
+    <string name="sync_action_disconnect">Disconnect</string>
+    <string name="sync_note_debug_hint">Tap the cloud icon in the app bar any time for sync details (debug) — device id, last sync, root ETag, last error.</string>
+    <string name="sync_action_close">Close</string>
+
+    <string name="sync_debug_title">Sync</string>
+    <string name="sync_debug_server">Server</string>
+    <string name="sync_debug_device_id">Device ID</string>
+    <string name="sync_debug_app_root">App root</string>
+    <string name="sync_debug_last_sync">Last sync</string>
+    <string name="sync_debug_root_etag">Root ETag</string>
+    <string name="sync_debug_last_gc">Last GC</string>
+    <string name="sync_debug_last_error">Last error</string>
+    <string name="sync_debug_note">For troubleshooting only — this is what a bug report would include instead of your bits\' content.</string>
+    <string name="sync_debug_action_settings">Sync settings…</string>
+    <string name="sync_debug_none">none</string>
+    <string name="sync_debug_never">never</string>
 </resources>

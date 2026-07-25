@@ -134,3 +134,10 @@ The sync entry point, sheet, and debug panel (added in an earlier pass) are stil
 `SyncEngine`/`KtorWebDavStore`/`LoginFlowV2` aren't wired into any real screen (see
 `sync_review.md` §5). They were restyled with the corrected palette for internal consistency, but
 there's nothing in the real app to compare them against yet.
+
+The debug panel moved from a collapsed toggle buried in the settings sheet to a popover anchored
+directly on the app bar's status icon: pressing it once connected opens the debug glance (device
+id, last sync, root ETag, pending changes, last error) immediately, with a "Sync settings…" link
+back to the full sheet for connect/disconnect. Before connecting, the same press still opens the
+full sheet instead (there's nothing to debug yet). Pure UX proposal, same caveat as the rest of
+this section.

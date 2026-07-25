@@ -19,6 +19,7 @@ fun main() = application {
         databaseInitializer = JvmDatabaseInitializer,
         syncPrefsInitializer = JvmSyncPrefsInitializer,
         credentialsInitializer = JvmCredentialsInitializer,
+        browserOpener = JvmBrowserOpener,
         clipboardController = JvmClipboardController
     )
     Window(

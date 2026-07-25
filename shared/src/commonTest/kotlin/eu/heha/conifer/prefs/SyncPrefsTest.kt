@@ -48,6 +48,14 @@ class SyncPrefsTest {
         assertEquals(Instant.fromEpochMilliseconds(1_752_494_400_000), prefs.lastGcAt())
         assertEquals("https://cloud.example.org", prefs.serverUrl())
     }
+
+    @Test
+    fun clearRootEtagDropsIt() = runTest {
+        val prefs = prefs()
+        prefs.setRootEtag("etag-1")
+        prefs.clearRootEtag()
+        assertNull(prefs.rootEtag())
+    }
 }
 
 private class InMemoryPreferencesStore : DataStore<Preferences> {

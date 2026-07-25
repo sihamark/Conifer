@@ -106,4 +106,33 @@ interface SyncDao {
 
     @Query("DELETE FROM readable_pending WHERE day = :day")
     suspend fun clearReadablePending(day: LocalDate)
+
+    /** Forgets every bit's server identity so the next push re-uploads it as new. */
+    @Query("UPDATE bits SET dirty = 1, remote_etag = NULL")
+    suspend fun markAllDirty()
+
+    @Query("DELETE FROM bucket_state")
+    suspend fun clearBucketState()
+
+    @Query("DELETE FROM readable_state")
+    suspend fun clearReadableState()
+
+    /** Queues every day that has a bit (visible or tombstoned) for re-rendering. */
+    @Query("INSERT OR IGNORE INTO readable_pending (day) SELECT DISTINCT substr(date, 1, 10) FROM bits")
+    suspend fun markAllDaysReadablePending()
+
+    /**
+     * Resets all sync bookkeeping so the next sync treats the local database as if it had never
+     * synced before: every bit is re-pushed, every server bucket is re-pulled, and every day's
+     * human-readable rendering is re-uploaded. Needed when the app-root folder changes, since a
+     * bit that's already clean (or a day whose rendering already matches) would otherwise never
+     * be written into the new, empty folder.
+     */
+    @Transaction
+    suspend fun resetForNewAppRoot() {
+        markAllDirty()
+        clearBucketState()
+        clearReadableState()
+        markAllDaysReadablePending()
+    }
 }

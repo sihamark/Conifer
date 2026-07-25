@@ -1,5 +1,6 @@
 package eu.heha.conifer.di
 
+import eu.heha.conifer.BrowserOpener
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.CredentialsInitializer
 import eu.heha.conifer.DatabaseInitializer
@@ -8,9 +9,12 @@ import eu.heha.conifer.SyncPrefsInitializer
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.prefs.SyncPrefs
+import eu.heha.conifer.sync.SyncCoordinator
 import eu.heha.conifer.ui.BitsViewModel
+import eu.heha.conifer.ui.SyncViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -23,6 +27,7 @@ val coreModule = module {
     single { SyncPrefs(get<SyncPrefsInitializer>().createSyncPrefsStore()) }
     single { get<CredentialsInitializer>().createCredentials() }
     singleOf(::BitsRepository)
+    singleOf(::SyncCoordinator)
     viewModel {
         BitsViewModel(
             repository = get(),
@@ -30,6 +35,7 @@ val coreModule = module {
             permissionHandler = it.getOrNull()
         )
     }
+    viewModelOf(::SyncViewModel)
 }
 
 /**
@@ -41,11 +47,13 @@ fun platformModule(
     databaseInitializer: DatabaseInitializer,
     syncPrefsInitializer: SyncPrefsInitializer,
     credentialsInitializer: CredentialsInitializer,
+    browserOpener: BrowserOpener,
     clipboardController: ClipboardController?
 ) = module {
     single { platform }
     single { databaseInitializer }
     single { syncPrefsInitializer }
     single { credentialsInitializer }
+    single { browserOpener }
     clipboardController?.let { controller -> single { controller } }
 }

@@ -11,6 +11,7 @@ class ConiferApplication : Application() {
             databaseInitializer = AndroidDatabaseInitializer(this),
             syncPrefsInitializer = AndroidSyncPrefsInitializer(this),
             credentialsInitializer = AndroidCredentialsInitializer(this),
+            browserOpener = AndroidBrowserOpener(this),
             clipboardController = AndroidClipboardController(this)
         )
     }

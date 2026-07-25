@@ -24,6 +24,7 @@ object ConiferApp {
         databaseInitializer: DatabaseInitializer,
         syncPrefsInitializer: SyncPrefsInitializer,
         credentialsInitializer: CredentialsInitializer,
+        browserOpener: BrowserOpener,
         clipboardController: ClipboardController? = null
     ) {
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
@@ -39,6 +40,7 @@ object ConiferApp {
                     databaseInitializer,
                     syncPrefsInitializer,
                     credentialsInitializer,
+                    browserOpener,
                     clipboardController
                 )
             )

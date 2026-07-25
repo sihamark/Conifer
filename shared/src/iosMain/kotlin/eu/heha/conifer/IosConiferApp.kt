@@ -10,6 +10,7 @@ object IosConiferApp {
             databaseInitializer = IosDatabaseInitializer,
             syncPrefsInitializer = IosSyncPrefsInitializer,
             credentialsInitializer = IosCredentialsInitializer,
+            browserOpener = IosBrowserOpener,
             clipboardController = IosClipboardController
         )
     }

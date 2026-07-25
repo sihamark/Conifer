@@ -23,6 +23,11 @@ class SyncPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[ROOT_ETAG] = etag }
     }
 
+    /** Drops the cached root ETag - it refers to a `postsRoot` this device may no longer sync into. */
+    suspend fun clearRootEtag() {
+        store.edit { it.remove(ROOT_ETAG) }
+    }
+
     suspend fun lastSyncAt(): Instant? = read(LAST_SYNC_AT)?.let(Instant::fromEpochMilliseconds)
 
     suspend fun setLastSyncAt(time: Instant) {

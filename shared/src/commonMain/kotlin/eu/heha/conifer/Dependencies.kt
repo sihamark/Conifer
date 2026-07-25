@@ -40,6 +40,11 @@ interface ClipboardController {
     fun copyToClipboard(text: String)
 }
 
+interface BrowserOpener {
+    /** Opens [url] in the system browser, e.g. for Nextcloud Login Flow v2 (spec §10). */
+    fun open(url: String)
+}
+
 interface CredentialsInitializer {
     /**
      * Builds the [Credentials] store. Platform-specific because KSafe needs a `Context` on
