@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Conifer — Mockup</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Story+Script&family=Lato:wght@400;700&display=swap"
+          rel="stylesheet">
+    <style>
+        :root{
+          --pine:#24402f;
+          --pine-deep:#16281d;
+          --moss:#6d8a72;
+          --fog:#edf1e9;
+          --card:#ffffff;
+          --ink:#22302a;
+          --ink-soft:#5c6b60;
+          --line:#d7e0d2;
+          --resin:#c9862b;
+          --resin-deep:#a86c1c;
+          --resin-soft:#fbf3e6;
+          --danger:#a5402f;
+          --chrome:#e7ece3;
+          --chip-bg:#ffffff;
+          --hover:#e0e7db;
+          --time-bg:#eef3ea;
+          --bezel:#16281d;
+          --page1:#dfe8da; --page2:#e3ead9;
+          --on-accent:#ffffff;
+          --radius:14px;
+          --shadow:0 1px 2px rgba(24,40,29,.08),0 4px 14px rgba(24,40,29,.07);
+        }
+        body[data-theme="dark"]{
+          --pine:#a8c9b1;
+          --pine-deep:#0c120e;
+          --moss:#7fa287;
+          --fog:#161d18;
+          --card:#1f2921;
+          --ink:#e3ebe2;
+          --ink-soft:#95a598;
+          --line:#2e3a30;
+          --resin:#d99a3d;
+          --resin-deep:#e8b263;
+          --resin-soft:#33291a;
+          --danger:#d4715f;
+          --chrome:#1a231c;
+          --chip-bg:#1f2921;
+          --hover:#28342a;
+          --time-bg:#26312a;
+          --bezel:#050706;
+          --page1:#141a15; --page2:#101511;
+          --on-accent:#101511;
+          --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{height:100%}
+        body{
+          font-family:'Lato',system-ui,sans-serif;
+          background:
+            radial-gradient(1200px 600px at 80% -10%, var(--page1) 0%, transparent 60%),
+            radial-gradient(900px 500px at -10% 110%, var(--page2) 0%, transparent 55%),
+            var(--fog);
+          color:var(--ink);
+          display:flex;flex-direction:column;align-items:center;
+          min-height:100vh;padding:20px 12px 40px;
+          transition:background .25s ease,color .25s ease;
+        }
+        button{font-family:inherit;cursor:pointer}
+        button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
+          outline:2px solid var(--resin);outline-offset:2px;border-radius:6px;
+        }
+
+        /* ---------- mockup toolbar ---------- */
+        .mock-header{max-width:1060px;width:100%;text-align:center;margin-bottom:14px}
+        .mock-header h1{
+          font-family:'Story Script',cursive;font-weight:400;
+          font-size:2.4rem;color:var(--pine);letter-spacing:.5px;line-height:1;
+        }
+        .mock-header p{color:var(--ink-soft);font-size:.9rem;margin-top:4px}
+        .platform-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
+        .platform-chip,.opt-chip{
+          border:1.5px solid var(--line);background:var(--chip-bg);color:var(--ink-soft);
+          padding:7px 16px;border-radius:999px;font-size:.85rem;font-weight:700;
+          transition:all .18s ease;
+        }
+        .platform-chip:hover,.opt-chip:hover{border-color:var(--moss);color:var(--pine)}
+        .platform-chip.active{background:var(--pine);border-color:var(--pine);color:var(--fog)}
+        .opts-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
+        .opt-chip.active{background:var(--resin);border-color:var(--resin);color:var(--on-accent)}
+        .opt-chip.hidden{display:none}
+
+        /* ---------- device frame ---------- */
+        .frame{
+          width:390px;max-width:100%;
+          background:var(--bezel);
+          border-radius:34px;padding:10px;
+          box-shadow:0 24px 60px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.2);
+          transition:width .3s ease,border-radius .3s ease,padding .3s ease;
+        }
+        .frame.desktop{width:960px;border-radius:14px;padding:0;overflow:hidden}
+        .frame.web{width:min(1100px,100%);border-radius:12px;padding:0;overflow:hidden}
+        @media (prefers-reduced-motion:reduce){
+          .frame,*{transition:none!important;animation:none!important}
+        }
+
+        .chrome{display:none;align-items:center;background:var(--chrome);border-bottom:1px solid var(--line);
+          font-size:.78rem;color:var(--ink-soft);user-select:none}
+        .frame.desktop .chrome.win, .frame.web .chrome.browser{display:flex}
+        .chrome.win{padding:9px 14px;gap:8px}
+        .chrome .dots{display:flex;gap:6px}
+        .chrome .dots i{width:11px;height:11px;border-radius:50%;display:block}
+        .chrome .dots i:nth-child(1){background:#e0655a}.chrome .dots i:nth-child(2){background:#e0b23e}.chrome .dots i:nth-child(3){background:#77b366}
+        .chrome .win-title{flex:1;text-align:center;font-weight:700;color:var(--pine)}
+        .chrome.browser{padding:8px 12px;gap:10px}
+        .chrome .urlbar{flex:1;background:var(--card);border:1px solid var(--line);border-radius:999px;
+          padding:5px 14px;display:flex;align-items:center;gap:7px;color:var(--ink-soft)}
+        .chrome .lock{color:var(--moss)}
+
+        .statusbar{display:flex;justify-content:space-between;align-items:center;
+          color:#eaf0e6;font-size:.72rem;font-weight:700;padding:6px 22px 8px;letter-spacing:.4px}
+        .frame.desktop .statusbar,.frame.web .statusbar{display:none}
+        .statusbar .icons{display:flex;gap:5px;align-items:center}
+
+        .screen{
+          background:var(--fog);
+          border-radius:26px;
+          height:720px;display:flex;flex-direction:column;overflow:hidden;position:relative;
+          transition:background .25s ease;
+        }
+        .frame.desktop .screen,.frame.web .screen{border-radius:0;height:640px}
+
+        /* ---------- app bar ---------- */
+        .appbar{
+          display:flex;align-items:baseline;justify-content:space-between;
+          padding:16px 18px 10px;flex:none;
+        }
+        .appbar .title{font-family:'Story Script',cursive;font-size:1.9rem;color:var(--pine);line-height:1}
+        .appbar .count{font-size:.78rem;color:var(--ink-soft)}
+
+        /* ---------- two-pane body ---------- */
+        .body-wrap{flex:1;display:flex;min-height:0}
+        .sidebar{
+          display:none;flex:none;width:216px;border-right:1px solid var(--line);
+          overflow-y:auto;padding:6px 8px 12px;scrollbar-width:thin;scrollbar-color:var(--moss) transparent;
+        }
+        .screen.twopane .sidebar{display:block}
+        .side-title{
+          font-family:'Story Script',cursive;font-size:1.15rem;color:var(--pine);
+          padding:6px 10px 4px;
+        }
+        .side-item{
+          display:flex;align-items:center;gap:8px;width:100%;
+          border:none;background:none;text-align:left;
+          padding:8px 10px;border-radius:10px;font-size:.84rem;color:var(--ink);
+        }
+        .side-item:hover{background:var(--hover)}
+        .side-item.selected{background:var(--pine);color:var(--fog)}
+        .side-item .wd{font-weight:700;width:34px;color:var(--ink-soft)}
+        .side-item.selected .wd{color:var(--fog);opacity:.75}
+        .side-item .dm{flex:1}
+        .side-item .badge{
+          font-size:.68rem;font-weight:700;background:var(--time-bg);color:var(--moss);
+          border-radius:999px;padding:2px 8px;min-width:22px;text-align:center;
+        }
+        .side-item.selected .badge{background:var(--resin);color:var(--on-accent)}
+        .side-item.today .dm::after{content:" · today";font-size:.7rem;color:var(--resin-deep)}
+        .side-item.selected.today .dm::after{color:var(--fog)}
+
+        .main{flex:1;display:flex;flex-direction:column;min-width:0}
+
+        /* ---------- list ---------- */
+        .list{flex:1;overflow-y:auto;padding:0 14px 14px;scrollbar-width:thin;scrollbar-color:var(--moss) transparent}
+        .frame.desktop .screen.twopane .list,.frame.web .screen.twopane .list{padding:0 22px 16px}
+        .day-header{
+          position:sticky;top:0;z-index:5;
+          display:flex;align-items:center;gap:8px;
+          padding:8px 4px 6px;
+          background:linear-gradient(var(--fog) 78%, transparent);
+        }
+        .day-header h2{font-family:'Story Script',cursive;font-weight:400;font-size:1.25rem;color:var(--pine)}
+        .day-header .rule{flex:1;height:1px;background:var(--line)}
+        .icon-btn{
+          border:none;background:transparent;color:var(--moss);
+          width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+        }
+        .icon-btn:hover{background:var(--hover);color:var(--pine)}
+        .icon-btn svg{width:16px;height:16px}
+
+        .bit{
+          background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+          padding:10px 12px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;
+          box-shadow:var(--shadow);position:relative;
+        }
+        .bit:hover{border-color:var(--moss)}
+        .bit .time{
+          flex:none;font-size:.72rem;font-weight:700;color:var(--moss);
+          background:var(--time-bg);border-radius:6px;padding:3px 7px;margin-top:2px;letter-spacing:.3px;
+        }
+        .bit .text{flex:1;font-size:.92rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+        .bit.editing{border-color:var(--resin);box-shadow:0 0 0 2px rgba(201,134,43,.22)}
+
+        .menu-pop{
+          position:absolute;right:8px;top:36px;z-index:20;
+          background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);
+          min-width:120px;overflow:hidden;
+        }
+        .menu-pop button{
+          display:flex;width:100%;gap:8px;align-items:center;
+          background:none;border:none;padding:9px 12px;font-size:.85rem;color:var(--ink);
+        }
+        .menu-pop button:hover{background:var(--hover)}
+        .menu-pop button.danger{color:var(--danger)}
+
+        .empty{text-align:center;color:var(--ink-soft);font-size:.9rem;padding:48px 20px}
+        .empty .cone{font-size:1.8rem;display:block;margin-bottom:8px}
+
+        /* ---------- android notification card ---------- */
+        .perm-card{
+          display:none;gap:12px;align-items:center;
+          background:var(--card);border:1px dashed var(--moss);border-radius:var(--radius);
+          padding:12px 14px;margin:8px 0 2px;
+        }
+        .screen.android .perm-card.visible{display:flex}
+        .perm-card .txt{flex:1;font-size:.82rem;color:var(--ink-soft);line-height:1.4}
+        .perm-card .txt b{color:var(--pine)}
+        .perm-card .grant{
+          border:none;background:var(--pine);color:var(--fog);font-weight:700;font-size:.8rem;
+          padding:8px 14px;border-radius:999px;flex:none;
+        }
+        .perm-card .grant:hover{opacity:.88}
+
+        /* ---------- composer ---------- */
+        .composer{
+          flex:none;background:var(--card);border-top:1px solid var(--line);
+          padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+        }
+        .frame.desktop .screen.twopane .composer,.frame.web .screen.twopane .composer{padding:10px 22px 14px}
+        .when-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        .when-chip{
+          display:flex;align-items:center;gap:7px;
+          border:1.5px solid var(--line);background:var(--fog);
+          padding:6px 12px;border-radius:999px;font-size:.8rem;font-weight:700;color:var(--pine);
+        }
+        .when-chip:hover{border-color:var(--moss)}
+        .when-chip .caret{transition:transform .18s ease;color:var(--moss)}
+        .when-chip.open .caret{transform:rotate(180deg)}
+        .when-chip.custom{border-color:var(--resin);background:var(--resin-soft);color:var(--resin-deep)}
+        .live-dot{width:7px;height:7px;border-radius:50%;background:var(--moss);animation:pulse 2.4s infinite}
+        .when-chip.custom .live-dot{display:none}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+        .clear-when{display:none;border:none;background:none;color:var(--ink-soft);font-size:.75rem;text-decoration:underline}
+        .clear-when.visible{display:inline}
+
+        .picker{max-height:0;overflow:hidden;transition:max-height .25s ease}
+        .picker.open{max-height:200px}
+        .daystrip{display:flex;gap:6px;overflow-x:auto;padding:6px 2px 10px;scrollbar-width:none}
+        .daystrip::-webkit-scrollbar{display:none}
+        .screen.twopane .daystrip{display:none}   /* sidebar owns the day in two-pane */
+        .day-cell{
+          flex:none;width:52px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);
+          padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;
+        }
+        .day-cell .wd{font-size:.62rem;font-weight:700;letter-spacing:.6px;color:var(--ink-soft);text-transform:uppercase}
+        .day-cell .dm{font-size:.82rem;font-weight:700;color:var(--ink)}
+        .day-cell .dot{width:5px;height:5px;border-radius:50%;background:transparent;margin-top:1px}
+        .day-cell.has .dot{background:var(--resin)}
+        .day-cell.today{border-color:var(--moss)}
+        .day-cell.today .wd{color:var(--pine)}
+        .day-cell.selected{background:var(--pine);border-color:var(--pine)}
+        .day-cell.selected .wd,.day-cell.selected .dm{color:var(--fog)}
+        .day-cell.selected .dot{background:var(--resin)}
+        .day-cell:hover{border-color:var(--moss)}
+
+        .time-row{display:flex;align-items:center;gap:12px;padding:2px 4px 10px}
+        .time-row .t-label{font-size:.78rem;font-weight:700;color:var(--pine);min-width:46px;text-align:center;
+          background:var(--fog);border-radius:6px;padding:4px 6px}
+        .time-row input[type=range]{flex:1;accent-color:var(--resin);height:22px}
+
+        .input-row{display:flex;gap:10px;align-items:flex-end}
+        .field{flex:1;position:relative}
+        .field label{
+          position:absolute;top:-7px;left:12px;background:var(--card);padding:0 5px;
+          font-size:.68rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--moss);
+        }
+        .field.editing label{color:var(--resin-deep)}
+        .field input{
+          width:100%;border:1.5px solid var(--line);border-radius:12px;
+          padding:12px 12px;font-size:.95rem;font-family:inherit;background:var(--card);color:var(--ink);
+        }
+        .field input::placeholder{color:var(--ink-soft);opacity:.7}
+        .field input:focus{border-color:var(--moss);outline:none}
+        .field.editing input{border-color:var(--resin)}
+        .submit{
+          flex:none;width:46px;height:46px;border-radius:50%;border:none;
+          background:var(--resin);color:var(--on-accent);display:grid;place-items:center;
+          box-shadow:0 3px 10px rgba(201,134,43,.4);transition:transform .12s ease,opacity .15s;
+        }
+        .submit:hover{opacity:.88}
+        .submit:active{transform:scale(.93)}
+        .submit svg{width:20px;height:20px}
+        .cancel-edit{display:none;border:none;background:none;color:var(--ink-soft);font-size:.8rem;
+          text-decoration:underline}
+        .cancel-edit.visible{display:inline-block}
+
+        /* ---------- dialog & toast ---------- */
+        .scrim{
+          position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:40;
+          display:none;align-items:center;justify-content:center;padding:24px;
+        }
+        .scrim.open{display:flex}
+        .dialog{
+          background:var(--card);border-radius:18px;padding:20px;max-width:300px;width:100%;
+          box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:left;
+        }
+        .dialog h3{font-family:'Story Script',cursive;font-weight:400;font-size:1.35rem;color:var(--pine);margin-bottom:6px}
+        .dialog p{font-size:.86rem;color:var(--ink-soft);line-height:1.45;margin-bottom:16px}
+        .dialog .row{display:flex;gap:8px;justify-content:flex-end}
+        .btn{border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:.83rem}
+        .btn.ghost{background:var(--fog);color:var(--ink)}
+        .btn.ghost:hover{background:var(--hover)}
+        .btn.danger{background:var(--danger);color:#fff}
+        .btn.danger:hover{opacity:.88}
+
+        .toast{
+          position:absolute;left:50%;bottom:96px;transform:translate(-50%,12px);
+          background:var(--pine-deep);color:#eef3ea;font-size:.82rem;
+          padding:9px 16px;border-radius:999px;box-shadow:var(--shadow);
+          opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:50;
+          max-width:85%;text-align:center;
+        }
+        .toast.show{opacity:1;transform:translate(-50%,0)}
+
+        .foot-note{margin-top:16px;font-size:.78rem;color:var(--ink-soft);text-align:center;max-width:600px;line-height:1.5}
+    </style>
+</head>
+<body data-theme="light">
+
+<div class="mock-header">
+    <h1>Conifer</h1>
+    <p>Interactive mockup · one screen, straight to the note</p>
+    <div aria-label="Platform preview" class="platform-bar" role="tablist">
+        <button class="platform-chip active" data-platform="android">Android</button>
+        <button class="platform-chip" data-platform="ios">iOS</button>
+        <button class="platform-chip" data-platform="desktop">Desktop</button>
+        <button class="platform-chip" data-platform="web">Web</button>
+    </div>
+    <div class="opts-bar">
+        <button class="opt-chip" id="themeToggle">🌙 Dark theme</button>
+        <button class="opt-chip hidden" id="paneToggle">◫ Two-pane</button>
+    </div>
+</div>
+
+<div class="frame" id="frame">
+    <div class="chrome win">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="win-title">Conifer</span>
+        <span style="width:47px"></span>
+    </div>
+    <div class="chrome browser">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="urlbar"><span class="lock">🔒</span> conifer.app</span>
+    </div>
+
+    <div class="statusbar" id="statusbar">
+        <span id="statusTime">14:32</span>
+        <span class="icons"><span>📶</span><span>🔋</span></span>
+    </div>
+
+    <div class="screen android" id="screen">
+        <div class="appbar">
+            <span class="title">Conifer</span>
+            <span class="count" id="bitCount"></span>
+        </div>
+
+        <div class="body-wrap">
+            <aside aria-label="Days" class="sidebar" id="sidebar"></aside>
+
+            <div class="main">
+                <div aria-live="polite" class="list" id="list"></div>
+
+                <div class="composer">
+                    <div class="when-row">
+                        <button aria-expanded="false" class="when-chip" id="whenChip">
+                            <span class="live-dot"></span>
+                            <span id="whenLabel">Now</span>
+                            <span class="caret">▾</span>
+                        </button>
+                        <button class="clear-when" id="clearWhen">back to now</button>
+                        <button class="cancel-edit" id="cancelEdit">cancel edit</button>
+                    </div>
+
+                    <div class="picker" id="picker">
+                        <div class="daystrip" id="daystrip"></div>
+                        <div class="time-row">
+                            <span class="t-label" id="timeLabel">12:00</span>
+                            <input aria-label="Time of day, 15 minute steps" id="timeSlider" max="95" min="0" step="1" type="range"
+                                   value="48">
+                        </div>
+                    </div>
+
+                    <div class="input-row">
+                        <div class="field" id="field">
+                            <label for="bitInput" id="fieldLabel">New Bit</label>
+                            <input autocomplete="off" id="bitInput" placeholder="What just happened?"
+                                   type="text">
+                        </div>
+                        <button aria-label="Save bit" class="submit" id="submitBtn">
+                            <svg fill="none" stroke="currentColor" stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 stroke-width="3" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scrim" id="scrim">
+            <div aria-labelledby="dlgTitle" class="dialog" role="alertdialog">
+                <h3 id="dlgTitle">Delete this bit?</h3>
+                <p id="dlgText">It will be gone for good — Conifer keeps no trash.</p>
+                <div class="row">
+                    <button class="btn ghost" id="dlgCancel">Keep it</button>
+                    <button class="btn danger" id="dlgDelete">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+    </div>
+</div>
+
+<p class="foot-note">
+    Double-click a card (or ⋮ → Edit) to edit in place; the copy icon on a day header exports that
+    day as markdown. Desktop and Web can switch to a two-pane layout where the sidebar owns day
+    selection; the 🌙 toggle previews the dark theme on every platform.
+</p>
+
+<script>
+    (function(){
+      const $ = id => document.getElementById(id);
+      const pad = n => String(n).padStart(2,'0');
+      const dayKey = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const WD_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const fmtTime = d => pad(d.getHours())+':'+pad(d.getMinutes());
+
+      /* ---------- state ---------- */
+      let bits = [];
+      let selectedDay = null;
+      let sliderTouched = false;
+      let editingId = null;
+      let pendingDeleteId = null;
+      let openMenuId = null;
+      let platform = 'android';
+      let permCardVisible = true;
+      let twoPane = false;
+      let widePaneChoice = true;   // remembered preference for desktop/web
+      let dark = false;
+
+      (function seed(){
+        const now = new Date();
+        const mk = (daysAgo,h,m,text)=>{
+          const d = new Date(now); d.setDate(d.getDate()-daysAgo); d.setHours(h,m,0,0);
+          bits.push({id:crypto.randomUUID(), text, date:d, createdAt:d});
+        };
+        mk(0, 9, 15, 'Fixed the OPFS driver init on wasm — bits persist across reloads now 🎉');
+        mk(0, 11, 45, 'Standup: demo the day-copy export on Friday');
+        mk(1, 8, 30, 'Idea: dot on the day strip could fade with bit count');
+        mk(1, 14, 0, 'Reviewed the Room 1→2 auto-migration, looks clean');
+        mk(1, 19, 30, 'Evening run, 6k along the river');
+        mk(3, 10, 0, 'Sketched the inline-reply notification flow');
+        mk(3, 16, 15, 'Coffee with Mara — she wants a weekly digest someday');
+        mk(6, 12, 30, 'Started the Conifer features doc');
+      })();
+
+      /* ---------- helpers ---------- */
+      function currentInstant(){
+        if(selectedDay || sliderTouched){
+          const base = selectedDay ? new Date(selectedDay+'T00:00:00') : new Date();
+          const q = +$('timeSlider').value;
+          base.setHours(Math.floor(q/4), (q%4)*15, 0, 0);
+          return base;
+        }
+        return new Date();
+      }
+      function toast(msg){
+        const t = $('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._h);
+        t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+      }
+      function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+      function scrollToEnd(){
+        const list = $('list');
+        list.scrollTop = list.scrollHeight;      // chat-style: keep the newest bit in view
+      }
+
+      /* ---------- sidebar (two-pane) ---------- */
+      function renderSidebar(){
+        const sb = $('sidebar');
+        sb.innerHTML = '';
+        if(!twoPane) return;
+        const counts = {};
+        bits.forEach(b=>{ const k=dayKey(b.date); counts[k]=(counts[k]||0)+1; });
+
+        const title = document.createElement('div');
+        title.className = 'side-title';
+        title.textContent = 'Days';
+        sb.appendChild(title);
+
+        const all = document.createElement('button');
+        all.className = 'side-item'+(selectedDay===null?' selected':'');
+        all.innerHTML = '<span class="wd">∗</span><span class="dm">All days</span>'
+          + '<span class="badge">'+bits.length+'</span>';
+        all.addEventListener('click', ()=>{ selectedDay=null; renderAll(); });
+        sb.appendChild(all);
+
+        const today = new Date();
+        for(let i=0;i<30;i++){
+          const d = new Date(today); d.setDate(d.getDate()-i);
+          const key = dayKey(d);
+          const item = document.createElement('button');
+          item.className = 'side-item'
+            + (selectedDay===key?' selected':'')
+            + (i===0?' today':'');
+          item.innerHTML = '<span class="wd">'+WD[d.getDay()]+'</span>'
+            + '<span class="dm">'+d.getDate()+'.'+(d.getMonth()+1)+'.</span>'
+            + (counts[key]?'<span class="badge">'+counts[key]+'</span>':'');
+          item.addEventListener('click', ()=>{
+            selectedDay = (selectedDay===key)?null:key;   // re-tap deselects
+            renderAll();
+          });
+          sb.appendChild(item);
+        }
+      }
+
+      /* ---------- day strip (single-pane) ---------- */
+      function renderStrip(){
+        const strip = $('daystrip');
+        strip.innerHTML = '';
+        const haveDays = new Set(bits.map(b=>dayKey(b.date)));
+        const today = new Date();
+        for(let i=0;i<30;i++){
+          const d = new Date(today); d.setDate(d.getDate()-i);
+          const key = dayKey(d);
+          const cell = document.createElement('button');
+          cell.className = 'day-cell'
+            + (haveDays.has(key)?' has':'')
+            + (i===0?' today':'')
+            + (selectedDay===key?' selected':'');
+          cell.innerHTML = '<span class="wd">'+WD[d.getDay()]+'</span>'
+            + '<span class="dm">'+d.getDate()+'.'+(d.getMonth()+1)+'</span>'
+            + '<span class="dot"></span>';
+          cell.setAttribute('aria-label', WD_FULL[d.getDay()]+' '+d.getDate()+'.'+(d.getMonth()+1)
+            + (haveDays.has(key)?', has bits':''));
+          cell.addEventListener('click', ()=>{
+            selectedDay = (selectedDay===key) ? null : key;
+            renderAll();
+          });
+          strip.appendChild(cell);
+        }
+      }
+
+      /* ---------- when-chip ---------- */
+      function renderWhen(){
+        const chip = $('whenChip'), label = $('whenLabel');
+        const custom = !!selectedDay || sliderTouched;
+        chip.classList.toggle('custom', custom);
+        $('clearWhen').classList.toggle('visible', custom && !editingId);
+        if(custom){
+          const d = currentInstant();
+          label.textContent = WD[d.getDay()]+' '+d.getDate()+'.'+(d.getMonth()+1)+' · '+fmtTime(d);
+        }else{
+          label.textContent = 'Now · '+fmtTime(new Date());
+        }
+        const q = +$('timeSlider').value;
+        $('timeLabel').textContent = pad(Math.floor(q/4))+':'+pad((q%4)*15);
+      }
+
+      /* ---------- list ---------- */
+      function renderList(){
+        const list = $('list');
+        list.innerHTML = '';
+        closeMenu();
+
+        if(platform==='android' && permCardVisible){
+          const card = document.createElement('div');
+          card.className = 'perm-card visible';
+          card.innerHTML = '<span style="font-size:1.3rem">🔔</span>'
+            + '<span class="txt"><b>Add bits from anywhere.</b> Allow notifications and reply to the Conifer conversation to capture a bit without opening the app.</span>'
+            + '<button class="grant">Allow</button>';
+          card.querySelector('.grant').addEventListener('click', ()=>{
+            permCardVisible = false;
+            toast('Notifications enabled — quick-add is ready');
+            renderList();
+          });
+          list.appendChild(card);
+        }
+
+        let shown = bits.slice();
+        if(selectedDay) shown = shown.filter(b=>dayKey(b.date)===selectedDay);
+
+        const groups = new Map();
+        shown.forEach(b=>{
+          const k = dayKey(b.date);
+          if(!groups.has(k)) groups.set(k, []);
+          groups.get(k).push(b);
+        });
+        const keys = [...groups.keys()].sort();                       // oldest day first, newest at the bottom
+        keys.forEach(k=>groups.get(k).sort((a,b)=> a.date-b.date || a.createdAt-b.createdAt)); // chronological within a day
+
+        $('bitCount').textContent = bits.length + (bits.length===1?' bit':' bits');
+
+        if(keys.length===0){
+          const e = document.createElement('div');
+          e.className = 'empty';
+          e.innerHTML = '<span class="cone">🌲</span>'
+            + (selectedDay ? 'No bits on this day yet.<br>Write one below — it will land here.'
+                           : 'No bits yet.<br>Write your first one below.');
+          list.appendChild(e);
+          return;
+        }
+
+        const todayKey = dayKey(new Date());
+        const yestD = new Date(); yestD.setDate(yestD.getDate()-1);
+        const yestKey = dayKey(yestD);
+
+        keys.forEach(k=>{
+          const d = new Date(k+'T00:00:00');
+          let name = WD_FULL[d.getDay()]+', '+d.getDate()+'.'+(d.getMonth()+1)+'.';
+          if(k===todayKey) name = 'Today';
+          else if(k===yestKey) name = 'Yesterday';
+
+          const header = document.createElement('div');
+          header.className = 'day-header';
+          header.innerHTML = '<h2>'+name+'</h2><span class="rule"></span>';
+          if(platform!=='web'){
+            const copy = document.createElement('button');
+            copy.className = 'icon-btn';
+            copy.title = 'Copy this day as markdown';
+            copy.setAttribute('aria-label','Copy '+name+' as markdown');
+            copy.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copy.addEventListener('click', ()=>copyDay(k, name));
+            header.appendChild(copy);
+          }
+          list.appendChild(header);
+
+          groups.get(k).forEach(b=>{
+            const card = document.createElement('div');
+            card.className = 'bit'+(b.id===editingId?' editing':'');
+            card.innerHTML = '<span class="time">'+fmtTime(b.date)+'</span>'
+              + '<span class="text">'+esc(b.text)+'</span>';
+            const menuBtn = document.createElement('button');
+            menuBtn.className = 'icon-btn';
+            menuBtn.setAttribute('aria-label','Bit actions');
+            menuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+            menuBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleMenu(b.id, card); });
+            card.appendChild(menuBtn);
+            card.addEventListener('dblclick', ()=>startEditing(b.id));
+            list.appendChild(card);
+          });
+        });
+      }
+
+      /* ---------- ⋮ menu ---------- */
+      function toggleMenu(id, card){
+        if(openMenuId===id){ closeMenu(); return; }
+        closeMenu();
+        openMenuId = id;
+        const pop = document.createElement('div');
+        pop.className = 'menu-pop';
+        pop.innerHTML =
+          '<button data-a="edit">✏️ Edit</button>' +
+          '<button data-a="del" class="danger">🗑 Delete</button>';
+        pop.addEventListener('click', e=>{
+          const a = e.target.closest('button') ? e.target.closest('button').dataset.a : null;
+          if(a==='edit') startEditing(id);
+          if(a==='del'){ pendingDeleteId=id; $('scrim').classList.add('open'); closeMenu(); }
+        });
+        card.appendChild(pop);
+      }
+      function closeMenu(){
+        document.querySelectorAll('.menu-pop').forEach(p=>p.remove());
+        openMenuId = null;
+      }
+      document.addEventListener('click', e=>{
+        if(!e.target.closest('.menu-pop') && !e.target.closest('.icon-btn')) closeMenu();
+      });
+
+      /* ---------- add / edit / delete ---------- */
+      function submit(){
+        const input = $('bitInput');
+        const text = input.value.trim();
+        if(!text) return;
+        if(editingId){
+          const b = bits.find(x=>x.id===editingId);
+          if(b){ b.text = text; b.date = currentInstant(); }
+          toast('Bit updated');
+          exitEdit();
+        }else{
+          let d = currentInstant();
+          while(bits.some(b=>+b.date===+d)) d = new Date(+d+1);
+          bits.push({id:crypto.randomUUID(), text, date:d, createdAt:new Date()});
+          toast('Bit saved');
+        }
+        input.value = '';
+        renderAll();
+        scrollToEnd();
+        input.focus();
+      }
+
+      function startEditing(id){
+        const b = bits.find(x=>x.id===id);
+        if(!b) return;
+        editingId = id;
+        $('bitInput').value = b.text;
+        $('fieldLabel').textContent = 'Edit Bit';
+        $('field').classList.add('editing');
+        $('cancelEdit').classList.add('visible');
+        selectedDay = dayKey(b.date);
+        sliderTouched = true;
+        $('timeSlider').value = b.date.getHours()*4 + Math.round(b.date.getMinutes()/15);
+        openPicker(true);
+        renderAll();
+        $('bitInput').focus();
+      }
+      function exitEdit(){
+        editingId = null;
+        $('bitInput').value = '';
+        $('fieldLabel').textContent = 'New Bit';
+        $('field').classList.remove('editing');
+        $('cancelEdit').classList.remove('visible');
+        selectedDay = null; sliderTouched = false;
+        openPicker(false);
+      }
+      $('cancelEdit').addEventListener('click', ()=>{ exitEdit(); renderAll(); toast('Edit discarded'); });
+
+      $('dlgCancel').addEventListener('click', ()=>{ pendingDeleteId=null; $('scrim').classList.remove('open'); });
+      $('dlgDelete').addEventListener('click', ()=>{
+        bits = bits.filter(b=>b.id!==pendingDeleteId);
+        if(editingId===pendingDeleteId) exitEdit();
+        pendingDeleteId = null;
+        $('scrim').classList.remove('open');
+        toast('Bit deleted');
+        renderAll();
+      });
+      $('scrim').addEventListener('click', e=>{ if(e.target===$('scrim')) $('dlgCancel').click(); });
+
+      /* ---------- copy day ---------- */
+      function copyDay(key, name){
+        const d = new Date(key+'T00:00:00');
+        const dayBits = bits.filter(b=>dayKey(b.date)===key).sort((a,b)=>a.date-b.date);
+        let md = '##### Bits of '+WD_FULL[d.getDay()]+', '+d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear()+':\n';
+        dayBits.forEach(b=>{ md += '- '+fmtTime(b.date)+' '+b.text+'\n'; });
+        const done = ()=>toast('Copied '+name+' as markdown');
+        function fallback(){
+          const ta = document.createElement('textarea');
+          ta.value = md; document.body.appendChild(ta); ta.select();
+          try{ document.execCommand('copy'); done(); }catch(e){ toast('Clipboard unavailable'); }
+          ta.remove();
+        }
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(md).then(done).catch(fallback);
+        }else fallback();
+      }
+
+      /* ---------- picker toggle ---------- */
+      function openPicker(open){
+        $('picker').classList.toggle('open', open);
+        $('whenChip').classList.toggle('open', open);
+        $('whenChip').setAttribute('aria-expanded', open);
+      }
+      $('whenChip').addEventListener('click', ()=>openPicker(!$('picker').classList.contains('open')));
+      $('clearWhen').addEventListener('click', ()=>{
+        selectedDay = null; sliderTouched = false;
+        $('timeSlider').value = new Date().getHours()*4 + Math.round(new Date().getMinutes()/15);
+        renderAll();
+      });
+      $('timeSlider').addEventListener('input', ()=>{ sliderTouched = true; renderWhen(); });
+
+      /* ---------- composer events ---------- */
+      $('submitBtn').addEventListener('click', submit);
+      $('bitInput').addEventListener('keydown', e=>{
+        if(e.key==='Enter'){ e.preventDefault(); submit(); }
+        if(e.key==='Escape' && editingId){ exitEdit(); renderAll(); }
+      });
+
+      /* ---------- live clock ---------- */
+      let lastMinute = new Date().getMinutes();
+      let lastDay = dayKey(new Date());
+      setInterval(()=>{
+        const n = new Date();
+        $('statusTime').textContent = fmtTime(n);
+        if(n.getMinutes()!==lastMinute){
+          lastMinute = n.getMinutes();
+          renderWhen();
+          if(dayKey(n)!==lastDay){ lastDay = dayKey(n); renderAll(); }
+        }
+      }, 5000);
+      $('statusTime').textContent = fmtTime(new Date());
+
+      /* ---------- theme toggle ---------- */
+      $('themeToggle').addEventListener('click', ()=>{
+        dark = !dark;
+        document.body.dataset.theme = dark ? 'dark' : 'light';
+        $('themeToggle').textContent = dark ? '☀️ Light theme' : '🌙 Dark theme';
+        $('themeToggle').classList.toggle('active', dark);
+      });
+
+      /* ---------- pane toggle ---------- */
+      function applyPane(){
+        $('screen').classList.toggle('twopane', twoPane);
+        $('paneToggle').classList.toggle('active', twoPane);
+        $('paneToggle').textContent = twoPane ? '◫ Two-pane' : '▭ Single pane';
+        renderAll();
+        scrollToEnd();
+      }
+      $('paneToggle').addEventListener('click', ()=>{
+        twoPane = !twoPane;
+        widePaneChoice = twoPane;
+        applyPane();
+      });
+
+      /* ---------- platform switching ---------- */
+      document.querySelectorAll('.platform-chip').forEach(chip=>{
+        chip.addEventListener('click', ()=>{
+          document.querySelectorAll('.platform-chip').forEach(c=>c.classList.remove('active'));
+          chip.classList.add('active');
+          platform = chip.dataset.platform;
+          const wide = (platform==='desktop' || platform==='web');
+          const frame = $('frame'), screen = $('screen');
+          frame.className = 'frame ' + (platform==='desktop'?'desktop':platform==='web'?'web':'');
+          screen.className = 'screen ' + platform;
+          $('paneToggle').classList.toggle('hidden', !wide);
+          twoPane = wide ? widePaneChoice : false;   // phones stay single-pane
+          applyPane();
+        });
+      });
+
+      /* ---------- render all ---------- */
+      function renderAll(){ renderSidebar(); renderStrip(); renderWhen(); renderList(); }
+      $('timeSlider').value = new Date().getHours()*4 + Math.round(new Date().getMinutes()/15);
+      renderAll();
+      scrollToEnd();
+    })();
+</script>
+</body>
+</html>

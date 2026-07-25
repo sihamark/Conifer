@@ -20,6 +20,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
+import kotlinx.datetime.number
 import kotlinx.datetime.toInstant
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -211,13 +212,16 @@ class BitsViewModel(
     fun copyBitsOfDateToClipboard(date: LocalDate) {
         val clipboardController = clipboardController ?: return
         val bits = state.bitsByDate.firstOrNull { it.date == date }?.bits ?: return
-        buildString {
-            appendLine("##### Bits of ${date.dayOfWeek}, ${date.day}. ${date.month} ${date.year}:")
-            bits.reversed().forEach { bit ->
-                appendLine(bit.text)
+        viewModelScope.launch {
+            val header = "Bits of ${date.dayOfWeek}, ${date.day}.${date.month.number}.${date.year}"
+            buildString {
+                appendLine(header)
+                bits.reversed().forEach { bit ->
+                    appendLine(bit.text)
+                }
+            }.let { textToCopy ->
+                clipboardController.copyToClipboard(textToCopy)
             }
-        }.let { textToCopy ->
-            clipboardController.copyToClipboard(textToCopy)
         }
     }
 }
