@@ -23,6 +23,27 @@
   instead of the generic spec's zoned timestamps, so synced bits still can't drift across time
   zones; verified against an in-memory fake WebDAV server, including a genuine cross-device race
   and a sync aborted partway through
+- readable module (spec §10 point ④): `ReadableRenderer`/`ReadableModule` render and upload one
+  deterministic, human-readable Markdown file per day alongside the machine JSON (same data on
+  any device always renders to identical bytes), skipping the upload whenever the rendered
+  content hasn't actually changed since the last one (a pure-Kotlin SHA-256, no platform digest
+  API needed)
+- tombstone garbage collection (spec §10 point ⑤): a deleted bit's file is physically removed from
+  the server (and its local row dropped) 90 days after the deletion itself was last pushed clean,
+  run at most once a week as part of a normal sync
+- Nextcloud Login Flow v2 and encrypted credential storage (spec §10 point ⑥): `LoginFlowV2` polls
+  the stock Nextcloud login-flow endpoints for an app password without the app ever seeing the
+  real one; `Credentials` stores it via KSafe (hardware-backed encryption per platform), wired in
+  through the same per-platform initializer pattern as the rest of sync; a startup check logs a
+  warning if the encryption key ever falls back to software-only storage instead of the platform's
+  secure enclave/keystore
+- a full review pass over the sync stack (see `sync_review.md`) found and fixed: pull now
+  downloads a bucket's files with parallelism ≤ 6 instead of one at a time; a brand-new server now
+  gets the `.sync/meta/manifest.json` marker the spec calls for; re-pushing a bit now preserves any
+  JSON fields a newer app version might have added instead of silently dropping them; a device
+  returning from a long stretch offline no longer resurrects a post another device deleted and
+  garbage-collected while it was away (a stopgap, not the full spec mitigation - still needs a
+  settings UI to ask the user, see `sync_review.md` #1)
 
 ## Version 1.1.2 (17.07.2026)
 
