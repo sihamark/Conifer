@@ -84,14 +84,31 @@ before. Covered by `SyncEngineTest.pushPreservesUnknownJsonFieldsFromAnEarlierPu
 
 *(Status: implemented as a follow-up to this review — see commit history.)*
 
-## 4. Test coverage gaps (code looks correct by inspection, just not exercised end-to-end)
+## 4. Test coverage gaps (code looks correct by inspection, just not exercised end-to-end) **fixed**
 
 - Spec test case #5 (tombstone: delete on A → gone on B, day file re-rendered, then GC'd after 90
-  days) has no single test stitching the whole pipeline together — the pieces are each tested
+  days) had no single test stitching the whole pipeline together — the pieces were each tested
   separately (`MergePolicyTest` for tombstone-as-equals, `ReadableRendererTest`/`bitsForDay`'s
   `deleted = 0` filter, `GarbageCollectorTest` for physical deletion).
-- Spec test case #7 ("no feedback loop") has no explicit 2-device test proving that writing
-  readable files never perturbs `rootEtag`/the fast path — it's only implicitly covered.
+- Spec test case #7 ("no feedback loop") had no explicit 2-device test proving that writing
+  readable files never perturbs `rootEtag`/the fast path — it was only implicitly covered.
+
+**Fixed:** both gaps closed with two more tests in `SyncEngineTest.kt`, using the file's existing
+two-simulated-device harness (`device()` + shared `FakeRemoteStore`) rather than any new test
+infrastructure — these are pure sync-engine/data-layer correctness questions with no UI surface,
+so nothing about them called for Compose UI testing.
+
+- `aDeletedBitDisappearsOnAnotherDeviceThenIsPhysicallyRemovedByGc`: deletes on device A, syncs
+  both devices, asserts device B's local row is a tombstone and its day file no longer mentions the
+  bit while the server file still exists (I5: a tombstone, not a file DELETE) — then forces device
+  B's GC cooldown to have elapsed and asserts a subsequent sync physically removes both the local
+  row and the server file.
+- `writingReadableFilesOnTwoDevicesNeverPerturbsEitherDevicesFastPath`: after both devices have
+  each written their own copy of the same readable day file, wraps each device's next sync in
+  `CountingRemoteStore` and asserts it costs exactly 1 request — proving neither device's own
+  `appRoot` writes perturbed the `dataRoot/bits/` root ETag its own fast path depends on.
+
+*(Status: implemented as a follow-up to this review — see commit history.)*
 
 ## 5. The big one: nothing is wired into the running app **fixed**
 

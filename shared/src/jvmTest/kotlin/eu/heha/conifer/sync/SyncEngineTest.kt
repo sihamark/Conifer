@@ -118,6 +118,28 @@ class SyncEngineTest {
     }
 
     @Test
+    fun writingReadableFilesOnTwoDevicesNeverPerturbsEitherDevicesFastPath() = runTest {
+        // Spec test case #7 ("no feedback loop", I3): change detection is scoped exclusively to
+        // dataRoot/bits/, never appRoot itself - so both devices writing appRoot/.../*.md below
+        // must never cause either device's own next fast-path check to see a "changed" root.
+        val server = FakeRemoteStore()
+        val deviceA = device(server)
+        val deviceB = device(server)
+
+        deviceA.dao().upsert(Bit(text = "hello", createdAt = BASE_TIME, date = BASE_DATE))
+        deviceA.engine.sync() // pushes the bit and renders A's own copy of the day file
+        deviceB.engine.sync() // pulls the bit and renders B's own copy of the same day file
+
+        val countingA = CountingRemoteStore(server)
+        SyncEngine(countingA, deviceA.databaseController, deviceA.syncPrefs).sync()
+        assertEquals(1, countingA.callCount)
+
+        val countingB = CountingRemoteStore(server)
+        SyncEngine(countingB, deviceB.databaseController, deviceB.syncPrefs).sync()
+        assertEquals(1, countingB.callCount)
+    }
+
+    @Test
     fun sequentialConflictingEditsConvergeOnTheNewerModification() = runTest {
         val server = FakeRemoteStore()
         val deviceA = device(server)
@@ -347,6 +369,44 @@ class SyncEngineTest {
         assertEquals(null, device.dao().bit("old-tombstone"))
         assertEquals(null, server.etag(path))
         assertEquals(true, device.syncPrefs.lastGcAt() != null)
+    }
+
+    @Test
+    fun aDeletedBitDisappearsOnAnotherDeviceThenIsPhysicallyRemovedByGc() = runTest {
+        // Spec test case #5, stitching the full tombstone pipeline together: delete on A -> gone
+        // on B (I5: a tombstone, not a file DELETE - the file is still on the server) -> B's day
+        // file re-rendered without it -> eventually physically GC'd (spec §8).
+        val server = FakeRemoteStore()
+        val deviceA = device(server)
+        val deviceB = device(server)
+
+        val bit = Bit(text = "to be deleted", createdAt = BASE_TIME, date = BASE_DATE)
+        deviceA.dao().upsert(bit)
+        deviceA.engine.sync() // pushed and rendered under 2025-07-13
+        deviceB.engine.sync() // B has a clean copy and its own rendering of that day
+
+        val onA = deviceA.dao().bit(bit.id)!!
+        deviceA.dao().upsert(
+            onA.copy(deleted = true, dirty = true, modifiedAt = BASE_TIME + 1.minutes)
+        )
+        deviceA.engine.sync() // pushes the tombstone; A's own day file is re-rendered without it
+
+        deviceB.engine.sync() // pulls the tombstone and re-renders its own day file without it
+
+        assertEquals(true, deviceB.dao().bit(bit.id)?.deleted)
+        val dayFileAfterDelete = server.get("Conifer/2025-07/2025-07-13.md").decodeToString()
+        assertEquals(false, dayFileAfterDelete.contains("to be deleted"))
+        val tombstonePath = "Conifer/.sync/bits/${bit.bucket}/${bit.id}.json"
+        // Still a tombstone on the server at this point, not yet physically deleted (I5).
+        assertEquals(true, server.etag(tombstonePath) != null)
+
+        // This device's GC cooldown (spec §8, weekly) hasn't elapsed yet in real wall-clock
+        // terms, so the round above didn't attempt GC. Force it due, as if a week had passed.
+        deviceB.syncPrefs.setLastGcAt(Clock.System.now() - 8.days)
+        deviceB.engine.sync()
+
+        assertEquals(null, deviceB.dao().bit(bit.id))
+        assertEquals(null, server.etag(tombstonePath))
     }
 
     @Test
