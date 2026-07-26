@@ -77,9 +77,9 @@ class SyncEngineTest {
             Bit(text = "original", createdAt = BASE_TIME, date = BASE_DATE, modifiedAt = BASE_TIME)
         server.mkdirs("Conifer")
         server.mkdirs("Conifer/.sync")
-        server.mkdirs("Conifer/.sync/posts")
-        server.mkdirs("Conifer/.sync/posts/${bit.bucket}")
-        val path = "Conifer/.sync/posts/${bit.bucket}/${bit.id}.json"
+        server.mkdirs("Conifer/.sync/bits")
+        server.mkdirs("Conifer/.sync/bits/${bit.bucket}")
+        val path = "Conifer/.sync/bits/${bit.bucket}/${bit.id}.json"
         val rawJsonFromANewerAppVersion = """
             {"id":"${bit.id}","text":"original","createdAt":${bit.createdAt.toEpochMilliseconds()},
             "date":"${bit.date}","modifiedAt":${bit.modifiedAt.toEpochMilliseconds()},
@@ -323,9 +323,9 @@ class SyncEngineTest {
         val device = device(server)
         server.mkdirs("Conifer")
         server.mkdirs("Conifer/.sync")
-        server.mkdirs("Conifer/.sync/posts")
-        server.mkdirs("Conifer/.sync/posts/2025-07")
-        val path = "Conifer/.sync/posts/2025-07/old-tombstone.json"
+        server.mkdirs("Conifer/.sync/bits")
+        server.mkdirs("Conifer/.sync/bits/2025-07")
+        val path = "Conifer/.sync/bits/2025-07/old-tombstone.json"
         val etag = server.put(path, "{}".encodeToByteArray(), ifNoneMatchAll = true)
         device.dao().upsert(
             Bit(
@@ -359,7 +359,7 @@ class SyncEngineTest {
         device.engine.sync() // pushed once - now has a remoteEtag
 
         val synced = device.dao().bit(original.id)!!
-        val path = "Conifer/.sync/posts/${synced.bucket}/${synced.id}.json"
+        val path = "Conifer/.sync/bits/${synced.bucket}/${synced.id}.json"
         // Simulates another device having deleted and then GC'd it while this one was away.
         server.delete(path)
 

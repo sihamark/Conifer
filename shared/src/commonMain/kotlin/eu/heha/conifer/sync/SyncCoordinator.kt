@@ -31,6 +31,7 @@ class SyncCoordinator(
     val state: StateFlow<SyncConnectionState> = _state
 
     private var lastError: String? = null
+    private var lastStats: SyncStats? = null
 
     /**
      * Brings [state] in line with whatever [Credentials]/[SyncPrefs] already hold (e.g. from a
@@ -119,7 +120,7 @@ class SyncCoordinator(
         try {
             val remoteStore =
                 KtorWebDavStore(current.server, current.username, credentials.appPassword)
-            SyncEngine(remoteStore, databaseController, syncPrefs).sync()
+            lastStats = SyncEngine(remoteStore, databaseController, syncPrefs).sync()
             lastError = null
         } catch (e: CancellationException) {
             throw e
@@ -164,6 +165,7 @@ class SyncCoordinator(
         rootEtag = syncPrefs.rootEtag(),
         lastGcAt = syncPrefs.lastGcAt(),
         lastError = lastError,
+        lastStats = lastStats,
     )
 }
 
@@ -188,4 +190,5 @@ data class SyncDebugInfo(
     val rootEtag: String?,
     val lastGcAt: Instant?,
     val lastError: String?,
+    val lastStats: SyncStats?,
 )

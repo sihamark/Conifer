@@ -62,6 +62,8 @@ import conifer.shared.generated.resources.sync_debug_app_root
 import conifer.shared.generated.resources.sync_debug_device_id
 import conifer.shared.generated.resources.sync_debug_last_error
 import conifer.shared.generated.resources.sync_debug_last_gc
+import conifer.shared.generated.resources.sync_debug_last_stats
+import conifer.shared.generated.resources.sync_debug_last_stats_value
 import conifer.shared.generated.resources.sync_debug_last_sync
 import conifer.shared.generated.resources.sync_debug_never
 import conifer.shared.generated.resources.sync_debug_none
@@ -87,6 +89,7 @@ import conifer.shared.generated.resources.sync_title_insecure_key
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
+import eu.heha.conifer.sync.SyncStats
 import eu.heha.conifer.ui.theme.ConiferTheme
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
@@ -196,6 +199,18 @@ private fun SyncDebugContent(state: SyncUiState, actions: SyncPaneActions) {
                 stringResource(Res.string.sync_debug_last_error),
                 debugInfo.lastError ?: stringResource(Res.string.sync_debug_none)
             )
+            val stats = debugInfo.lastStats
+            if (stats != null) {
+                DebugRow(
+                    stringResource(Res.string.sync_debug_last_stats),
+                    stringResource(
+                        Res.string.sync_debug_last_stats_value,
+                        stats.pushed,
+                        stats.pulled,
+                        stats.merged,
+                    )
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -543,7 +558,8 @@ private val previewSyncState = SyncUiState(
         lastSyncAt = PREVIEW_LAST_SYNC,
         rootEtag = "\"abcd1234ef56\"",
         lastGcAt = PREVIEW_LAST_GC,
-        lastError = null
+        lastError = null,
+        lastStats = SyncStats(pushed = 3, pulled = 5, merged = 1),
     )
 )
 

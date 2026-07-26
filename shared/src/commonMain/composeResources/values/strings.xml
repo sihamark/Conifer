@@ -63,6 +63,8 @@
     <string name="sync_debug_root_etag">Root ETag</string>
     <string name="sync_debug_last_gc">Last GC</string>
     <string name="sync_debug_last_error">Last error</string>
+    <string name="sync_debug_last_stats">Last sync tally</string>
+    <string name="sync_debug_last_stats_value">%1$d pushed · %2$d pulled · %3$d merged</string>
     <string name="sync_debug_note">For troubleshooting only — this is what a bug report would include instead of your bits\' content.</string>
     <string name="sync_debug_action_settings">Sync settings…</string>
     <string name="sync_debug_none">none</string>

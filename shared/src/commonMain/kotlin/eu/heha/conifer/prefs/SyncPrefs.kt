@@ -16,14 +16,14 @@ import kotlin.uuid.Uuid
  */
 class SyncPrefs(private val store: DataStore<Preferences>) {
 
-    /** ETag of the remote posts folder at the last completed sync (fast-path check). */
+    /** ETag of the remote bits folder at the last completed sync (fast-path check). */
     suspend fun rootEtag(): String? = read(ROOT_ETAG)
 
     suspend fun setRootEtag(etag: String) {
         store.edit { it[ROOT_ETAG] = etag }
     }
 
-    /** Drops the cached root ETag - it refers to a `postsRoot` this device may no longer sync into. */
+    /** Drops the cached root ETag - it refers to a `bitsRoot` this device may no longer sync into. */
     suspend fun clearRootEtag() {
         store.edit { it.remove(ROOT_ETAG) }
     }

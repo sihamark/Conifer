@@ -23,16 +23,16 @@ class GarbageCollector(
 ) {
     private fun dao() = databaseController.syncDao()
 
-    suspend fun collect(postsRoot: String) {
+    suspend fun collect(bitsRoot: String) {
         val threshold = Clock.System.now() - TOMBSTONE_RETENTION
         for (tombstone in dao().eligibleTombstones(threshold)) {
-            deleteTombstone(postsRoot, tombstone)
+            deleteTombstone(bitsRoot, tombstone)
         }
     }
 
-    private suspend fun deleteTombstone(postsRoot: String, tombstone: Bit) {
+    private suspend fun deleteTombstone(bitsRoot: String, tombstone: Bit) {
         try {
-            remoteStore.delete("$postsRoot/${tombstone.bucket}/${tombstone.id}.json")
+            remoteStore.delete("$bitsRoot/${tombstone.bucket}/${tombstone.id}.json")
             dao().delete(tombstone)
         } catch (e: CancellationException) {
             throw e
