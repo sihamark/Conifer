@@ -55,6 +55,16 @@ class SyncCoordinator(
     }
 
     /**
+     * Non-null (with a human-readable custody detail) if [Credentials]'s encryption key currently
+     * isn't in an OS-backed secure store, e.g. an unreachable OS keyring on headless Linux. Meant
+     * to be checked by the UI *before* calling [connect] - once [Credentials.username]/
+     * [Credentials.appPassword] are actually written, they're written through this same weaker
+     * custody regardless, so the warning only helps if it's seen before that happens.
+     */
+    val insecureKeyCustody: String?
+        get() = credentials.keyCustodyDescription.takeUnless { credentials.isKeySecurelyStored }
+
+    /**
      * Runs the Login Flow v2 dance against [serverUrl]: starts a session, opens it in the
      * system browser, and waits for the user to finish signing in there. On success, stores the
      * app password/username and immediately runs a first sync. Cancel the calling coroutine to
