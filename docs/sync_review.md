@@ -3,6 +3,11 @@
 Review of `shared/src/*/kotlin/eu/heha/conifer/{sync,auth}` and the sync-related pieces of
 `model/database`, `prefs`, and DI, against `docs/nexcloud_sync_spec.md`. Ranked by importance.
 
+**Re-evaluated against the current implementation (2026-07-26):** findings #2, #3, and #5 are
+confirmed still fixed/resolved; #1 and #4 are confirmed still open, unchanged in nature. #5 in
+particular — at the time the single biggest gap — is now resolved and its section rewritten below
+to describe what shipped instead of what was missing.
+
 ## 1. Resurrection risk isn't mitigated (spec §8) **partially fixed (stopgap)**
 
 `SyncEngine.pushModified`'s 412-conflict handler used to unconditionally re-upload a post as new
@@ -46,7 +51,8 @@ resolution. There's a `TODO` on the exact spot in `SyncEngine.pushModified` (sea
    resolve. The only option matching spec's actual intent (a human decides), but it's a real
    schema change for a flag with zero payoff until that UI exists.
 
-Revisit once a settings/sync UI exists to make option 3 worthwhile (see #5).
+A settings/sync UI now exists (see #5), but only for connect/disconnect/app-root/debug info — it
+has no conflict-inbox surface. Revisit option 3 once that surface exists.
 
 ## 2. Unknown JSON fields are dropped on re-push (spec §3.1) **fixed**
 
@@ -87,11 +93,38 @@ before. Covered by `SyncEngineTest.pushPreservesUnknownJsonFieldsFromAnEarlierPu
 - Spec test case #7 ("no feedback loop") has no explicit 2-device test proving that writing
   readable files never perturbs `rootEtag`/the fast path — it's only implicitly covered.
 
-## 5. The big one: nothing is wired into the running app
+## 5. The big one: nothing is wired into the running app **fixed**
 
-`KtorWebDavStore(`, `SyncEngine(`, and `LoginFlowV2(` have zero call sites outside class
-declarations and tests. No DI bindings, no trigger anywhere (app foreground / manual refresh /
-debounced-after-edit per spec §5), and no glue code connecting a completed
-`LoginFlowV2.LoginResult` to `Credentials`/`SyncPrefs.setServerUrl()`. Expected — no
-settings/login screen exists yet — but it means none of the sync code runs in the shipped app
-today.
+At the time of the original review: `KtorWebDavStore(`, `SyncEngine(`, and `LoginFlowV2(` had zero
+call sites outside class declarations and tests. No DI bindings, no trigger anywhere (app
+foreground / manual refresh / debounced-after-edit per spec §5), and no glue code connecting a
+completed `LoginFlowV2.LoginResult` to `Credentials`/`SyncPrefs.setServerUrl()`. No settings/login
+screen existed either, so none of the sync code ran in the shipped app.
+
+**Fixed — all of it is now wired end to end:**
+
+- **DI:** `SyncCoordinator` and `SyncViewModel` are both bound in Koin's `coreModule`
+  (`di/DependencyModules.kt`), which `ConiferApp.kt` installs at real app startup — not just in
+  tests.
+- **UI composition root:** `ConiferApp.kt`'s top-level composable calls `BitsRoute`, which resolves
+  `SyncViewModel` via `koinViewModel` alongside `BitsViewModel` and passes its state/actions into
+  `BitsPane`. `BitsPane`'s `Topbar` renders `SyncStatusIcon` (`ui/SyncPane.kt`), the app bar's cloud
+  icon, which opens `SyncSettingsSheet` (connect/disconnect, app-root config) and
+  `SyncDebugPopover` (troubleshooting glance) — this **is** the settings/login screen that was
+  missing.
+- **Login Flow v2 → Credentials/SyncPrefs glue:** `SyncCoordinator.connect()` drives the login
+  session end to end and, on success, writes `credentials.username`, `credentials.appPassword`,
+  and `syncPrefs.setServerUrl(result.server)` — exactly the missing glue.
+- **All four spec §5 triggers are wired in `SyncViewModel`:** manual ("Sync now" button),
+  immediately
+  after `connect()` succeeds, debounced ≥10s after a local edit
+  (`bitsRepository.getBits().drop(1).debounce(10.seconds)`), and periodic every 5 minutes while the
+  app is running (standing in for "app foreground," since this single-screen app has no separate
+  foreground/background lifecycle signal to hook into instead).
+
+*(Status: implemented since this review was written — see commit history around the sync-settings
+UI and Login Flow v2 wiring.)*
+
+One related gap remains, called out under #1: there is still no settings/inbox surface for a user
+to resolve a bit stuck dirty by the resurrection-mitigation stopgap. The sheet added here covers
+connect/disconnect/app-root/debug info, not per-bit conflict resolution.
