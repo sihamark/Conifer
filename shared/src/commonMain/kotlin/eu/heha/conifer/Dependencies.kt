@@ -3,6 +3,7 @@ package eu.heha.conifer
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
+import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
 
@@ -38,6 +39,19 @@ interface SyncPrefsInitializer {
 
 interface ClipboardController {
     fun copyToClipboard(text: String)
+}
+
+interface LogFileInitializer {
+    /**
+     * Opens [fileName] for appending in this platform's log folder, after deleting all but the
+     * newest [eu.heha.conifer.log.MAX_LOG_FILES] files already there (see
+     * [eu.heha.conifer.log.logFileName]).
+     *
+     * Returns `null` when there is nowhere to write - the web target has no file system, a
+     * folder can turn out to be unwritable - because a missing log file must never stop the app
+     * from starting. Implementations therefore swallow their own failures rather than throwing.
+     */
+    fun createLogFile(fileName: String): LogFileSink?
 }
 
 interface BrowserOpener {

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncCoordinator
+import eu.heha.conifer.sync.SyncTrigger
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -51,7 +52,7 @@ class SyncViewModel(
             // remote pull's own writes to `bits`, which just resolves to a cheap fast-path
             // sync() next time around - harmless, just not perfectly precise.
             bitsRepository.getBits().drop(1).debounce(10.seconds).collect {
-                coordinator.syncNow()
+                coordinator.syncNow(SyncTrigger.AfterEdit)
             }
         }
         viewModelScope.launch {
@@ -60,7 +61,7 @@ class SyncViewModel(
             // into instead, so a periodic loop stands in for it while the app is running.
             while (isActive) {
                 delay(SYNC_INTERVAL)
-                coordinator.syncNow()
+                coordinator.syncNow(SyncTrigger.Periodic)
             }
         }
     }

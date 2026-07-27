@@ -20,7 +20,8 @@ fun main() = application {
         syncPrefsInitializer = JvmSyncPrefsInitializer,
         credentialsInitializer = JvmCredentialsInitializer,
         browserOpener = JvmBrowserOpener,
-        clipboardController = JvmClipboardController
+        clipboardController = JvmClipboardController,
+        logFileInitializer = JvmLogFileInitializer
     )
     Window(
         onCloseRequest = ::exitApplication,

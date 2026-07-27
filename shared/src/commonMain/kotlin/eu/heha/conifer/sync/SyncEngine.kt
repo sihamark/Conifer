@@ -57,7 +57,10 @@ class SyncEngine(
         val appRoot = syncPrefs.appRoot()
         val bitsRoot = "$appRoot/.sync/bits"
 
-        if (fastPathApplies(bitsRoot)) return@withLock SyncStats()
+        if (fastPathApplies(bitsRoot)) {
+            Napier.i { "fast path: remote unchanged, nothing dirty or pending - no requests made" }
+            return@withLock SyncStats()
+        }
 
         pull(appRoot, bitsRoot, counters)
         push(bitsRoot, counters)
@@ -79,6 +82,7 @@ class SyncEngine(
 
     private suspend fun collectGarbageIfDue(bitsRoot: String) {
         if (!garbageCollectionIsDue()) return
+        Napier.i { "tombstone GC is due, collecting" }
         garbageCollector.collect(bitsRoot)
         syncPrefs.setLastGcAt(Clock.System.now())
     }
@@ -109,15 +113,20 @@ class SyncEngine(
             ensureManifestExists(appRoot, bitsRoot) // spec §9 "First device / empty server"
             emptyList()
         }
-        for (bucketEntry in buckets.filter { it.isDirectory }) {
+        val bucketFolders = buckets.filter { it.isDirectory }
+        var changedBuckets = 0
+        for (bucketEntry in bucketFolders) {
             val bucket = bucketEntry.name
             if (bucketEntry.etag == dao().bucketEtag(bucket)) continue // unchanged since last sync
 
+            changedBuckets++
             val entries = remoteStore.list("$bitsRoot/$bucket")
                 .filter { !it.isDirectory && it.name.endsWith(".json") }
+            Napier.d { "pull: bucket $bucket changed, ${entries.size} remote files" }
             pullEntries(bitsRoot, bucket, entries, counters)
             dao().upsertBucketState(BucketState(bucket, bucketEntry.etag))
         }
+        Napier.i { "pull: $changedBuckets of ${bucketFolders.size} buckets changed" }
     }
 
     /** Downloads and merges [entries] with parallelism ≤ [PULL_PARALLELISM] (spec §4/§9). */
@@ -215,7 +224,9 @@ class SyncEngine(
             }
         }
     } catch (e: SerializationException) {
-        Napier.e(e) { "failed to parse a post's JSON, skipping it: $rawJson" }
+        // Deliberately not logging rawJson: it is a bit's content, and the log file must stay
+        // shareable (see eu.heha.conifer.log.redactSecrets and the debug popover's note).
+        Napier.e(e) { "failed to parse a remote bit's JSON (${rawJson.length} bytes), skipping it" }
         null
     }
 
@@ -224,7 +235,11 @@ class SyncEngine(
     private suspend fun push(bitsRoot: String, counters: SyncCounters) {
         val new = dao().dirtyNew()
         val modified = dao().dirtyModified()
-        if (new.isEmpty() && modified.isEmpty()) return
+        if (new.isEmpty() && modified.isEmpty()) {
+            Napier.d { "push: nothing dirty" }
+            return
+        }
+        Napier.i { "push: ${new.size} new, ${modified.size} modified" }
 
         ensureBucketsExist(
             bitsRoot,
@@ -270,10 +285,11 @@ class SyncEngine(
                 markReadablePendingForPush(bit)
                 counters.incrementPushed()
             }
-        }.onFailure {
+        }.onFailure { e ->
             // The batch (or KtorWebDavStore's own per-file fallback inside bulkPut) failed
             // partway; some files may already be on the server from this or an earlier attempt.
             // Retry item by item instead of losing that progress or leaving them dirty forever.
+            Napier.w(e) { "push: bulk upload of ${new.size} bits failed, retrying file by file" }
             for (bit in new) pushNewSingle(bitsRoot, bit, counters)
         }
     }
@@ -353,7 +369,10 @@ class SyncEngine(
         // Only null if nothing has ever been created anywhere (no remote data, nothing local to
         // push either) - there is genuinely nothing to record yet; the next sync that pushes
         // something will create bitsRoot and finalize normally.
-        val rootEtag = remoteStore.etag(bitsRoot) ?: return
+        val rootEtag = remoteStore.etag(bitsRoot) ?: run {
+            Napier.d { "finalize: $bitsRoot doesn't exist yet - nothing synced anywhere so far" }
+            return
+        }
         syncPrefs.setRootEtag(rootEtag)
         syncPrefs.setLastSyncAt(Clock.System.now())
     }

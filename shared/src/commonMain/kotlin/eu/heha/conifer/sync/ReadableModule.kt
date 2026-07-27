@@ -27,7 +27,10 @@ class ReadableModule(
     private fun dao() = databaseController.syncDao()
 
     suspend fun render(appRoot: String) {
-        for (day in dao().pendingReadableDays()) {
+        val days = dao().pendingReadableDays()
+        if (days.isEmpty()) return
+        Napier.i { "readable: ${days.size} day(s) queued for re-rendering" }
+        for (day in days) {
             renderDay(appRoot, day)
         }
     }

@@ -59,6 +59,17 @@
 - before connecting, warns and requires an explicit "connect anyway" confirmation if the resulting
   credentials would land in a weaker key custody than usual (e.g. no OS keyring reachable), instead
   of silently storing them less securely
+- a log file per app start (`logs/conifer-<start time>.log`, keeping the newest 10 runs) recording
+  what sync actually did, each line stamped with the local date and time: what triggered a round
+  (manual, after an edit, periodic, after connecting, after an app-folder change), how long it took
+  and what it moved, which buckets changed, when the fast path skipped the whole round, GC and
+  readable-rendering passes, and every warning/error along the way. Written on Android (private
+  `files/logs/`), iOS (`Documents/logs/`, so it comes along in a backup or file transfer) and
+  desktop (next to the app's `data/` folder); the web target has no file system and keeps logging
+  to the browser console only. Contains no credentials and no bit content: nothing in the sync
+  stack logs an app password, poll token or login URL, every line additionally passes through a
+  redactor for URL credentials/tokens echoed back by exceptions, and a bit that fails to parse is
+  now logged by size instead of by dumping its JSON
 
 ## Version 1.1.2 (17.07.2026)
 
