@@ -1,6 +1,8 @@
 package eu.heha.conifer.auth
 
+import eu.heha.conifer.net.CONIFER_USER_AGENT
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -20,11 +22,19 @@ import eu.heha.conifer.AppJson as json
  * an app password without ever seeing the user's real password (Nextcloud sync spec §10). The
  * device starts a session, the user completes it in their own browser, and the device polls a
  * one-shot endpoint until the server hands back credentials - no custom server-side app needed.
+ *
+ * [userAgent] becomes the *name* Nextcloud gives the resulting app password in Settings →
+ * Security, since it names the token after the `User-Agent` of the [start] request - see
+ * [eu.heha.conifer.net.coniferUserAgent].
  */
 class LoginFlowV2(
     client: HttpClient = HttpClient(),
+    userAgent: String = CONIFER_USER_AGENT,
 ) {
-    private val client: HttpClient = client.config { expectSuccess = false }
+    private val client: HttpClient = client.config {
+        expectSuccess = false
+        install(UserAgent) { agent = userAgent }
+    }
 
     /** `POST {serverUrl}/index.php/login/v2`: starts a new session. */
     suspend fun start(serverUrl: String): Session {

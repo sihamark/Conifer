@@ -1,7 +1,9 @@
 package eu.heha.conifer.sync
 
+import eu.heha.conifer.net.CONIFER_USER_AGENT
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BasicAuthCredentials
 import io.ktor.client.plugins.auth.providers.basic
@@ -31,12 +33,14 @@ private const val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8" ?>
  * §5) is responsible for prefixing them with `appRoot`/`.sync` as needed.
  *
  * Authentication is HTTP Basic against an app password (spec §3.2/§10 Login Flow v2); [client]
- * defaults to a plain platform [HttpClient] but can be overridden, e.g. in tests.
+ * defaults to a plain platform [HttpClient] but can be overridden, e.g. in tests. [userAgent]
+ * identifies the app in the server's access log (see [eu.heha.conifer.net.coniferUserAgent]).
  */
 class KtorWebDavStore(
     serverUrl: String,
     username: String,
     password: String,
+    userAgent: String = CONIFER_USER_AGENT,
     client: HttpClient = HttpClient(),
 ) : RemoteStore {
 
@@ -46,6 +50,7 @@ class KtorWebDavStore(
 
     private val client: HttpClient = client.config {
         expectSuccess = false
+        install(UserAgent) { agent = userAgent }
         install(Auth) {
             basic {
                 credentials { BasicAuthCredentials(username, password) }

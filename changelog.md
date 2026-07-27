@@ -37,6 +37,10 @@
   through the same per-platform initializer pattern as the rest of sync; a startup check logs a
   warning if the encryption key ever falls back to software-only storage instead of the platform's
   secure enclave/keystore
+- sync requests now identify themselves as e.g. `Conifer (Android 36)` instead of Ktor's default
+  `ktor-client`, so the app password shows up under a recognizable name in Nextcloud's
+  Settings → Security device list (Nextcloud names the token after the `User-Agent` of the
+  login-flow request)
 - a full review pass over the sync stack (see `sync_review.md`) found and fixed: pull now
   downloads a bucket's files with parallelism ≤ 6 instead of one at a time; a brand-new server now
   gets the `.sync/meta/manifest.json` marker the spec calls for; re-pushing a bit now preserves any

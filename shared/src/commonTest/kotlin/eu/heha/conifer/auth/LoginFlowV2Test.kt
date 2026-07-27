@@ -39,6 +39,25 @@ class LoginFlowV2Test {
     }
 
     @Test
+    fun startSendsTheGivenUserAgent() = runTest {
+        // Not a cosmetic detail: Nextcloud names the app password it hands out after this header,
+        // and that name is what the user sees under Settings -> Security. Without it Ktor's own
+        // default ("ktor-client") would be the name of the token.
+        var sentUserAgent: String? = null
+        val flow = LoginFlowV2(
+            client = client { request ->
+                sentUserAgent = request.headers[HttpHeaders.UserAgent]
+                respondJson(INITIATE_BODY)
+            },
+            userAgent = "Conifer (Android 36)"
+        )
+
+        flow.start("https://cloud.example.org")
+
+        assertEquals("Conifer (Android 36)", sentUserAgent)
+    }
+
+    @Test
     fun pollOnceReturnsNullWhileTheUserHasNotCompletedTheFlowYet() = runTest {
         val flow = LoginFlowV2(client { respond("", HttpStatusCode.NotFound) })
 
