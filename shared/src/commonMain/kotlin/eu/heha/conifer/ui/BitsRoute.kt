@@ -29,6 +29,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickSyncIcon = syncModel::onClickSyncIcon,
             onCloseSheet = syncModel::onCloseSheet,
             onCloseDebug = syncModel::onCloseDebug,
+            onToggleDebugDetails = syncModel::onToggleDebugDetails,
             onOpenSettingsFromDebug = syncModel::onOpenSettingsFromDebug,
             onServerUrlChange = syncModel::onServerUrlChange,
             onClickConnect = syncModel::onClickConnect,
