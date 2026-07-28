@@ -88,6 +88,16 @@
   bits keep the day and time they were entered with even when the device's time zone changes
 - after adding or editing a bit, the list now scrolls to that bit (unless it is already visible),
   so a bit saved with a custom date/time doesn't disappear off-screen
+- the two-pane layout from the mockup: from Material's medium window width class up (600.dp — so
+  desktop and web windows, tablets and unfolded foldables) a day sidebar sits next to the bits —
+  "All days" plus the last 30 days, each with the day strip's dots and the number of bits written
+  that day — and takes over
+  the day selection from the composer's picker, leaving it with just the time slider; compact
+  windows keep the single-pane layout with the day strip. Crossing the breakpoint — by resizing a
+  desktop window, say — slides the sidebar in and out and collapses the day strip instead of
+  snapping the whole layout over
+- the desktop window can no longer be resized below 300 x 480 dp, where the layout starts to break
+  down (still under the two-pane breakpoint, so the single-pane layout stays reachable)
 
 ## Version 1.1.1 (07.07.2026)
 

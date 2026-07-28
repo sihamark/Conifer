@@ -5,16 +5,36 @@ Comparison of `docs/conifer-mockup.html` against the actual Compose UI
 mockup has been updated to match where the fix was unambiguous; this file documents what changed
 and the open questions that need a decision rather than a mechanical fix.
 
-## 1. The two-pane / sidebar layout doesn't exist in the real app — needs a decision
+## 1. The two-pane / sidebar layout — implemented (was: needs a decision)
 
-`BitsPane.kt` is a single `Column`; there is no adaptive/responsive layout code, no sidebar, no
-day-list-owns-selection mode anywhere in the real UI. The mockup's entire "Two-pane" toggle and
-`.sidebar` are pure design exploration with no code behind them yet.
+Originally this section flagged the mockup's "Two-pane" toggle and `.sidebar` as pure design
+exploration: `BitsPane.kt` was a single `Column` with no responsive layout code at all. That
+direction has since been taken, so the caveats ("(proposal)", the footer note) are gone from the
+mockup: `BitsPane` now puts the day list into a
+`DaySidebar` next to the bits, which then replaces the day strip inside the composer's picker
+(`DateTimeSelector(isDaySelectionVisible = false)`) — the sidebar owns the day, exactly as in the
+mockup.
 
-**Not removed** — that's a real design decision, not a mechanical correction. Instead, the toggle
-is now labeled "Two-pane (proposal)" with a tooltip, and the footer note says so explicitly, so
-anyone opening the mockup on its own (without this file) still gets the caveat. Decide whether
-this is a real direction worth prototyping in Compose, or should be dropped from the mockup.
+Four notes on how the real layout differs from (or goes beyond) the mockup:
+
+- **Window size class, not platform.** The mockup ties two panes to the Desktop/Web previews. The
+  real app asks Material for the window's size class (`currentWindowAdaptiveInfoV2()`, from
+  `org.jetbrains.compose.material3.adaptive:adaptive`) and lays out both panes from the medium
+  width breakpoint (`isWidthAtLeastBreakpoint(WIDTH_DP_MEDIUM_LOWER_BOUND)`, 600.dp) up, so desktop
+  and web windows get it from the start, as do tablets and unfolded foldables, while phones stay
+  single-pane — and a narrowed desktop window falls back to the phone layout instead of squeezing a
+  sidebar in.
+- **Weekday abbreviation.** The mockup's sidebar keeps Title Case ("Mon") while its day strip was
+  corrected to the app's all-caps `dayOfWeek.name.take(3)` (§4). The sidebar follows the day strip
+  here, so both day lists read alike.
+- **Dots in the sidebar.** The mockup's sidebar rows only had the count badge, so the day strip's
+  1–3 dots (§5) were the one thing the sidebar dropped when it took the day selection over. The real
+  sidebar draws both — the dots for how a day's bits are spread over it, the badge for how many
+  there are — from a `DayDots` composable now shared with the strip. **The mockup was updated to
+  match** (`.side-item .dots`, reusing `dotsFor()`), so this is no longer a divergence.
+- **"Days" title doesn't scroll.** In the mockup the whole `aside` scrolls. In the real app the top
+  bar floats over the *main* pane only, so anything scrolling up in the sidebar would slide into an
+  uncovered band next to it; the title stays put above the scrolling days instead.
 
 ## 2. Color palette was invented, not derived — now fixed
 

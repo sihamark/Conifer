@@ -2,6 +2,8 @@ package eu.heha.conifer.ui
 
 import androidx.compose.runtime.Composable
 import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.ui.bits.BitsPane
+import eu.heha.conifer.ui.bits.BitsPaneActions
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -16,6 +18,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onNewBitTextChange = { model.onNewBitTextChange(it) },
             onClickRequestPermission = { permissionHandler?.requestPermission() },
             onClickDate = model::selectDate,
+            onClickAllDays = model::selectAllDays,
             onSelectTime = model::selectTime,
             onResetToNow = model::resetToNow,
             onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,

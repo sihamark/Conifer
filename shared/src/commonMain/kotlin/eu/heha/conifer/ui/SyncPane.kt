@@ -39,8 +39,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,6 +98,7 @@ import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
 import eu.heha.conifer.sync.SyncStats
 import eu.heha.conifer.ui.theme.ConiferTheme
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
@@ -354,8 +357,31 @@ private fun SyncStatusRow(isSyncing: Boolean, lastSyncAt: Instant?) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions = SyncPaneActions()) {
-    ModalBottomSheet(onDismissRequest = actions.onCloseSheet) {
-        SyncSettingsSheetContent(state, actions)
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    // Buttons inside the sheet have to animate it away themselves. A drag, the scrim and the back
+    // gesture all run the sheet's own hide animation and only report `onDismissRequest` afterwards,
+    // but an action that flips `isSheetOpen` right away takes the sheet out of the composition
+    // while it is still on screen, leaving nothing to animate. `onHidden` runs only once the sheet
+    // really is hidden, so a hide the user interrupts (by dragging the sheet back up) keeps it open.
+    fun hideThen(onHidden: () -> Unit) {
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) onHidden()
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = actions.onCloseSheet,
+        sheetState = sheetState
+    ) {
+        SyncSettingsSheetContent(
+            state = state,
+            actions = actions,
+            onClickClose = { hideThen(actions.onCloseSheet) },
+            // Disconnecting closes the sheet as well, so it needs the same animated exit.
+            onClickDisconnect = { hideThen(actions.onClickDisconnect) }
+        )
     }
 }
 
@@ -367,7 +393,11 @@ fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions = SyncPaneAct
 @Composable
 private fun SyncSettingsSheetContent(
     state: SyncUiState,
-    actions: SyncPaneActions = SyncPaneActions()
+    actions: SyncPaneActions = SyncPaneActions(),
+    // The sheet-closing actions come in separately so [SyncSettingsSheet] can animate the sheet out
+    // first; previews render this content on its own, where the plain actions are what's wanted.
+    onClickClose: () -> Unit = actions.onCloseSheet,
+    onClickDisconnect: () -> Unit = actions.onClickDisconnect
 ) {
     Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
         Text(
@@ -388,10 +418,14 @@ private fun SyncSettingsSheetContent(
         when (val connection = state.connection) {
             is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
             is SyncConnectionState.Connecting -> ConnectingContent(actions)
-            is SyncConnectionState.Connected -> ConnectedContent(connection, actions)
+            is SyncConnectionState.Connected -> ConnectedContent(
+                connection = connection,
+                actions = actions,
+                onClickDisconnect = onClickDisconnect
+            )
         }
         Spacer(Modifier.height(14.dp))
-        TextButton(onClick = actions.onCloseSheet, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onClickClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.sync_action_close))
         }
     }
@@ -537,7 +571,11 @@ private fun ConnectingContent(actions: SyncPaneActions) {
 }
 
 @Composable
-private fun ConnectedContent(connection: SyncConnectionState.Connected, actions: SyncPaneActions) {
+private fun ConnectedContent(
+    connection: SyncConnectionState.Connected,
+    actions: SyncPaneActions,
+    onClickDisconnect: () -> Unit = actions.onClickDisconnect
+) {
     Column {
         AccountChip(connection.username)
         Spacer(Modifier.height(8.dp))
@@ -555,7 +593,7 @@ private fun ConnectedContent(connection: SyncConnectionState.Connected, actions:
                 Text(stringResource(Res.string.sync_action_sync_now))
             }
             TextButton(
-                onClick = actions.onClickDisconnect,
+                onClick = onClickDisconnect,
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 ),
