@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -309,7 +311,9 @@ private fun Bits(
             isTopBarVisible = isTopBarVisible,
             // Only the list is inset; the top bar floating above it keeps spanning the whole pane.
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .widthIn(max = CONTENT_MAX_WIDTH)
                 .padding(horizontal = paneInset)
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
@@ -339,6 +343,10 @@ private fun Composer(
         // still reaches the sidebar's divider.
         Column(
             Modifier
+                // Kept to the same measure as the bits above it, so the text field and the day
+                // strip line up with the cards instead of running off past them.
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = CONTENT_MAX_WIDTH)
                 .padding(horizontal = paneInset)
                 // Collapsed, the composer fits the height a landscape keyboard leaves exactly;
                 // expanding the picker does not, so there it scrolls instead of squeezing the
@@ -418,6 +426,15 @@ private val bottomInsets: WindowInsets
  * show a few days, while still leaving the bits the larger half of a landscape phone.
  */
 private val SIDE_COMPOSER_WIDTH = 360.dp
+
+/**
+ * How wide the bits and the composer are allowed to grow, centred in whatever the pane leaves them.
+ * A bit is a single short line of text, so on a maximized desktop or web window letting the cards
+ * span the pane strands the time chip and the overflow button at opposite edges and makes the list
+ * tiring to scan. Below this the pane is used in full, so it only takes effect on the widest
+ * windows; the top bar and the composer's surface still span the pane either way.
+ */
+private val CONTENT_MAX_WIDTH = 720.dp
 
 /**
  * Sync gets a pane of its own from the large width class (1200.dp) up — a maximized desktop or
