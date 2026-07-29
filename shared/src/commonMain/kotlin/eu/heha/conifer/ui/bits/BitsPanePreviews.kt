@@ -6,11 +6,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import eu.heha.conifer.PermissionRationale
 import eu.heha.conifer.model.database.Bit
+import eu.heha.conifer.sync.SyncConnectionState
+import eu.heha.conifer.sync.SyncDebugInfo
+import eu.heha.conifer.sync.SyncStats
 import eu.heha.conifer.ui.DatedBits
+import eu.heha.conifer.ui.SyncPresentation
+import eu.heha.conifer.ui.SyncUiState
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import kotlin.time.Instant
 
 /** Editing a bit, with the notification permission prompt and a custom time selection showing. */
 @PreviewLightDark
@@ -138,6 +144,68 @@ private fun BitsPaneTwoPanePreview() {
                             )
                         )
                     )
+                )
+            )
+        )
+    }
+}
+
+/**
+ * The widest windows: the same two panes with sync opened as a third one on the right, instead of
+ * the sheet smaller windows put over the bits. Sized like a maximized desktop window.
+ */
+@Preview(
+    uiMode = AndroidUiModes.UI_MODE_NIGHT_YES,
+    group = "BitsPaneThreePanePreview",
+    widthDp = 1280,
+    heightDp = 800
+)
+@Preview(
+    uiMode = AndroidUiModes.UI_MODE_NIGHT_NO,
+    group = "BitsPaneThreePanePreview",
+    widthDp = 1280,
+    heightDp = 800
+)
+@Composable
+private fun BitsPaneThreePanePreview() {
+    ConiferTheme {
+        BitsPane(
+            layout = BitsLayout.DaySidebar,
+            syncPresentation = SyncPresentation.Pane,
+            state = BitsPaneState(
+                today = LocalDate(2024, 6, 1),
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(
+                            Bit(
+                                text = "Started reading a new book",
+                                date = LocalDateTime(2024, 6, 1, 8, 0)
+                            ),
+                            Bit(
+                                text = "Fixed the flaky CI test",
+                                date = LocalDateTime(2024, 6, 1, 14, 45)
+                            )
+                        )
+                    )
+                )
+            ),
+            syncState = SyncUiState(
+                isSyncOpen = true,
+                connection = SyncConnectionState.Connected(
+                    server = "https://cloud.example.org",
+                    username = "alice",
+                    isSyncing = false,
+                    lastSyncAt = Instant.fromEpochMilliseconds(1_753_000_000_000)
+                ),
+                debugInfo = SyncDebugInfo(
+                    deviceId = "a1b2c3d4-e5f6-7890-aaaa-bbbbccccdddd",
+                    appRoot = "Conifer",
+                    lastSyncAt = Instant.fromEpochMilliseconds(1_753_000_000_000),
+                    rootEtag = "\"abcd1234ef56\"",
+                    lastGcAt = null,
+                    lastError = null,
+                    lastStats = SyncStats(pushed = 3, pulled = 5, merged = 1)
                 )
             )
         )

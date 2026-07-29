@@ -56,6 +56,14 @@
   into the sync settings - with the troubleshooting fields (device id, app root, last sync/GC time,
   root ETag, last error, last tally) tucked behind an expand button in its header instead of
   always on screen
+- on the widest windows (Material's large width class, 1200.dp — a maximized desktop or web
+  window, an unfolded foldable in landscape) sync is no longer a sheet over the bits but a third
+  pane to the right of them, opened and closed by the same cloud icon: status, account,
+  "Sync now"/"Disconnect", the server and app-folder fields and the troubleshooting details all in
+  one place, since a pane that is already on screen has no reason to keep half of itself behind a
+  "Sync settings…" button.
+  Crossing the breakpoint slides the pane in and out beside the day sidebar instead of snapping,
+  and below it the glance/sheet is unchanged
 - before connecting, warns and requires an explicit "connect anyway" confirmation if the resulting
   credentials would land in a weaker key custody than usual (e.g. no OS keyring reachable), instead
   of silently storing them less securely

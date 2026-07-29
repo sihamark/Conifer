@@ -36,6 +36,7 @@
 
     <string name="sync_content_status_icon">Sync status</string>
     <string name="sync_content_syncing">Syncing</string>
+    <string name="sync_content_close">Close sync</string>
 
     <string name="sync_title">Sync</string>
     <string name="sync_subtitle">Optional — Conifer works fully offline, on this device only, unless you connect an account below. Nothing is sent anywhere until you do.</string>

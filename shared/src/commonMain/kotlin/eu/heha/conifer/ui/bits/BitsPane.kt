@@ -2,6 +2,10 @@ package eu.heha.conifer.ui.bits
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.layout.Layout
@@ -41,7 +46,9 @@ import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
 import conifer.shared.generated.resources.bits_label_counter
 import eu.heha.conifer.ui.DatedBits
+import eu.heha.conifer.ui.SyncPane
 import eu.heha.conifer.ui.SyncPaneActions
+import eu.heha.conifer.ui.SyncPresentation
 import eu.heha.conifer.ui.SyncStatusIcon
 import eu.heha.conifer.ui.SyncUiState
 import org.jetbrains.compose.resources.pluralStringResource
@@ -57,6 +64,10 @@ fun BitsPane(
     // From the mockup, decided by Material's window size classes; see BitsLayout for what each one
     // arranges. Overridable so previews and tests can pick a layout instead of a window size.
     layout: BitsLayout = currentBitsLayout(),
+    // Deliberately not part of BitsLayout: the sync pane does not rearrange the days, the bits
+    // and the composer, it only takes a slice of the window away from them. Overridable like the
+    // layout.
+    syncPresentation: SyncPresentation = currentSyncPresentation(),
     // Only compact-height windows (phones in landscape, small foldable covers) are cramped enough
     // by the IME to be worth giving up the top bar for; from the medium height class up there is
     // room for both, and a bar that comes and goes with every keystroke is just noise.
@@ -112,10 +123,34 @@ fun BitsPane(
                 syncState = syncState,
                 syncActions = syncActions,
                 layout = layout,
+                syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 focusRequester = focusRequester,
                 modifier = Modifier.weight(1f)
             )
+            // The mirror image of the sidebar, on the other side of the main pane and shown only
+            // while the user has sync open — where the smaller layouts put a sheet or a popover
+            // over the bits, a window this wide can simply hand sync a pane of its own instead. The
+            // animation is anchored to the start rather than RowScope's default end, so it is the
+            // divider — flush with the main pane — that travels, as the sidebar's does.
+            AnimatedVisibility(
+                visible = syncPresentation == SyncPresentation.Pane && syncState.isSyncOpen,
+                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
+            ) {
+                Row {
+                    VerticalDivider()
+                    SyncPane(
+                        state = syncState,
+                        actions = syncActions,
+                        isTopBarVisible = isTopBarVisible,
+                        // Like the sidebar, the pane spans the whole height, so it has to keep its
+                        // own content — text fields included — clear of the keyboard and the
+                        // navigation bar.
+                        modifier = Modifier.windowInsetsPadding(bottomInsets)
+                    )
+                }
+            }
         }
     }
 }
@@ -128,6 +163,7 @@ private fun MainPane(
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
     layout: BitsLayout,
+    syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
@@ -154,6 +190,7 @@ private fun MainPane(
                 actions = actions,
                 syncState = syncState,
                 syncActions = syncActions,
+                syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 paneInset = paneInset,
                 // Beside the composer the bits reach the bottom of the window themselves, so they
@@ -259,6 +296,7 @@ private fun Bits(
     actions: BitsPaneActions,
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
+    syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     paneInset: Dp,
     modifier: Modifier = Modifier
@@ -275,7 +313,7 @@ private fun Bits(
                 .padding(horizontal = paneInset)
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-        Topbar(bitsCount, isTopBarVisible, syncState, syncActions)
+        Topbar(bitsCount, isTopBarVisible, syncState, syncActions, syncPresentation)
     }
 }
 
@@ -338,7 +376,8 @@ private fun Topbar(
     bitsCount: Int,
     isVisible: Boolean,
     syncState: SyncUiState,
-    syncActions: SyncPaneActions
+    syncActions: SyncPaneActions,
+    syncPresentation: SyncPresentation
 ) {
     AnimatedVisibility(visible = isVisible, modifier = Modifier.fillMaxWidth()) {
         TopAppBar(
@@ -353,7 +392,12 @@ private fun Topbar(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                SyncStatusIcon(syncState, syncActions, modifier = Modifier.padding(end = 8.dp))
+                SyncStatusIcon(
+                    state = syncState,
+                    actions = syncActions,
+                    presentation = syncPresentation,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
             },
             // The column already handles the status bar inset.
             windowInsets = WindowInsets()
@@ -374,6 +418,22 @@ private val bottomInsets: WindowInsets
  * show a few days, while still leaving the bits the larger half of a landscape phone.
  */
 private val SIDE_COMPOSER_WIDTH = 360.dp
+
+/**
+ * Sync gets a pane of its own from the large width class (1200.dp) up — a maximized desktop or
+ * web window, an unfolded foldable in landscape — where the day sidebar, the bits and a
+ * [SyncPresentation.Pane] still leave the bits more room than the sidebar takes. Below that, and
+ * whenever the window is too short for the sidebar as well, sync stays a sheet over the bits.
+ */
+@Composable
+private fun currentSyncPresentation(): SyncPresentation {
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val isWideEnough =
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND)
+    val isTallEnough =
+        windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+    return if (isWideEnough && isTallEnough) SyncPresentation.Pane else SyncPresentation.Sheet
+}
 
 @Composable
 private fun currentBitsLayout(): BitsLayout {

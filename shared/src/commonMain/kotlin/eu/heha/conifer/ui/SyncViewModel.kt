@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Thin Compose-facing wrapper around [SyncCoordinator]: owns the sheet/popover visibility and
+ * Thin Compose-facing wrapper around [SyncCoordinator]: owns the sync surface's visibility and the
  * server-url input the coordinator itself has no opinion about, plus the background triggers
  * spec §5 calls for (debounced-after-edit, periodic) - the coordinator only ever runs when told
  * to, so sync stays fully opt-in regardless of what this class schedules.
@@ -66,37 +66,43 @@ class SyncViewModel(
         }
     }
 
-    /** Pressing the app bar's status icon: a debug glance once connected, else the full sheet. */
+    /**
+     * Pressing the app bar's status icon shows or hides the sync surface. Which surface that is -
+     * the glance, the settings sheet or the third pane - is the layout's call, not this class's;
+     * see [SyncPresentation]. Disconnected there is no status to glance at, so it opens on the
+     * settings straight away.
+     */
     fun onClickSyncIcon() {
-        if (state.connection is SyncConnectionState.Connected) {
-            if (state.isDebugOpen) {
-                state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false)
-            } else {
-                viewModelScope.launch {
-                    val info = coordinator.debugInfo()
-                    state = state.copy(isDebugOpen = true, debugInfo = info)
-                }
-            }
+        if (state.isSyncOpen) {
+            onCloseSync()
         } else {
-            state = state.copy(isSheetOpen = true)
+            state = state.copy(
+                isSyncOpen = true,
+                areSettingsOpen = state.connection !is SyncConnectionState.Connected
+            )
+            // Fetched even while the details themselves are collapsed: it is what decides whether
+            // the surface offers to show them at all.
+            viewModelScope.launch {
+                state = state.copy(debugInfo = coordinator.debugInfo())
+            }
         }
     }
 
-    fun onCloseSheet() {
-        state = state.copy(isSheetOpen = false)
-    }
-
-    /** Closing the popover also collapses its details, so the next glance is a glance again. */
-    fun onCloseDebug() {
-        state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false)
+    /** Closing also folds the surface back up, so the next glance is a glance again. */
+    fun onCloseSync() {
+        state = state.copy(
+            isSyncOpen = false,
+            areSettingsOpen = false,
+            areDebugDetailsOpen = false
+        )
     }
 
     fun onToggleDebugDetails() {
         state = state.copy(areDebugDetailsOpen = !state.areDebugDetailsOpen)
     }
 
-    fun onOpenSettingsFromDebug() {
-        state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false, isSheetOpen = true)
+    fun onOpenSettings() {
+        state = state.copy(areSettingsOpen = true, areDebugDetailsOpen = false)
     }
 
     fun onServerUrlChange(url: String) {
@@ -155,24 +161,28 @@ class SyncViewModel(
     }
 
     /**
-     * Also reachable from the debug popover, which stays open across the round - so refresh its
-     * snapshot afterwards, otherwise the details it shows (last sync, root ETag, tally, error)
-     * would still describe the *previous* round while sitting right under a "Sync now" the user
-     * just pressed.
+     * Also reachable from the surfaces that stay open across the round - so refresh their snapshot
+     * afterwards, otherwise the details they show (last sync, root ETag, tally, error) would still
+     * describe the *previous* round while sitting right under a "Sync now" the user just pressed.
      */
     fun onClickSyncNow() {
         viewModelScope.launch {
             coordinator.syncNow()
-            if (state.isDebugOpen) {
+            if (state.isSyncOpen) {
                 state = state.copy(debugInfo = coordinator.debugInfo())
             }
         }
     }
 
+    /**
+     * Leaves the surface itself alone: the sheet has nothing left to show once disconnected and
+     * closes itself around this (see `SyncSettingsSheet`), while the third pane simply carries on
+     * with the connect form.
+     */
     fun onClickDisconnect() {
         connectJob?.cancel()
         coordinator.disconnect()
-        state = state.copy(isSheetOpen = false, serverUrlInput = "")
+        state = state.copy(serverUrlInput = "")
     }
 
     private companion object {

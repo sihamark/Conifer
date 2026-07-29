@@ -81,12 +81,18 @@ built by the injected `DatabaseInitializer`) → `BitsRepository` →
 `mutableStateOf`) and collects `getAllBits()` as a Flow, grouping bits by local date.
 
 **The bits screen** is split by region across `ui/bits/`, one file per part of the screen:
-`BitsPane` (the two-pane frame, the main pane and the top bar), `BitsList` (the day-grouped list and
-its scroll position), `BitComposer` (date/time chip, day strip, time slider, text field),
+`BitsPane` (the multi-pane frame, the main pane and the top bar), `BitsList` (the day-grouped list
+and its scroll position), `BitComposer` (date/time chip, day strip, time slider, text field),
 `DaySidebar` (the two-pane day list), `BitItem`, `PermissionPrompt`, `BitsPaneContract`
 (`BitsPaneState`/`BitsPaneActions`) and `BitsPanePreviews`. Since Kotlin has no package-private,
 anything used across those files is `internal`; `BitsPane` and the contract types are the only
 public API of the package. `DatedBits` lives next to `BitsViewModel`, which builds it.
+
+`BitsPane` takes two independent layout decisions, both derived from the window size classes and
+both overridable so previews/tests can pick one directly: `BitsLayout` arranges the days, bits and
+composer (see its KDoc), while `SyncPresentation` (in `ui/SyncPane.kt`) decides whether sync appears
+as a popover/sheet over the bits or as a third pane beside them. `SyncUiState.isSyncOpen` only
+records that the user asked to see sync; the presentation turns that into a surface.
 
 **Room database** lives in `commonMain/.../model/database`. Schema is at version 2 with an
 `AutoMigration` and JSON schemas exported to `shared/schemas`. KSP generates the Room code for
