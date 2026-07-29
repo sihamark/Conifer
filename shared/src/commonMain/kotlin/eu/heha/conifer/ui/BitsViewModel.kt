@@ -11,6 +11,7 @@ import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.bits.BitsPaneState
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,9 +27,11 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class BitsViewModel(
     private val repository: BitsRepository,
-    private val clipboardController: ClipboardController? = null,
-    private val permissionHandler: PermissionHandler? = null
+    private val clipboardController: ClipboardController? = null
 ) : ViewModel() {
+
+    /** Collection of the currently bound handler, see [bindPermissionHandler]. */
+    private var permissionJob: Job? = null
 
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
 
@@ -86,16 +89,31 @@ class BitsViewModel(
                 }
             }
             launch { trackCurrentDateTime() }
-            launch {
-                permissionHandler?.let { handler ->
-                    handler.isPermissionGranted.collect { isGranted ->
-                        Napier.e { "notification permission granted: $isGranted" }
-                        state = state.copy(
-                            permissionRationale = handler.permissionRationale
-                                .takeUnless { isGranted }
-                        )
-                    }
-                }
+        }
+    }
+
+    /**
+     * Binds the permission prompt to [handler], replacing whatever was bound before.
+     *
+     * Called from the screen rather than taken as a constructor parameter: asking for a permission
+     * needs whatever the platform's current screen is (an Activity on Android), so the handler is a
+     * new instance after every recreation while this ViewModel is not. A handler kept from
+     * construction would go stale on the first rotation — the state would follow one nobody checks
+     * any more, leaving the prompt up however often the permission is granted — and would hold the
+     * screen it belongs to alive along with it.
+     */
+    fun bindPermissionHandler(handler: PermissionHandler?) {
+        permissionJob?.cancel()
+        if (handler == null) {
+            state = state.copy(permissionRationale = null)
+            return
+        }
+        permissionJob = viewModelScope.launch {
+            handler.isPermissionGranted.collect { isGranted ->
+                Napier.d { "notification permission granted: $isGranted" }
+                state = state.copy(
+                    permissionRationale = handler.permissionRationale.takeUnless { isGranted }
+                )
             }
         }
     }

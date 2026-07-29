@@ -22,7 +22,7 @@ class NotificationPermissionHandler(
     )
 
     fun checkPermission() {
-        Napier.e { "check permission" }
+        Napier.d { "check permission" }
         _isPermissionGranted.value = isPermissionGranted()
     }
 

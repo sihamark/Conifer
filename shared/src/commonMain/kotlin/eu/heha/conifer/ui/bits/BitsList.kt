@@ -1,5 +1,6 @@
 package eu.heha.conifer.ui.bits
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +48,7 @@ internal fun BitsList(
     state: BitsPaneState,
     visibleBitsByDate: List<DatedBits>,
     actions: BitsPaneActions,
+    isTopBarVisible: Boolean,
     modifier: Modifier = Modifier
 ) {
     val permissionRationale = state.permissionRationale
@@ -81,7 +83,13 @@ internal fun BitsList(
     }
     if (visibleBitsByDate.isEmpty()) {
         Column(modifier) {
-            Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+            // Nothing here scrolls, so the space this reserves comes straight off the prompt
+            // below it — which on a landscape window with the keyboard open is the difference
+            // between the prompt fitting and being squeezed. So it follows the bar out of the
+            // way, the same way the sidebar's does.
+            AnimatedVisibility(isTopBarVisible) {
+                Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+            }
             PermissionPromptItem(permissionRationale, actions)
             EmptyState(
                 isFilteredByDate = state.selectedDate != null &&

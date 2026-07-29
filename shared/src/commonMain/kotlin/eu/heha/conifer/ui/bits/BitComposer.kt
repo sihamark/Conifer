@@ -331,6 +331,9 @@ internal fun NewBitText(
     onNewBitTextChange: (String) -> Unit,
     onClickAdd: () -> Unit,
     focusRequester: FocusRequester,
+    // Trimmed by the layouts that have to fit the whole composer into what a landscape keyboard
+    // leaves over, where every dp below the field is one the field itself does not get.
+    bottomPadding: Dp = 16.dp,
     modifier: Modifier = Modifier
 ) {
     // Track the selection locally; when the text is replaced from outside (an edit starts or the
@@ -346,7 +349,7 @@ internal fun NewBitText(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(bottom = 16.dp)
+            .padding(bottom = bottomPadding)
     ) {
         OutlinedTextField(
             value = textFieldValue,

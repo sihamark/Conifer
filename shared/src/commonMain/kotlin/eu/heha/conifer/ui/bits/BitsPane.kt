@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,12 +31,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
 import conifer.shared.generated.resources.bits_label_counter
+import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.SyncPaneActions
 import eu.heha.conifer.ui.SyncStatusIcon
 import eu.heha.conifer.ui.SyncUiState
@@ -46,12 +54,15 @@ fun BitsPane(
     actions: BitsPaneActions = BitsPaneActions(),
     syncState: SyncUiState = SyncUiState(),
     syncActions: SyncPaneActions = SyncPaneActions(),
-    // From the mockup, decided by Material's window size classes: from the medium width class up
-    // (desktop and web windows, tablets, unfolded foldables) the day list moves into a sidebar next
-    // to the bits; compact windows stay single-pane and keep the day strip in the composer's picker.
-    // Overridable so previews and tests can pick a layout instead of a window size.
-    isTwoPane: Boolean = currentWindowAdaptiveInfoV2().windowSizeClass
-        .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    // From the mockup, decided by Material's window size classes; see BitsLayout for what each one
+    // arranges. Overridable so previews and tests can pick a layout instead of a window size.
+    layout: BitsLayout = currentBitsLayout(),
+    // Only compact-height windows (phones in landscape, small foldable covers) are cramped enough
+    // by the IME to be worth giving up the top bar for; from the medium height class up there is
+    // room for both, and a bar that comes and goes with every keystroke is just noise.
+    // Overridable for the same reason as the layout.
+    doesImeHideTopBar: Boolean = !currentWindowAdaptiveInfoV2().windowSizeClass
+        .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
@@ -61,9 +72,10 @@ fun BitsPane(
         LaunchedEffect(state.editingBitId) {
             if (state.editingBitId != null) focusRequester.requestFocus()
         }
-        // While typing, the IME already claims a large share of the screen, so the top bar is
-        // hidden to leave as much room as possible for reading existing bits.
-        val isTopBarVisible = WindowInsets.ime.getBottom(LocalDensity.current) == 0
+        // On a short window the IME already claims a large share of the screen, so the top bar is
+        // hidden while typing to leave as much room as possible for reading existing bits.
+        val isTopBarVisible = !doesImeHideTopBar ||
+                WindowInsets.ime.getBottom(LocalDensity.current) == 0
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -77,7 +89,7 @@ fun BitsPane(
             // a fade) slide it out from under the divider, which stays flush with the main pane
             // and moves along with it. The layout the app starts in is not animated: an initially
             // visible AnimatedVisibility has nothing to animate from.
-            AnimatedVisibility(visible = isTwoPane) {
+            AnimatedVisibility(visible = layout == BitsLayout.DaySidebar) {
                 Row {
                     DaySidebar(
                         bitsByDate = state.bitsByDate,
@@ -99,7 +111,7 @@ fun BitsPane(
                 actions = actions,
                 syncState = syncState,
                 syncActions = syncActions,
-                isTwoPane = isTwoPane,
+                layout = layout,
                 isTopBarVisible = isTopBarVisible,
                 focusRequester = focusRequester,
                 modifier = Modifier.weight(1f)
@@ -108,85 +120,215 @@ fun BitsPane(
     }
 }
 
-
-/** The bits themselves: the list with the top bar floating over it, and the composer below. */
+/** The bits themselves, with the composer either under them or — in landscape — beside them. */
 @Composable
 private fun MainPane(
     state: BitsPaneState,
     actions: BitsPaneActions,
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
-    isTwoPane: Boolean,
+    layout: BitsLayout,
     isTopBarVisible: Boolean,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier) {
-        // The state always holds all days; a selected date only filters what the list (and
-        // the counter) shows, so the day chips keep their indicators while filtering.
-        val visibleBitsByDate = state.selectedDate?.let { selected ->
-            state.bitsByDate.filter { it.date == selected }
-        } ?: state.bitsByDate
-        // From the mockup: with the sidebar taking the left edge, the bits and the composer get a
-        // little more room to breathe than the phone layout's 16.dp. Animated so it travels with
-        // the sidebar instead of snapping while the sidebar is still sliding.
-        val paneInset by animateDpAsState(
-            targetValue = if (isTwoPane) 8.dp else 0.dp,
-            label = "paneInset"
-        )
-        // The list and the top bar share a Box so the bar floats above the list instead of
-        // pushing it down (and the bottom bits under the input) when it reappears. The list
-        // may start underneath the bar, but its first item is the BeginningNote whose top
-        // padding keeps the text clear of the bar.
-        Box(Modifier.weight(1f)) {
-            BitsList(
+    // The state always holds all days; a selected date only filters what the list (and
+    // the counter) shows, so the day chips keep their indicators while filtering.
+    val visibleBitsByDate = state.selectedDate?.let { selected ->
+        state.bitsByDate.filter { it.date == selected }
+    } ?: state.bitsByDate
+    // From the mockup: once the pane shares the window with something else, the bits and the
+    // composer get a little more room to breathe than the phone layout's 16.dp. Animated so it
+    // travels with the sidebar instead of snapping while the sidebar is still sliding.
+    val paneInset by animateDpAsState(
+        targetValue = if (layout == BitsLayout.Stacked) 0.dp else 8.dp,
+        label = "paneInset"
+    )
+    val isSideBySide = layout == BitsLayout.SideComposer
+    BitsAndComposer(
+        isSideBySide = isSideBySide,
+        bits = {
+            Bits(
                 state = state,
                 visibleBitsByDate = visibleBitsByDate,
                 actions = actions,
-                // Only the list is inset; the top bar floating above it keeps spanning the whole
-                // pane.
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = paneInset)
+                syncState = syncState,
+                syncActions = syncActions,
+                isTopBarVisible = isTopBarVisible,
+                paneInset = paneInset,
+                // Beside the composer the bits reach the bottom of the window themselves, so they
+                // have to keep clear of the keyboard; stacked, the composer under them does it.
+                modifier = if (isSideBySide) {
+                    Modifier.windowInsetsPadding(bottomInsets)
+                } else {
+                    Modifier
+                }
             )
-            val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-            Topbar(bitsCount, isTopBarVisible, syncState, syncActions)
-        }
-        Column(
-            Modifier
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                // Padding the navigation bar and IME inside the colored column extends its
-                // background behind the navigation bar instead of leaving a differently
-                // colored strip below the input.
-                .navigationBarsPadding()
-                .imePadding()
-        ) {
-            // The inset goes on the content, not on the colored column, so the composer's surface
-            // still reaches the sidebar's divider.
-            Column(Modifier.padding(horizontal = paneInset)) {
-                DateTimeSelector(
-                    bitsByDate = state.bitsByDate,
-                    selectedDate = state.selectedDate,
-                    selectedTime = state.selectedTime,
-                    currentDate = state.today,
-                    currentTime = state.currentTime,
-                    isEditing = state.editingBitId != null,
-                    // In the two-pane layout the sidebar owns the day, so the picker is left with
-                    // just the time slider.
-                    isDaySelectionVisible = !isTwoPane,
-                    onClickDate = actions.onClickDate,
-                    onSelectTime = actions.onSelectTime,
-                    onResetToNow = actions.onResetToNow,
-                    onCancelEdit = actions.onCancelEdit
+        },
+        composer = {
+            Composer(
+                state = state,
+                actions = actions,
+                layout = layout,
+                paneInset = paneInset,
+                focusRequester = focusRequester
+            )
+        },
+        modifier = modifier
+    )
+}
+
+/**
+ * Places the bits and the composer either stacked — composer under the bits, spanning the pane —
+ * or side by side with the composer at the bottom of its own column, [SIDE_COMPOSER_WIDTH] wide.
+ *
+ * The arrangement is chosen when measuring rather than when composing, so that both regions keep
+ * the same single place in the composition either way. That matters because the arrangement now
+ * changes as the keyboard opens: composing them under a Row in one case and a Column in the other
+ * would rebuild them on the way over, and rebuilding the text field drops the focus that summoned
+ * the keyboard — which closes it, which switches the arrangement straight back. (Moving them with
+ * movableContentOf is not enough: it carries composition state across, but the focus still goes.)
+ */
+@Composable
+private fun BitsAndComposer(
+    isSideBySide: Boolean,
+    bits: @Composable () -> Unit,
+    composer: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Layout(
+        contents = listOf(bits, { VerticalDivider() }, composer),
+        modifier = modifier
+    ) { (bitsMeasurables, dividerMeasurables, composerMeasurables), constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val bitsMeasurable = bitsMeasurables.first()
+        val dividerMeasurable = dividerMeasurables.first()
+        val composerMeasurable = composerMeasurables.first()
+        if (isSideBySide) {
+            val divider = dividerMeasurable.measure(
+                Constraints(minHeight = height, maxHeight = height)
+            )
+            val composerWidth = SIDE_COMPOSER_WIDTH.roundToPx()
+                .coerceAtMost(width - divider.width)
+            // The composer's own keyboard inset is part of its height, so placing it flush with
+            // the bottom lands its content right above the keyboard.
+            val composerPlaceable = composerMeasurable.measure(
+                Constraints(
+                    minWidth = composerWidth,
+                    maxWidth = composerWidth,
+                    maxHeight = height
                 )
-                NewBitText(
-                    newBitText = state.newBitText,
-                    isEditing = state.editingBitId != null,
-                    onNewBitTextChange = actions.onNewBitTextChange,
-                    onClickAdd = actions.onClickAdd,
-                    focusRequester = focusRequester
+            )
+            val bitsWidth = (width - divider.width - composerWidth).coerceAtLeast(0)
+            val bitsPlaceable = bitsMeasurable.measure(Constraints.fixed(bitsWidth, height))
+            layout(width, height) {
+                bitsPlaceable.place(0, 0)
+                divider.place(bitsWidth, 0)
+                composerPlaceable.place(
+                    bitsWidth + divider.width,
+                    height - composerPlaceable.height
                 )
             }
+        } else {
+            val composerPlaceable = composerMeasurable.measure(
+                Constraints(minWidth = width, maxWidth = width, maxHeight = height)
+            )
+            // Measured away to nothing: the divider only separates the side-by-side arrangement.
+            dividerMeasurable.measure(Constraints.fixed(0, 0))
+            val bitsPlaceable = bitsMeasurable.measure(
+                Constraints.fixed(width, (height - composerPlaceable.height).coerceAtLeast(0))
+            )
+            layout(width, height) {
+                bitsPlaceable.place(0, 0)
+                composerPlaceable.place(0, height - composerPlaceable.height)
+            }
+        }
+    }
+}
+
+/**
+ * The bits list with the top bar floating above it. The two share a Box so the bar does not push
+ * the list down (and the bottom bits under the input) when it reappears. The list may start
+ * underneath the bar, but its leading spacer keeps the content clear of it.
+ */
+@Composable
+private fun Bits(
+    state: BitsPaneState,
+    visibleBitsByDate: List<DatedBits>,
+    actions: BitsPaneActions,
+    syncState: SyncUiState,
+    syncActions: SyncPaneActions,
+    isTopBarVisible: Boolean,
+    paneInset: Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier) {
+        BitsList(
+            state = state,
+            visibleBitsByDate = visibleBitsByDate,
+            actions = actions,
+            isTopBarVisible = isTopBarVisible,
+            // Only the list is inset; the top bar floating above it keeps spanning the whole pane.
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = paneInset)
+        )
+        val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
+        Topbar(bitsCount, isTopBarVisible, syncState, syncActions)
+    }
+}
+
+/** The date/time picker and the text field, on their own surface. */
+@Composable
+private fun Composer(
+    state: BitsPaneState,
+    actions: BitsPaneActions,
+    layout: BitsLayout,
+    paneInset: Dp,
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier
+) {
+    val isShort = layout == BitsLayout.SideComposer
+    Column(
+        modifier
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            // Padding the insets inside the colored column extends its background behind the
+            // navigation bar instead of leaving a differently colored strip below the input.
+            .windowInsetsPadding(bottomInsets)
+    ) {
+        // The inset goes on the content, not on the colored column, so the composer's surface
+        // still reaches the sidebar's divider.
+        Column(
+            Modifier
+                .padding(horizontal = paneInset)
+                // Collapsed, the composer fits the height a landscape keyboard leaves exactly;
+                // expanding the picker does not, so there it scrolls instead of squeezing the
+                // text field. Nothing to scroll — and so nothing to notice — while collapsed.
+                .then(if (isShort) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+        ) {
+            DateTimeSelector(
+                bitsByDate = state.bitsByDate,
+                selectedDate = state.selectedDate,
+                selectedTime = state.selectedTime,
+                currentDate = state.today,
+                currentTime = state.currentTime,
+                isEditing = state.editingBitId != null,
+                // Only the sidebar layout takes the day off the picker's hands.
+                isDaySelectionVisible = layout != BitsLayout.DaySidebar,
+                onClickDate = actions.onClickDate,
+                onSelectTime = actions.onSelectTime,
+                onResetToNow = actions.onResetToNow,
+                onCancelEdit = actions.onCancelEdit
+            )
+            NewBitText(
+                newBitText = state.newBitText,
+                isEditing = state.editingBitId != null,
+                onNewBitTextChange = actions.onNewBitTextChange,
+                onClickAdd = actions.onClickAdd,
+                focusRequester = focusRequester,
+                bottomPadding = if (isShort) 8.dp else 16.dp
+            )
         }
     }
 }
@@ -216,5 +358,37 @@ private fun Topbar(
             // The column already handles the status bar inset.
             windowInsets = WindowInsets()
         )
+    }
+}
+
+/**
+ * What has to stay clear at the bottom of the screen: the keyboard, and the navigation bar when
+ * the keyboard is closed. Unioned rather than chained, because chaining navigationBarsPadding()
+ * and imePadding() adds them up while an open IME already covers the navigation bar.
+ */
+private val bottomInsets: WindowInsets
+    @Composable get() = WindowInsets.navigationBars.union(WindowInsets.ime)
+
+/**
+ * Wide enough for the date chip's "back to now" button to sit next to it and for the day strip to
+ * show a few days, while still leaving the bits the larger half of a landscape phone.
+ */
+private val SIDE_COMPOSER_WIDTH = 360.dp
+
+@Composable
+private fun currentBitsLayout(): BitsLayout {
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    return when {
+        // Compact width (a phone held upright) has room for nothing but the bits and the composer.
+        !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
+            BitsLayout.Stacked
+        // Wide and tall — desktop and web windows, tablets, unfolded foldables.
+        windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) ->
+            BitsLayout.DaySidebar
+        // Wide but short, and a keyboard is actually taking up the bottom of it. Being short is
+        // not enough on its own: a phone in landscape with a hardware keyboard has the same room
+        // as any other wide window, and moving the composer aside there only looks odd.
+        WindowInsets.ime.getBottom(LocalDensity.current) > 0 -> BitsLayout.SideComposer
+        else -> BitsLayout.DaySidebar
     }
 }

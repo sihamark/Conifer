@@ -108,7 +108,7 @@ private fun BitsPaneEmptyPreview() {
 private fun BitsPaneTwoPanePreview() {
     ConiferTheme {
         BitsPane(
-            isTwoPane = true,
+            layout = BitsLayout.DaySidebar,
             state = BitsPaneState(
                 today = LocalDate(2024, 6, 1),
                 bitsByDate = listOf(
@@ -135,6 +135,54 @@ private fun BitsPaneTwoPanePreview() {
                             Bit(
                                 text = "Fixed the flaky CI test",
                                 date = LocalDateTime(2024, 6, 1, 14, 45)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    }
+}
+
+/**
+ * The layout a phone in landscape gets: the composer beside the bits rather than under them, so
+ * the keyboard does not leave the list without a single visible bit. Sized like the window that is
+ * left over on a 411 x 914dp phone turned sideways with the keyboard open.
+ */
+@Preview(
+    uiMode = AndroidUiModes.UI_MODE_NIGHT_YES,
+    group = "BitsPaneSideComposerPreview",
+    widthDp = 914,
+    heightDp = 122
+)
+@Preview(
+    uiMode = AndroidUiModes.UI_MODE_NIGHT_NO,
+    group = "BitsPaneSideComposerPreview",
+    widthDp = 914,
+    heightDp = 122
+)
+@Composable
+private fun BitsPaneSideComposerPreview() {
+    ConiferTheme {
+        BitsPane(
+            layout = BitsLayout.SideComposer,
+            state = BitsPaneState(
+                today = LocalDate(2024, 6, 1),
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(
+                            Bit(
+                                text = "Started reading a new book",
+                                date = LocalDateTime(2024, 6, 1, 8, 0)
+                            ),
+                            Bit(
+                                text = "Fixed the flaky CI test",
+                                date = LocalDateTime(2024, 6, 1, 14, 45)
+                            ),
+                            Bit(
+                                text = "Evening walk",
+                                date = LocalDateTime(2024, 6, 1, 19, 30)
                             )
                         )
                     )
