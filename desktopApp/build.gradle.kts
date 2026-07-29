@@ -58,6 +58,9 @@ compose.desktop {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }
             macOS {
+                // Not the square icon the other two platforms use: macOS draws app icons
+                // unmasked, so the rounded body has to be part of the artwork. Generated from
+                // desktopIcons/app_icon_macos.svg — see the comment there to regenerate it.
                 iconFile = project.file("desktopIcons/app_icon.icns")
                 bundleID = AppConfig.namespace
             }

@@ -1,5 +1,7 @@
 inkscape=/Applications/Inkscape.app/Contents/MacOS/inkscape
-insvg=app_icon.svg
+# The macOS variant, not the square app_icon.svg the other platforms take: macOS draws app
+# icons unmasked, so the rounded body has to be part of the artwork.
+insvg=app_icon_macos.svg
 output=app_icon
 outdir=${output}.iconset
 
