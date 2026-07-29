@@ -54,13 +54,14 @@ compose.desktop {
             vendor = "HeHa Foundation"
             copyright = "2025-2026 HeHa Foundation"
 
+            // All three are generated from the SVGs in desktopIcons/ by the make_icons.sh
+            // beside them. None of these desktops masks an app icon, so the rounded body is
+            // part of the artwork; macOS renders from a source of its own because the margin
+            // and the shadow Apple's icons wear would look out of place on the other two.
             windows {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }
             macOS {
-                // Not the square icon the other two platforms use: macOS draws app icons
-                // unmasked, so the rounded body has to be part of the artwork. Generated from
-                // desktopIcons/app_icon_macos.svg — see the comment there to regenerate it.
                 iconFile = project.file("desktopIcons/app_icon.icns")
                 bundleID = AppConfig.namespace
             }
