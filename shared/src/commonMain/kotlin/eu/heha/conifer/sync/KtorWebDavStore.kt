@@ -1,6 +1,7 @@
 package eu.heha.conifer.sync
 
 import eu.heha.conifer.net.CONIFER_USER_AGENT
+import eu.heha.conifer.net.installHttpLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.UserAgent
@@ -51,6 +52,7 @@ class KtorWebDavStore(
     private val client: HttpClient = client.config {
         expectSuccess = false
         install(UserAgent) { agent = userAgent }
+        installHttpLogging()
         install(Auth) {
             basic {
                 credentials { BasicAuthCredentials(username, password) }

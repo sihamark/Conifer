@@ -89,6 +89,7 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.auth)
+            implementation(libs.ktor.client.logging)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksafe)
         }

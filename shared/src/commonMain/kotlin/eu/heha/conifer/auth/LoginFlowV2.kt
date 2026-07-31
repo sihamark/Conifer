@@ -1,6 +1,7 @@
 package eu.heha.conifer.auth
 
 import eu.heha.conifer.net.CONIFER_USER_AGENT
+import eu.heha.conifer.net.installHttpLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.UserAgent
 import io.ktor.client.request.forms.FormDataContent
@@ -34,6 +35,7 @@ class LoginFlowV2(
     private val client: HttpClient = client.config {
         expectSuccess = false
         install(UserAgent) { agent = userAgent }
+        installHttpLogging()
     }
 
     /** `POST {serverUrl}/index.php/login/v2`: starts a new session. */

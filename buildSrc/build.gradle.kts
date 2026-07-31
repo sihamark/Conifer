@@ -9,3 +9,9 @@ plugins {
 repositories {
     mavenCentral()
 }
+
+dependencies {
+    // For org.apache.tools.zip, the only zip writer that can record Unix permissions.
+    // java.util.zip cannot, and Gradle's own api jar doesn't expose Ant's.
+    implementation(libs.ant)
+}
