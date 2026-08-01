@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.1 (XX.XX.2026)
+## Version 1.2.1 (01.08.2026)
 
 - the packaged desktop release shipped with **no database at all**, so adding a bit did nothing and
   syncing had nothing to sync. Room 3 renamed its package to `androidx.room3` while the rule that
@@ -14,7 +14,7 @@
 - dependency updates: Room 3.0.1, KSafe 3.0.0, Ktor 3.5.2, DataStore 1.3.0-alpha10 and Compose Hot
   Reload 1.2.0
 
-## Version 1.2.0 (XX.XX.2026)
+## Version 1.2.0 (01.08.2026)
 
 - groundwork for Nextcloud sync (spec §10 point ①): bits now carry sync bookkeeping (modification
   time and device, tombstone flag, dirty marker, remote ETag, fixed month bucket) — database
