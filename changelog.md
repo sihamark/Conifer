@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.X.X (XX.08.2026)
+
+- upcoming changes
+
 ## Version 1.2.1 (01.08.2026)
 
 - the packaged desktop release shipped with **no database at all**, so adding a bit did nothing and
