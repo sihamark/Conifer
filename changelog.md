@@ -2,7 +2,9 @@
 
 ## Version 1.X.X (XX.08.2026)
 
-- upcoming changes
+- while typing a bit, ↑/↓ move its time by 15 minutes (one time slider step); ←/→ still move the
+  cursor. Times off the quarter hour snap in the direction pressed (from 12:07, ↑ 12:15, ↓ 12:00),
+  and 00:00/23:45 hold instead of rolling into the next day. Needs a hardware keyboard
 
 ## Version 1.2.1 (01.08.2026)
 

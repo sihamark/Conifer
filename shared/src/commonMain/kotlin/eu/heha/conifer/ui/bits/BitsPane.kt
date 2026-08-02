@@ -370,7 +370,9 @@ private fun Composer(
             NewBitText(
                 newBitText = state.newBitText,
                 isEditing = state.editingBitId != null,
+                time = state.effectiveTime,
                 onNewBitTextChange = actions.onNewBitTextChange,
+                onSelectTime = actions.onSelectTime,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,
                 bottomPadding = if (isShort) 8.dp else 16.dp

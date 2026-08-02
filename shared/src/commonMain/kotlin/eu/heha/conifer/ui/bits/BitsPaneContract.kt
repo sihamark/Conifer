@@ -41,7 +41,13 @@ data class BitsPaneState(
     val editingBitId: String? = null,
     /** One-shot request to scroll the list to this bit after it was added or edited. */
     val scrollToBitId: String? = null
-)
+) {
+    /**
+     * The time a bit added right now would carry: the user's pick, or the clock while they haven't
+     * made one. [DateTimeSelector] derives the same value from the two fields it is handed.
+     */
+    val effectiveTime: LocalTime get() = selectedTime ?: currentTime
+}
 
 class BitsPaneActions(
     val onClickAdd: () -> Unit = {},

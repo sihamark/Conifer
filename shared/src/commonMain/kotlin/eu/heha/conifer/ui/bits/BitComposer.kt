@@ -41,6 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -225,11 +230,8 @@ private fun TimeSlider(
         // steps line up exactly and draw a tick mark at every quarter hour.
         val interactionSource = remember { MutableInteractionSource() }
         Slider(
-            value = ((time.hour * 60 + time.minute) / MINUTES_PER_STEP).toFloat(),
-            onValueChange = { slotIndex ->
-                val minutes = slotIndex.roundToInt() * MINUTES_PER_STEP
-                onSelectTime(LocalTime(minutes / 60, minutes % 60))
-            },
+            value = time.timeSlot.toFloat(),
+            onValueChange = { slot -> onSelectTime(timeAtSlot(slot.roundToInt())) },
             interactionSource = interactionSource,
             valueRange = 0f..LAST_STEP_SLOT.toFloat(),
             steps = INTERMEDIATE_STEPS,
@@ -254,6 +256,45 @@ private const val LAST_STEP_SLOT = STEP_SLOTS - 1
 
 // Slider `steps` counts the marks strictly between the endpoints.
 private const val INTERMEDIATE_STEPS = STEP_SLOTS - 2
+
+/**
+ * The slot this time falls in, rounding down — slot 0 is 00:00, [LAST_STEP_SLOT] is 23:45.
+ *
+ * The slider's thumb position and the ↑/↓ nudge both start here, so the two can never disagree
+ * about which slot a given time is in.
+ */
+private val LocalTime.timeSlot: Int get() = (hour * 60 + minute) / MINUTES_PER_STEP
+
+/**
+ * Whether this time sits exactly on a slot, i.e. whether [timeSlot] rounds anything away. Seconds
+ * don't count: the composer deals in whole minutes and shows nothing finer, so 12:00:30 is "on"
+ * 12:00 as far as the user can tell.
+ */
+private val LocalTime.isOnTimeSlot: Boolean get() = (hour * 60 + minute) % MINUTES_PER_STEP == 0
+
+/**
+ * The time at [slot] — the inverse of [timeSlot], clamped to the day so out-of-range arithmetic
+ * settles at 00:00 or 23:45 instead of throwing or wrapping.
+ */
+private fun timeAtSlot(slot: Int): LocalTime {
+    val minutes = slot.coerceIn(0, LAST_STEP_SLOT) * MINUTES_PER_STEP
+    return LocalTime(minutes / 60, minutes % 60)
+}
+
+/**
+ * This time moved by [slots] slots — what ↑/↓ do while the text field is focused (see
+ * [NewBitText]).
+ *
+ * Clamped rather than rolling over, by [timeAtSlot]: the day is a separate choice, and holding an
+ * arrow key long enough to silently move the bit to another day would be a nasty surprise.
+ *
+ * A time that isn't on the grid — the clock's "now", most of the time — snaps onto it in the
+ * direction pressed first, so the first nudge never jumps *past* a slot. [timeSlot] already
+ * rounds down, which is what going up wants; going down has to round up first. From 12:07, ↑
+ * gives 12:15 and ↓ gives 12:00.
+ */
+internal fun LocalTime.shiftedByTimeSlots(slots: Int): LocalTime =
+    timeAtSlot(if (slots < 0 && !isOnTimeSlot) timeSlot + 1 + slots else timeSlot + slots)
 
 
 @Composable
@@ -328,7 +369,10 @@ private fun DaySelection(
 internal fun NewBitText(
     newBitText: String,
     isEditing: Boolean,
+    /** The time the bit would get, i.e. what ↑/↓ nudge. See [BitsPaneState.effectiveTime]. */
+    time: LocalTime,
     onNewBitTextChange: (String) -> Unit,
+    onSelectTime: (LocalTime) -> Unit,
     onClickAdd: () -> Unit,
     focusRequester: FocusRequester,
     // Trimmed by the layouts that have to fit the whole composer into what a landscape keyboard
@@ -378,6 +422,20 @@ internal fun NewBitText(
             modifier = modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
+                // ↑/↓ nudge the time by one slider slot without leaving the text field, so a bit
+                // can be timed without reaching for the mouse. Previewed ahead of the field so it
+                // sees them first, and safe to take: the field is single-line, so up and down have
+                // nothing to do in it anyway - ←/→ keep moving the caret as usual.
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val slots = when (event.key) {
+                        Key.DirectionUp -> 1
+                        Key.DirectionDown -> -1
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    onSelectTime(time.shiftedByTimeSlots(slots))
+                    true
+                }
                 .weight(1f)
         )
         AnimatedVisibility(newBitText.isNotBlank()) {
