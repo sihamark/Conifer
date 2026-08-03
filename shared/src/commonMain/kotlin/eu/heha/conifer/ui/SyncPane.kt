@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -60,7 +62,9 @@ import conifer.shared.generated.resources.sync_action_cancel_connect
 import conifer.shared.generated.resources.sync_action_close
 import conifer.shared.generated.resources.sync_action_connect
 import conifer.shared.generated.resources.sync_action_continue_anyway
+import conifer.shared.generated.resources.sync_action_copy_login_url
 import conifer.shared.generated.resources.sync_action_disconnect
+import conifer.shared.generated.resources.sync_action_retry_open_browser
 import conifer.shared.generated.resources.sync_action_save_app_root
 import conifer.shared.generated.resources.sync_action_sync_now
 import conifer.shared.generated.resources.sync_content_close
@@ -85,6 +89,7 @@ import conifer.shared.generated.resources.sync_debug_status_not_connected
 import conifer.shared.generated.resources.sync_debug_title
 import conifer.shared.generated.resources.sync_label_app_root
 import conifer.shared.generated.resources.sync_label_server_url
+import conifer.shared.generated.resources.sync_message_browser_not_opened
 import conifer.shared.generated.resources.sync_message_connecting
 import conifer.shared.generated.resources.sync_message_insecure_key
 import conifer.shared.generated.resources.sync_note_app_root
@@ -560,7 +565,7 @@ private fun SyncBody(
     Spacer(Modifier.height(16.dp))
     when (val connection = state.connection) {
         is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
-        is SyncConnectionState.Connecting -> ConnectingContent(actions)
+        is SyncConnectionState.Connecting -> ConnectingContent(connection, actions)
         is SyncConnectionState.Connected -> ConnectedContent(
             connection = connection,
             actions = actions,
@@ -691,16 +696,48 @@ private fun InsecureKeyWarning(
 }
 
 @Composable
-private fun ConnectingContent(actions: SyncPaneActions) {
-    Column {
+private fun ConnectingContent(
+    connection: SyncConnectionState.Connecting,
+    actions: SyncPaneActions
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Text(
-                stringResource(Res.string.sync_message_connecting),
+                stringResource(
+                    if (connection.didOpenBrowser) {
+                        Res.string.sync_message_connecting
+                    } else {
+                        Res.string.sync_message_browser_not_opened
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.widthIn(max = 260.dp)
             )
+        }
+        // The poll keeps running while this is up, so the login still completes the moment the
+        // user reaches the URL by whatever means.
+        if (!connection.didOpenBrowser) {
+            Spacer(Modifier.height(12.dp))
+            SelectionContainer {
+                Text(
+                    connection.loginUrl,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.widthIn(max = 260.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { actions.onClickCopyLoginUrl(connection.loginUrl) }) {
+                    Text(stringResource(Res.string.sync_action_copy_login_url))
+                }
+                TextButton(onClick = actions.onClickOpenLoginUrl) {
+                    Text(stringResource(Res.string.sync_action_retry_open_browser))
+                }
+            }
         }
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = actions.onClickCancelConnect, modifier = Modifier.fillMaxWidth()) {
@@ -798,6 +835,9 @@ class SyncPaneActions(
     val onAppRootChange: (String) -> Unit = {},
     val onClickSaveAppRoot: () -> Unit = {},
     val onClickCancelConnect: () -> Unit = {},
+    /** Both only reachable when the browser could not be opened - see [ConnectingContent]. */
+    val onClickCopyLoginUrl: (String) -> Unit = {},
+    val onClickOpenLoginUrl: () -> Unit = {},
     val onClickSyncNow: () -> Unit = {},
     val onClickDisconnect: () -> Unit = {},
 )
@@ -885,6 +925,22 @@ private fun SyncSettingsSheetConnectingPreview() {
             state = previewSyncState.copy(
                 connection = SyncConnectionState.Connecting(
                     loginUrl = "https://cloud.example.org/index.php/login/v2/flow/abc123"
+                )
+            )
+        )
+    }
+}
+
+/** The browser never opened, so the URL is offered for the user to reach by hand. */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetBrowserNotOpenedPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            state = previewSyncState.copy(
+                connection = SyncConnectionState.Connecting(
+                    loginUrl = "https://cloud.example.org/index.php/login/v2/flow/abc123",
+                    didOpenBrowser = false
                 )
             )
         )

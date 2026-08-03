@@ -85,7 +85,11 @@ class SyncCoordinator(
             Napier.i { "login flow v2 started for $normalized" }
             val session = loginFlow.start(normalized)
             _state.value = SyncConnectionState.Connecting(session.loginUrl)
-            browserOpener.open(session.loginUrl)
+            val didOpenBrowser = browserOpener.open(session.loginUrl)
+            if (!didOpenBrowser) {
+                Napier.w { "the browser did not open - offering the login URL for manual opening" }
+                _state.value = SyncConnectionState.Connecting(session.loginUrl, didOpenBrowser)
+            }
             val result = loginFlow.awaitCompletion(session)
             credentials.username = result.loginName
             credentials.appPassword = result.appPassword
@@ -107,6 +111,16 @@ class SyncCoordinator(
             lastError = e.message ?: e::class.simpleName
             _state.value = SyncConnectionState.Disconnected
         }
+    }
+
+    /**
+     * Hands the pending login URL to the browser again — the "try again" offered when the first
+     * attempt didn't take. Succeeding puts the flow back on its normal footing; the poll started by
+     * [connect] has been running throughout either way. A no-op unless a login is in flight.
+     */
+    fun retryOpenLoginUrl() {
+        val connecting = _state.value as? SyncConnectionState.Connecting ?: return
+        _state.value = connecting.copy(didOpenBrowser = browserOpener.open(connecting.loginUrl))
     }
 
     /**
@@ -216,8 +230,18 @@ enum class SyncTrigger(val label: String) {
 sealed interface SyncConnectionState {
     data object Disconnected : SyncConnectionState
 
-    /** [loginUrl] is blank for the instant between starting the session and it being opened. */
-    data class Connecting(val loginUrl: String) : SyncConnectionState
+    /**
+     * [loginUrl] is blank for the instant between starting the session and it being opened.
+     *
+     * [didOpenBrowser] is false when [eu.heha.conifer.BrowserOpener] could not hand the URL over
+     * — no browser, no AWT `Desktop.Action.BROWSE`, a blocked popup. The flow is not lost at that
+     * point, it just needs the user to open [loginUrl] themselves, so the UI offers it instead of
+     * waiting on a browser that never opened.
+     */
+    data class Connecting(
+        val loginUrl: String,
+        val didOpenBrowser: Boolean = true
+    ) : SyncConnectionState
 
     data class Connected(
         val server: String,

@@ -55,8 +55,19 @@ interface LogFileInitializer {
 }
 
 interface BrowserOpener {
-    /** Opens [url] in the system browser, e.g. for Nextcloud Login Flow v2 (spec §10). */
-    fun open(url: String)
+    /**
+     * Opens [url] in the system browser, e.g. for Nextcloud Login Flow v2 (spec §10).
+     *
+     * Returns whether the browser actually took it. There is no shortage of ways this fails
+     * through no fault of the user — a Linux JVM whose AWT reports no `Desktop.Action.BROWSE`
+     * even though `xdg-open` works, a popup blocker eating `window.open` — and Login Flow v2
+     * simply stalls if nobody notices, since it waits for a browser that never opened. A `false`
+     * lets the caller offer the URL for the user to open by hand instead.
+     *
+     * Best effort in the other direction too: `true` means the platform accepted the request, not
+     * that a window is definitely on screen.
+     */
+    fun open(url: String): Boolean
 }
 
 interface CredentialsInitializer {

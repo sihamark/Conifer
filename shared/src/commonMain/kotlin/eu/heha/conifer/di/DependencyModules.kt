@@ -15,7 +15,6 @@ import eu.heha.conifer.ui.BitsViewModel
 import eu.heha.conifer.ui.SyncViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -38,7 +37,15 @@ val coreModule = module {
     // null where no platform supplied one. The permission handler is not injected at all — the
     // screen binds the current one, see BitsViewModel.bindPermissionHandler.
     viewModel { BitsViewModel(repository = get(), clipboardController = getOrNull()) }
-    viewModelOf(::SyncViewModel)
+    // Same reason as BitsViewModel above: the clipboard controller is optional, so it has to
+    // resolve to null rather than fail to resolve.
+    viewModel {
+        SyncViewModel(
+            coordinator = get(),
+            bitsRepository = get(),
+            clipboardController = getOrNull()
+        )
+    }
 }
 
 /**

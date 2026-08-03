@@ -43,6 +43,8 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onAppRootChange = syncModel::onAppRootChange,
             onClickSaveAppRoot = syncModel::onClickSaveAppRoot,
             onClickCancelConnect = syncModel::onClickCancelConnect,
+            onClickCopyLoginUrl = syncModel::onClickCopyLoginUrl,
+            onClickOpenLoginUrl = syncModel::onClickOpenLoginUrl,
             onClickSyncNow = syncModel::onClickSyncNow,
             onClickDisconnect = syncModel::onClickDisconnect,
         )
