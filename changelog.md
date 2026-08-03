@@ -5,6 +5,9 @@
 - while typing a bit, ↑/↓ move its time by 15 minutes (one time slider step); ←/→ still move the
   cursor. Times off the quarter hour snap in the direction pressed (from 12:07, ↑ 12:15, ↓ 12:00),
   and 00:00/23:45 hold instead of rolling into the next day. Needs a hardware keyboard
+- the bit list no longer jumps to the bottom while a sync is running; it re-anchors to the newest
+  bit only on first load and when the day filter changes. Saving a bit the current filter hides no
+  longer leaves it jumping on every update either
 
 ## Version 1.2.1 (01.08.2026)
 

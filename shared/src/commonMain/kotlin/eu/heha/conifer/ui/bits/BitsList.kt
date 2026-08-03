@@ -55,14 +55,12 @@ internal fun BitsList(
     // The DAO delivers bits newest-first; presenting everything reversed puts the newest bits at
     // the bottom next to the input while sticky day headers still pin to the top.
     val listState = rememberLazyListState()
-    // Keyed on the list only: it runs when the database flow delivers the updated bits, at which
-    // point a pending scrollToBitId (set right after saving) is already in the state. Clearing the
-    // id afterwards must not rerun the effect, or it would jump to the bottom right after
-    // scrolling to the bit.
+    // Jump to a bit that was just added or edited. Keyed on the list: scrollToBitId is already in
+    // the state by the time the bit is saved, but only becomes scrollable once the database flow
+    // has delivered it. Clearing the id afterwards must not rerun this.
     LaunchedEffect(visibleBitsByDate) {
-        if (visibleBitsByDate.isEmpty()) return@LaunchedEffect
-        val targetId = state.scrollToBitId
-        val targetIndex = targetId?.let { visibleBitsByDate.indexOfBit(it) }
+        val targetId = state.scrollToBitId ?: return@LaunchedEffect
+        val targetIndex = visibleBitsByDate.indexOfBit(targetId)
         if (targetIndex != null) {
             val isAlreadyVisible = listState.layoutInfo.visibleItemsInfo
                 .any { it.key == targetId }
@@ -74,12 +72,22 @@ internal fun BitsList(
                     scrollOffset = -listState.layoutInfo.viewportSize.height / 3
                 )
             }
-            actions.onScrolledToBit()
-        } else {
-            val lastIndex =
-                visibleBitsByDate.sumOf { it.bits.size + 1 } + LEADING_LIST_ITEMS
-            listState.scrollToItem(lastIndex)
         }
+        // Cleared even when the bit isn't in the day-filtered list and there is nothing to scroll
+        // to: a request left standing would never be satisfied, and would block the anchor below
+        // for the rest of the session.
+        actions.onScrolledToBit()
+    }
+    // Anchor the list to its newest bit — the bottom, since it is laid out oldest-first — when the
+    // bits first arrive and whenever the day filter changes.
+    //
+    // Deliberately not keyed on the bits themselves. A sync rewrites their sync bookkeeping
+    // (ETags, dirty flags, modification stamps), which makes the list unequal to the previous one
+    // without changing a thing the reader can see; re-anchoring on that yanked the list to the
+    // bottom mid-sync, out from under someone reading further up.
+    LaunchedEffect(state.selectedDate, visibleBitsByDate.isEmpty()) {
+        if (visibleBitsByDate.isEmpty() || state.scrollToBitId != null) return@LaunchedEffect
+        listState.scrollToItem(visibleBitsByDate.lastListIndex())
     }
     if (visibleBitsByDate.isEmpty()) {
         Column(modifier) {
@@ -145,6 +153,11 @@ internal fun BitsList(
 
 // Items preceding the first day header: top-bar spacer, permission prompt, beginning note.
 private const val LEADING_LIST_ITEMS = 3
+
+/** Index of the list's last item — a day header plus its bits for every day, after the leading
+ * items — i.e. where the newest bit sits. */
+private fun List<DatedBits>.lastListIndex(): Int =
+    sumOf { it.bits.size + 1 } + LEADING_LIST_ITEMS
 
 /**
  * Index of the bit with [bitId] in the LazyColumn, mirroring how the list lays the days out:
