@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.X.X (XX.08.2026)
+## Version 1.2.2 (03.08.2026)
 
 - while typing a bit, ↑/↓ move its time by 15 minutes (one time slider step); ←/→ still move the
   cursor. Times off the quarter hour snap in the direction pressed (from 12:07, ↑ 12:15, ↓ 12:00),
