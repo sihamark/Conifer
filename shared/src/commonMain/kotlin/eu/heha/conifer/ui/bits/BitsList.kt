@@ -3,6 +3,7 @@ package eu.heha.conifer.ui.bits
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,11 @@ internal fun BitsList(
     visibleBitsByDate: List<DatedBits>,
     actions: BitsPaneActions,
     isTopBarVisible: Boolean,
+    /**
+     * Inset of the content inside the list. Carries the width limit, because the list itself
+     * spans its pane so a drag in the margins beside the bits still scrolls it.
+     */
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val permissionRationale = state.permissionRationale
@@ -90,7 +96,9 @@ internal fun BitsList(
         listState.scrollToItem(visibleBitsByDate.lastListIndex())
     }
     if (visibleBitsByDate.isEmpty()) {
-        Column(modifier) {
+        // Nothing to scroll here, so the inset the list would carry as content padding goes on
+        // the column itself.
+        Column(modifier.padding(contentPadding)) {
             // Nothing here scrolls, so the space this reserves comes straight off the prompt
             // below it — which on a landscape window with the keyboard open is the difference
             // between the prompt fitting and being squeezed. So it follows the bar out of the
@@ -113,6 +121,7 @@ internal fun BitsList(
             // Bottom arrangement keeps the bits anchored to the input when the list is shorter
             // than the viewport; it has no effect once the list fills the screen.
             verticalArrangement = Arrangement.Bottom,
+            contentPadding = contentPadding,
             modifier = modifier
         ) {
             // Makes up for the height of the floating top bar so the top of the list can scroll

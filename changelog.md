@@ -8,6 +8,8 @@
 - the bit list no longer jumps to the bottom while a sync is running; it re-anchors to the newest
   bit only on first load and when the day filter changes. Saving a bit the current filter hides no
   longer leaves it jumping on every update either
+- on a wide window the bit list also scrolls when the drag starts in the empty margins beside the
+  bits, not just on the bits themselves
 
 ## Version 1.2.1 (01.08.2026)
 
