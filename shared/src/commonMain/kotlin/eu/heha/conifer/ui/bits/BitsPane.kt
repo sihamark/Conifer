@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -75,7 +76,10 @@ fun BitsPane(
     // room for both, and a bar that comes and goes with every keystroke is just noise.
     // Overridable for the same reason as the layout.
     doesImeHideTopBar: Boolean = !currentWindowAdaptiveInfoV2().windowSizeClass
-        .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+        .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
+    // How tall the text field may grow; also not part of BitsLayout, since it is the height left
+    // over that decides it and not how the panes are arranged. Overridable like the layout.
+    composerMaxLines: Int = currentComposerMaxLines()
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
@@ -127,6 +131,7 @@ fun BitsPane(
                 layout = layout,
                 syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
+                composerMaxLines = composerMaxLines,
                 focusRequester = focusRequester,
                 modifier = Modifier.weight(1f)
             )
@@ -167,6 +172,7 @@ private fun MainPane(
     layout: BitsLayout,
     syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
+    composerMaxLines: Int,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
@@ -210,6 +216,7 @@ private fun MainPane(
                 actions = actions,
                 layout = layout,
                 paneInset = paneInset,
+                maxLines = composerMaxLines,
                 focusRequester = focusRequester
             )
         },
@@ -332,6 +339,7 @@ private fun Composer(
     actions: BitsPaneActions,
     layout: BitsLayout,
     paneInset: Dp,
+    maxLines: Int,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
@@ -379,7 +387,8 @@ private fun Composer(
                 onSelectTime = actions.onSelectTime,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,
-                bottomPadding = if (isShort) 8.dp else 16.dp
+                bottomPadding = if (isShort) 8.dp else 16.dp,
+                maxLines = maxLines
             )
         }
     }
@@ -456,6 +465,40 @@ private fun currentSyncPresentation(): SyncPresentation {
     val isTallEnough =
         windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     return if (isWideEnough && isTallEnough) SyncPresentation.Pane else SyncPresentation.Sheet
+}
+
+/**
+ * How many lines the new-bit field may grow to before it starts scrolling instead. Every line it
+ * takes is one the bits above it lose, so the budget follows the height that is actually left —
+ * the window minus whatever the keyboard has taken, which is what the bits and the composer really
+ * have to share:
+ *
+ * - under the medium breakpoint (a phone in landscape, a small foldable cover, a small phone with
+ *   the keyboard up) the field keeps the single line it has always had;
+ * - up to the expanded breakpoint (a phone held upright, a small desktop window) it can spare a
+ *   second line. Kept deliberately short of what fits: what is left over is at its scarcest with
+ *   the picker expanded, which this cannot see (the picker owns that state), so the band that a
+ *   phone with an open keyboard falls into is sized for the composer at its tallest;
+ * - above it — a maximized desktop or web window, a tablet, an unfolded foldable — more.
+ *
+ * The window's own size class is deliberately not used: it is measured edge to edge, so it reads
+ * the same with the keyboard covering half the screen as without, which is the one moment the room
+ * is scarce. The breakpoints behind it are still the right places to change behaviour, so they are
+ * applied to the remaining height instead.
+ *
+ * A bit is usually one short line, so most of the time none of this is visible; it only decides how
+ * much of a long one can be read back before submitting it.
+ */
+@Composable
+private fun currentComposerMaxLines(): Int {
+    val density = LocalDensity.current
+    val imeHeight = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+    val availableHeight = LocalWindowInfo.current.containerDpSize.height - imeHeight
+    return when {
+        availableHeight < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp -> 1
+        availableHeight < WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND.dp -> 2
+        else -> 5
+    }
 }
 
 @Composable

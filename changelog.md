@@ -1,5 +1,17 @@
 # Changelog
 
+## Version 1.2.3
+
+- a long bit now wraps into several lines instead of scrolling sideways through a single one. How
+  many depends on the room actually left — the window minus the keyboard, so a phone counts what it
+  has while typing, not what it has with the keyboard away: two lines on a phone held upright or a
+  small desktop window, five on a tall one, and a single line whenever what is left is as short as
+  a phone in landscape
+- the time nudge moved from ↑/↓ to **Alt+↑/↓** (⌥ on macOS), because in a field that can hold
+  several lines the bare arrows belong to the cursor. Alt+↑/↓ move the time by 15 minutes wherever
+  the cursor happens to be and leave it there, so a bit can be timed mid-sentence and typed on
+- Enter submits the bit; Shift+Enter puts a line break in it
+
 ## Version 1.2.2 (03.08.2026)
 
 - while typing a bit, ↑/↓ move its time by 15 minutes (one time slider step); ←/→ still move the

@@ -4,7 +4,7 @@ import kotlinx.datetime.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** The ↑/↓ time nudge behind [NewBitText]'s key handling. */
+/** The Alt+↑/↓ time nudge behind [NewBitText]'s key handling. */
 class TimeSlotShiftTest {
 
     @Test
