@@ -1,0 +1,338 @@
+package eu.heha.conifer.ui.bits
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.test.withKeyDown
+import androidx.compose.ui.unit.dp
+import eu.heha.conifer.ui.DatedBits
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/**
+ * The screen's shortcuts as the user meets them: real key events into a whole [BitsPane].
+ *
+ * The point of most of these is *where* the events are sent — at the root, with nothing on the
+ * screen focused and the text field never so much as clicked. That is the case the shortcuts exist
+ * for and the one that quietly breaks, since a key event is only offered to the focused node and its
+ * ancestors.
+ */
+@OptIn(ExperimentalTestApi::class)
+class BitsPaneShortcutsTest {
+
+    @Test
+    fun theShortcutsWorkWithNothingOnTheScreenFocused() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        setContent {
+            // Text in the field, so the pane does not hand it focus on the way in, and nothing here
+            // clicks anything: this is the screen as it sits after a bit has been written and the
+            // user has clicked the background, which is where the shortcuts have to keep working.
+            ShortcutPane(
+                state = BitsPaneState(newBitText = "half a bit"),
+                actions = BitsPaneActions(onShiftDate = { stepped += it })
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+
+        assertEquals(
+            listOf(-1),
+            stepped,
+            "with no focus target of its own the pane never sees the event: Compose falls back to " +
+                    "key input above the root focus node, and the pane's handler is below it"
+        )
+    }
+
+    @Test
+    fun altUpAndAltDownNudgeTheTimeBySliderSlots() = runComposeUiTest {
+        val picked = mutableListOf<LocalTime>()
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(composerTime = LocalTime(12, 0)),
+                actions = BitsPaneActions(onSelectTime = { picked += it })
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionUp) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionDown) } }
+
+        // One event each, not one per key-down *and* key-up.
+        assertEquals(listOf(LocalTime(12, 15), LocalTime(11, 45)), picked)
+    }
+
+    @Test
+    fun theTimeNudgeWorksWithNothingOnTheScreenFocusedEither() = runComposeUiTest {
+        val picked = mutableListOf<LocalTime>()
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(newBitText = "half a bit", composerTime = LocalTime(12, 0)),
+                actions = BitsPaneActions(onSelectTime = { picked += it })
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionUp) } }
+
+        assertEquals(listOf(LocalTime(12, 15)), picked)
+    }
+
+    @Test
+    fun bareUpAndDownStayOutOfTheTime() = runComposeUiTest {
+        val picked = mutableListOf<LocalTime>()
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(composerTime = LocalTime(12, 0)),
+                actions = BitsPaneActions(onSelectTime = { picked += it })
+            )
+        }
+
+        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+        onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+
+        assertEquals(emptyList(), picked, "the bare arrows are the caret's; only Alt+↑/↓ move time")
+    }
+
+    /**
+     * The point of the modifier: in a bit that has grown past one line, the nudge still works where
+     * the typing left off and the cursor stays there, ready for the rest of the sentence — now that
+     * the nudge is the pane's, the event has to reach it past a focused field that wants those keys.
+     */
+    @Test
+    fun altUpNudgesAWrappedBitWithoutDisturbingTheCursor() = runComposeUiTest {
+        val picked = mutableListOf<LocalTime>()
+        // Real snapshot state, not a plain var: the field puts the cursor back at the end whenever
+        // its text is replaced from outside, so a pane that failed to recompose with what was typed
+        // would look to the field like an outside replacement and undo it.
+        val text = mutableStateOf(WRAPPING_TEXT)
+        setContent {
+            // Narrow enough that the text takes more than one line, and tall enough to be allowed to.
+            Box(Modifier.width(260.dp)) {
+                ShortcutPane(
+                    state = BitsPaneState(newBitText = text.value, composerTime = LocalTime(12, 0)),
+                    actions = BitsPaneActions(
+                        onNewBitTextChange = { text.value = it },
+                        onSelectTime = { picked += it }
+                    ),
+                    composerMaxLines = 3
+                )
+            }
+        }
+
+        // Matched on being a text field rather than on its contents, which the typing below changes.
+        val field = onNode(hasSetTextAction())
+        field.performClick()
+        // Wherever in the wrapped text the click left the cursor, "A" marks the spot — and if the
+        // nudge in between leaves the cursor alone, "B" lands directly after it.
+        field.performTextInput("A")
+        field.performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionUp) } }
+        field.performTextInput("B")
+
+        assertEquals(listOf(LocalTime(12, 15)), picked)
+        assertTrue(
+            text.value.contains("AB"),
+            "typing must carry on where it left off, got: ${text.value}"
+        )
+    }
+
+    @Test
+    fun altLeftAndAltRightStepTheDay() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        setContent { ShortcutPane(actions = BitsPaneActions(onShiftDate = { stepped += it })) }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionRight) } }
+
+        // One step each, not one per key-down *and* key-up. Left is back in time, as on the strip.
+        assertEquals(listOf(-1, 1), stepped)
+    }
+
+    @Test
+    fun altPageUpAndPageDownStepTheDayAsTheArrowsDo() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        setContent { ShortcutPane(actions = BitsPaneActions(onShiftDate = { stepped += it })) }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.PageUp) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.PageDown) } }
+
+        assertEquals(listOf(-1, 1), stepped)
+    }
+
+    @Test
+    fun shiftAltArrowsSkipToDaysWithBits() = runComposeUiTest {
+        val skipped = mutableListOf<Int>()
+        val stepped = mutableListOf<Int>()
+        setContent {
+            ShortcutPane(
+                actions = BitsPaneActions(
+                    onShiftDate = { stepped += it },
+                    onSkipToDateWithBits = { skipped += it }
+                )
+            )
+        }
+
+        onRoot().performKeyInput {
+            withKeyDown(Key.AltLeft) { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionLeft) } }
+        }
+
+        assertEquals(listOf(-1), skipped)
+        assertTrue(stepped.isEmpty(), "Shift should skip instead of stepping, not as well as")
+    }
+
+    @Test
+    fun theDayKeysNeedAltSoTheTextFieldKeepsTheBareArrowsAndPageKeys() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        setContent { ShortcutPane(actions = BitsPaneActions(onShiftDate = { stepped += it })) }
+
+        onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
+        onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        onRoot().performKeyInput { pressKey(Key.PageUp) }
+
+        assertTrue(stepped.isEmpty(), "bare arrows and page keys belong to the field and the list")
+    }
+
+    @Test
+    fun altHomeGoesToTodayAndAltZeroToAllDays() = runComposeUiTest {
+        var todays = 0
+        var allDays = 0
+        setContent {
+            ShortcutPane(
+                actions = BitsPaneActions(
+                    onClickAllDays = { allDays++ },
+                    onSelectToday = { todays++ }
+                )
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.MoveHome) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.Zero) } }
+
+        assertEquals(1, todays)
+        assertEquals(1, allDays)
+    }
+
+    @Test
+    fun escapeEndsAnEditBeforeItTouchesTheSelection() = runComposeUiTest {
+        var cancelled = 0
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                // Both are on: the edit is the one that has to give way first.
+                state = BitsPaneState(editingBitId = "a-bit", filterDate = LocalDate(2026, 8, 4)),
+                actions = BitsPaneActions(
+                    onResetSelection = { reset++ },
+                    onCancelEdit = { cancelled++ }
+                )
+            )
+        }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, cancelled)
+        assertEquals(0, reset)
+    }
+
+    @Test
+    fun escapeClearsTheDaySelectionWhenNothingIsBeingEdited() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = LocalDate(2026, 8, 4)),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, reset)
+    }
+
+    @Test
+    fun escapeClearsANudgedTimeEvenWithNoDayPicked() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            // A time is as much a thing to be stuck with as a day, so it is enough on its own.
+            ShortcutPane(
+                state = BitsPaneState(composerTime = LocalTime(9, 30)),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, reset)
+    }
+
+    @Test
+    fun escapeAlsoClearsADayTheKeysSteppedToWithoutFilteringTheList() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            // What Alt+← leaves behind on an unfiltered list: a composer date and no filter.
+            ShortcutPane(
+                state = BitsPaneState(composerDate = LocalDate(2026, 8, 4)),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, reset)
+    }
+
+    @Test
+    fun theShortcutsStillWorkAfterSomethingElseOnTheScreenHasTakenFocus() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(newBitText = "half a bit"),
+                actions = BitsPaneActions(onShiftDate = { stepped += it })
+            )
+        }
+
+        // Focus into the field, the way typing would, and then send the keys from the root: the
+        // handler sits above the field, so it has to see them first either way.
+        onNodeWithText("half a bit").performClick()
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+
+        assertEquals(listOf(-1), stepped)
+    }
+
+    private companion object {
+        const val WRAPPING_TEXT = "a bit long enough to take more than one line in a narrow field"
+    }
+}
+
+/**
+ * A pane with a bit in it, laid out as the stacked (phone) layout so the test doesn't depend on the
+ * window size the test host happens to report.
+ */
+@androidx.compose.runtime.Composable
+private fun ShortcutPane(
+    state: BitsPaneState = BitsPaneState(),
+    actions: BitsPaneActions = BitsPaneActions(),
+    composerMaxLines: Int = 1
+) {
+    BitsPane(
+        state = state.copy(
+            bitsByDate = state.bitsByDate.ifEmpty {
+                listOf(DatedBits(date = LocalDate(2026, 8, 5), bits = emptyList()))
+            }
+        ),
+        actions = actions,
+        layout = BitsLayout.Stacked,
+        doesImeHideTopBar = false,
+        composerMaxLines = composerMaxLines
+    )
+}

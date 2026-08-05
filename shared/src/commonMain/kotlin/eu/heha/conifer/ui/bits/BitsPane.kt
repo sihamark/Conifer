@@ -38,6 +38,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -82,6 +92,18 @@ fun BitsPane(
     composerMaxLines: Int = currentComposerMaxLines()
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
+        // Somewhere for the key events to go when the text field hasn't got them. A key event is
+        // only offered to the focused node and the nodes above it — and with *nothing* focused it is
+        // offered to key input above the root focus node, which the screen's own handler is below,
+        // so it would then be offered to nothing at all. Without a focus target here, clicking a bit
+        // or the background would quietly turn the shortcuts off until the field was clicked again.
+        //
+        // It is only ever a fallback, never taken from anything: focus is asked for here first, and
+        // the field's own request — below, and so after it, and repeated whenever the field is empty
+        // or an edit begins — takes it straight back off. What is left is a screen that holds focus
+        // exactly when nothing on it does.
+        val paneFocusRequester = remember { FocusRequester() }
+        LaunchedEffect(Unit) { paneFocusRequester.requestFocus() }
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
@@ -96,6 +118,12 @@ fun BitsPane(
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                // Previewed at the top of the screen rather than on the text field, where the rest
+                // of the shortcuts live: these are the screen's, not the field's, and a day is
+                // switched just as often with a bit half-written and the mouse in the list.
+                .onPreviewKeyEvent { event -> handleShortcut(event, state, actions) }
+                .focusRequester(paneFocusRequester)
+                .focusTarget()
                 .padding(innerPadding)
                 // The status bar is always padded here so showing/hiding the top bar only animates
                 // the bar's own height and nothing else jumps.
@@ -383,9 +411,7 @@ private fun Composer(
             NewBitText(
                 newBitText = state.newBitText,
                 isEditing = state.editingBitId != null,
-                time = state.effectiveTime,
                 onNewBitTextChange = actions.onNewBitTextChange,
-                onSelectTime = actions.onSelectTime,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,
                 bottomPadding = if (isShort) 8.dp else 16.dp,
@@ -518,4 +544,86 @@ private fun currentBitsLayout(): BitsLayout {
         WindowInsets.ime.getBottom(LocalDensity.current) > 0 -> BitsLayout.SideComposer
         else -> BitsLayout.DaySidebar
     }
+}
+
+/**
+ * The screen's keyboard shortcuts: adjusting what the composer will stamp on the bit, and getting
+ * out of things.
+ *
+ * Alt and the arrows are one idea, which is why they are in one place: they change the stamp,
+ * vertically the time by a slider slot, horizontally the day. They take Alt because the text field
+ * usually has focus and has a claim on every unmodified key — ↑/↓ and ←/→ are all the caret's, in a
+ * field that can hold several lines now, and how many it holds depends on the window, so bare arrows
+ * would mean one thing on a tall window and another on a short one. With Alt they mean the same
+ * everywhere, at any place in the text, whether the field has the cursor or not. ←/→ are the way
+ * round they are because that is the way the day strip runs: today at the right, and back through the
+ * month to the left.
+ *
+ * PageUp/PageDown do the same as ←/→. They are here because Alt+←/→ is word-jump on macOS, so anyone
+ * who wants that back needs somewhere else to switch days from; they follow the "previous/next"
+ * reading of those keys rather than the list's scroll direction, since Alt+← is what they stand in
+ * for.
+ *
+ * The day keys go through actions of their own ([BitsPaneActions.onShiftDate] and the rest) because
+ * they carry a policy the day lists don't — what happens to the filter. The time nudge has no such
+ * thing to say and so just picks a time, exactly as the slider does.
+ *
+ * Returns whether the event was the screen's, which is what stops it reaching the field.
+ */
+private fun handleShortcut(
+    event: KeyEvent,
+    state: BitsPaneState,
+    actions: BitsPaneActions
+): Boolean {
+    // Only the presses; taking the releases as well would switch two days per key.
+    if (event.type != KeyEventType.KeyDown) return false
+    if (event.key == Key.Escape) {
+        return when {
+            // Whichever of the two the user is in, innermost first: an edit is the more recent
+            // thing to have got into, and the more surprising one to be left in.
+            state.editingBitId != null -> {
+                actions.onCancelEdit()
+                true
+            }
+
+            // Every day and now again — the time included, unlike the day lists' "All days".
+            state.hasSelection -> {
+                actions.onResetSelection()
+                true
+            }
+
+            // Nothing to get out of. Left unhandled rather than swallowed, in case anything below
+            // has its own use for it — a dialog's dismiss, say.
+            else -> false
+        }
+    }
+    if (!event.isAltPressed) return false
+    val days = when (event.key) {
+        // The time: off the same effective value the slider and the chip show, and
+        // [shiftedByTimeSlots] takes care of a time that isn't on a slot to begin with.
+        Key.DirectionUp, Key.DirectionDown -> {
+            val slots = if (event.key == Key.DirectionUp) 1 else -1
+            actions.onSelectTime(state.effectiveTime.shiftedByTimeSlots(slots))
+            return true
+        }
+
+        Key.DirectionLeft, Key.PageUp -> -1
+        Key.DirectionRight, Key.PageDown -> 1
+        // MoveHome, not Home: the latter is Android's system home key, which never reaches an app.
+        Key.MoveHome -> {
+            actions.onSelectToday()
+            return true
+        }
+        // The keyboard's "All days", which the stacked layout otherwise only offers as tapping the
+        // selected day a second time.
+        Key.Zero, Key.NumPad0 -> {
+            actions.onClickAllDays()
+            return true
+        }
+
+        else -> return false
+    }
+    // Most of the month is empty days, so Shift steps over them to the writing.
+    if (event.isShiftPressed) actions.onSkipToDateWithBits(days) else actions.onShiftDate(days)
+    return true
 }

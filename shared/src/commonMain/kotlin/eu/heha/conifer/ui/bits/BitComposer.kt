@@ -43,7 +43,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -321,7 +320,7 @@ private fun DaySelection(
             modifier = modifier
         ) {
             item { Spacer(Modifier.width(14.dp)) }
-            items(30, key = { it }) { dayIndex ->
+            items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
                 val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
                 val isSelected = date == selectedDate
                 val isCurrent = date == currentDate
@@ -377,10 +376,7 @@ private fun DaySelection(
 internal fun NewBitText(
     newBitText: String,
     isEditing: Boolean,
-    /** The time the bit would get, i.e. what Alt+↑/↓ nudge. See [BitsPaneState.effectiveTime]. */
-    time: LocalTime,
     onNewBitTextChange: (String) -> Unit,
-    onSelectTime: (LocalTime) -> Unit,
     onClickAdd: () -> Unit,
     focusRequester: FocusRequester,
     // Trimmed by the layouts that have to fit the whole composer into what a landscape keyboard
@@ -435,16 +431,11 @@ internal fun NewBitText(
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
-                // Alt+↑/↓ nudge the time by one slider slot and Enter submits, both without
-                // leaving the text field, so a bit can be timed and saved without reaching for the
-                // mouse. Previewed ahead of the field so they are seen before it turns them into
-                // caret movement and line breaks.
-                //
-                // The nudge takes the modifier rather than the bare arrows because the field can
-                // hold several lines now (see [maxLines]) and there ↑/↓ are the caret's — and how
-                // many lines it holds depends on the window, so bare arrows would mean one thing
-                // on a tall window and another on a short one. With Alt they mean the same
-                // everywhere, at any place in the text.
+                // Enter submits without leaving the field, so a bit can be written and saved without
+                // reaching for the mouse; previewed ahead of the field so it is seen before the
+                // field turns it into a line break. The rest of the shortcuts — the time nudge and
+                // the day keys — are the screen's rather than the field's and live on the pane
+                // (`handleShortcut`), which sees them before this does either way.
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
@@ -453,13 +444,6 @@ internal fun NewBitText(
                         Key.Enter, Key.NumPadEnter -> {
                             if (event.isShiftPressed) return@onPreviewKeyEvent false
                             onClickAdd()
-                            true
-                        }
-
-                        Key.DirectionUp, Key.DirectionDown -> {
-                            if (!event.isAltPressed) return@onPreviewKeyEvent false
-                            val slots = if (event.key == Key.DirectionUp) 1 else -1
-                            onSelectTime(time.shiftedByTimeSlots(slots))
                             true
                         }
 

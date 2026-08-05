@@ -27,6 +27,23 @@ launchers.
   once both morning (before 12:00) and afternoon have at least one, three past that once the day
   holds more than 3 bits (`DatedBits.dots`).
 - **Time picker** — slider in 15-minute steps (00:00–23:45) for the bit's time of day.
+- **Keyboard shortcuts** — all of the screen's shortcuts live in one place, `handleShortcut` in
+  `BitsPane`, and so work with or without the text field focused. `Alt`+the arrows adjust what the
+  composer will stamp on the bit: `↑/↓` the time by one slider slot, `←/→` the day — left is older,
+  matching the strip's `reverseLayout` — with `Alt+PageUp/PageDown` as a synonym for the day pair
+  (`Alt+←/→` is word-jump on macOS). `Shift+Alt+←/→` skips to the nearest day that has bits,
+  `Alt+Home` returns to today and `Alt+0` shows all days (keeping a chosen time, as the day lists'
+  "All days" does). `Esc` cancels an edit, or failing that resets the selection — the filter, the
+  composer date *and* a nudged time, so one press puts the clock back in charge of both
+  (`resetSelection`; a nudged time alone is enough to arm it, see `BitsPaneState.hasSelection`). The
+  day keys are clamped to `DAY_LIST_DAYS` so the selected day is always one a day
+  list can mark (`dateShiftedBy`, `nearestDateWithBits`); unlike tapping a day they move only the
+  composer date and pull the filter along solely when one is already set, so stepping days mid-edit
+  re-dates the bit in hand without throwing the list about. The field keeps only `Enter` to save and
+  `Shift+Enter` for a line break (`NewBitText`). Because a key event only reaches the focused node
+  and
+  its ancestors — and, with nothing focused, only key input *above* the root focus node — the pane
+  holds a `focusTarget` of its own, taken once on the way in and immediately ceded to the field.
 - **"Now" default with live clock** — without an explicit selection, the current instant is used;
   the displayed time ticks each minute and rolls the date over at midnight.
 - **"Beginning of your bits" marker** — a fixed 🌱 note pinned above the oldest visible day
