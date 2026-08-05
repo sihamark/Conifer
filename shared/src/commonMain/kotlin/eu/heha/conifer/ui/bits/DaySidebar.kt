@@ -45,6 +45,10 @@ import org.jetbrains.compose.resources.stringResource
  * each with the strip's dots and the number of bits written that day. It replaces the day strip
  * inside the composer's picker, so selecting a day here filters the list *and* dates the next bit,
  * exactly as the strip does — tapping the selected day again (or "All days") lifts the filter.
+ *
+ * [selectedDate] is the day the list is filtered to ([BitsPaneState.filterDate]), not the day the
+ * composer is set to write on: both day lists mark the day being looked at, which is all they
+ * decide.
  */
 @Composable
 internal fun DaySidebar(

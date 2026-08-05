@@ -91,7 +91,7 @@ internal fun BitsList(
     // (ETags, dirty flags, modification stamps), which makes the list unequal to the previous one
     // without changing a thing the reader can see; re-anchoring on that yanked the list to the
     // bottom mid-sync, out from under someone reading further up.
-    LaunchedEffect(state.selectedDate, visibleBitsByDate.isEmpty()) {
+    LaunchedEffect(state.filterDate, visibleBitsByDate.isEmpty()) {
         if (visibleBitsByDate.isEmpty() || state.scrollToBitId != null) return@LaunchedEffect
         listState.scrollToItem(visibleBitsByDate.lastListIndex())
     }
@@ -108,7 +108,7 @@ internal fun BitsList(
             }
             PermissionPromptItem(permissionRationale, actions)
             EmptyState(
-                isFilteredByDate = state.selectedDate != null &&
+                isFilteredByDate = state.filterDate != null &&
                         state.bitsByDate.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()

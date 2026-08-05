@@ -58,7 +58,7 @@ class BitsListScrollTest {
             val visible = selected?.let { day -> all.filter { it.date == day } } ?: all
             Box(Modifier.size(400.dp, 400.dp)) {
                 BitsList(
-                    state = BitsPaneState(bitsByDate = all, selectedDate = selected),
+                    state = BitsPaneState(bitsByDate = all, filterDate = selected),
                     visibleBitsByDate = visible,
                     actions = BitsPaneActions(),
                     isTopBarVisible = true

@@ -77,17 +77,23 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 /**
- * Compact date & time control presented as a chip. Collapsed it shows the effective date and
- * time; a custom selection highlights the chip and a "back to now" text button clears it, so a
- * selection survives collapsing the picker. While editing a bit, a "cancel edit" text button is
- * offered instead. Expanding the chip reveals the day picker (unless the two-pane layout's sidebar
- * already owns the day, see [isDaySelectionVisible]) and a slim time slider.
+ * Compact date & time control presented as a chip. Collapsed it shows the date and time the bit
+ * being written would get; a custom selection highlights the chip and a "back to now" text button
+ * clears it, so a selection survives collapsing the picker. While editing a bit, a "cancel edit"
+ * text button is offered instead. Expanding the chip reveals the day picker (unless the two-pane
+ * layout's sidebar already owns the day, see [isDaySelectionVisible]) and a slim time slider.
  */
 @Composable
 internal fun DateTimeSelector(
     bitsByDate: List<DatedBits>,
-    selectedDate: LocalDate?,
-    selectedTime: LocalTime?,
+    composerDate: LocalDate?,
+    composerTime: LocalTime?,
+    /**
+     * The day the list is filtered to, which is what the day strip highlights — it is a day list
+     * like the sidebar, so it marks the day being looked at, while the chip beside it shows the day
+     * being written to. The two only differ while a bit from another day is being edited.
+     */
+    filterDate: LocalDate?,
     currentDate: LocalDate,
     currentTime: LocalTime,
     isEditing: Boolean,
@@ -99,9 +105,9 @@ internal fun DateTimeSelector(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    val hasCustomSelection = selectedDate != null || selectedTime != null
-    val effectiveDate = selectedDate ?: currentDate
-    val effectiveTime = selectedTime ?: currentTime
+    val hasCustomSelection = composerDate != null || composerTime != null
+    val effectiveDate = composerDate ?: currentDate
+    val effectiveTime = composerTime ?: currentTime
 
     Column(modifier) {
         Row(
@@ -190,7 +196,7 @@ internal fun DateTimeSelector(
                 AnimatedVisibility(isDaySelectionVisible) {
                     DaySelection(
                         bitsByDate = bitsByDate,
-                        selectedDate = selectedDate,
+                        selectedDate = filterDate,
                         currentDate = currentDate,
                         onClickDate = onClickDate
                     )

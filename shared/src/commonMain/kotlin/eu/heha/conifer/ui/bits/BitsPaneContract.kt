@@ -33,8 +33,20 @@ data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
     val newBitText: String = "",
-    val selectedDate: LocalDate? = null,
-    val selectedTime: LocalTime? = null,
+    /**
+     * The day the list is filtered to; null shows every day. Set by the day lists — the composer's
+     * day strip and the [DaySidebar] — and by nothing else, so what the list shows only ever
+     * changes because the user asked for another day. Editing a bit in particular leaves it alone:
+     * rebuilding the list around an edit is what threw its scroll position away.
+     */
+    val filterDate: LocalDate? = null,
+    /**
+     * The date the composer will stamp on the bit being written; null uses [today]. Picking a day
+     * sets this along with [filterDate], and an edit loads it from the bit it is editing.
+     */
+    val composerDate: LocalDate? = null,
+    /** The time the composer will stamp on the bit being written; null uses [currentTime]. */
+    val composerTime: LocalTime? = null,
     val today: LocalDate = now().date,
     val currentTime: LocalTime = now().time,
     val bitsByDate: List<DatedBits> = emptyList(),
@@ -46,7 +58,7 @@ data class BitsPaneState(
      * The time a bit added right now would carry: the user's pick, or the clock while they haven't
      * made one. [DateTimeSelector] derives the same value from the two fields it is handed.
      */
-    val effectiveTime: LocalTime get() = selectedTime ?: currentTime
+    val effectiveTime: LocalTime get() = composerTime ?: currentTime
 }
 
 class BitsPaneActions(

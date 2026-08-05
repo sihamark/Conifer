@@ -31,7 +31,7 @@ private fun BitsPaneEditingWithPermissionPromptPreview() {
                     "Allow notifications and reply to the Conifer conversation to capture a bit without opening the app."
                 ),
                 editingBitId = "1",
-                selectedTime = LocalTime(1, 0, 0),
+                composerTime = LocalTime(1, 0, 0),
                 bitsByDate = listOf(
                     DatedBits(
                         date = LocalDate(2024, 6, 1),
@@ -267,7 +267,8 @@ private fun BitsPaneEmptyFilteredPreview() {
     ConiferTheme {
         BitsPane(
             state = BitsPaneState(
-                selectedDate = LocalDate(2024, 6, 2),
+                filterDate = LocalDate(2024, 6, 2),
+                composerDate = LocalDate(2024, 6, 2),
                 bitsByDate = listOf(
                     DatedBits(
                         date = LocalDate(2024, 6, 1),
