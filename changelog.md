@@ -8,6 +8,16 @@
   scroll position had nothing left to hold on to. They are two things now: the day lists (the day
   strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
   the list stays exactly where it was, and a day you picked stays picked
+- the tree of the empty state and the seedling above the oldest bit are much larger now, and each
+  has a little scene of its own: leaves, pine nuts and — over the seedling — water and sparkles
+  drift down behind it and out of the bottom, forever and never quite the same way twice. All emoji,
+  no artwork. The tree takes only the room the pane has to spare beyond its message and steps aside
+  altogether on a window as short as a phone in landscape with the keyboard up
+- something lives in that tree. Every half minute or so a squirrel or a bird comes down it, bobbing
+  along, and then bolts off to one side and out of the scene. Rarely enough that catching one still
+  feels like catching it
+- the seedling gets visitors of its own: a ladybug or a mouse wanders in from one side, goes round
+  the foot of it — behind it and then in front, twice round — and wanders off out the other side
 - a new bit that lands right below the last one in view is scrolled to properly. A few pixels of it
   peeking over the bottom edge counted as visible, so the list left it there, half under the input —
   the one place a bit just written must not be. It now has to be in view in full, clear of the

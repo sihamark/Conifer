@@ -33,6 +33,26 @@ launchers.
   whenever the list has at least one bit (even while filtered to a single day); distinct from the
   empty-state message, which only shows when there's nothing to display at all
   (`BitsPane.BeginningNote`).
+- **Ambient emoji scenes** — the empty state's 🌲 and the beginning marker's 🌱 are large and sway
+  from the base, with smaller emoji (leaves and pine nuts; water and sparkles over the seedling)
+  falling in staggered lanes behind them and out of the bottom (`EmojiFallScene`). Emoji only, no
+  assets; each fall is a single `graphicsLayer`, so a frame of it costs no recomposition. The empty
+  state's scene is sized from what the pane has left over after its message, and is dropped
+  altogether when that isn't enough — a phone in landscape with the keyboard up.
+- **Animal visitors** — each scene gets the kind of visit its plant allows, every ~20–35s, off a
+  long cycle of which only ~10–20% is the visit itself; the rest is an empty scene. Both tables are
+  hand-picked rather than random, so a scene is identical on every open and in every preview, and in
+  each one exactly one animal sits mid-visit at the animations' initial values, so even a still
+  frame
+  (preview, test) has one. The 🌲 is climbed down: 🐿️/🐦 drop in over the top, come down one flank in
+  front of the tree and bolt off sideways and out through the bottom clip
+  (`Scamper`/`ScamperingAnimal`). The 🌱 is circled instead: 🐞/🐁 walk in from one side, go 1.5 times
+  round its foot on a flattened ellipse and out the other side (`Round`/`CirclingAnimal`). To get
+  the
+  far half of that loop *behind* the plant, each circling animal is drawn twice — once before the
+  big
+  emoji and once after — sharing one hoisted animation, each copy `alpha = 0` outside its half; they
+  hand over at the two widest points of the loop, where nothing overlaps.
 
 ## Secondary features
 
