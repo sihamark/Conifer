@@ -8,6 +8,10 @@
   scroll position had nothing left to hold on to. They are two things now: the day lists (the day
   strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
   the list stays exactly where it was, and a day you picked stays picked
+- a new bit that lands right below the last one in view is scrolled to properly. A few pixels of it
+  peeking over the bottom edge counted as visible, so the list left it there, half under the input —
+  the one place a bit just written must not be. It now has to be in view in full, clear of the
+  bottom edge and of the top bar floating over the list, before the jump is considered unnecessary
 - the date chip goes back to what it showed before an edit when the edit is saved or cancelled,
   instead of falling back to "now" — a day picked for the bits you are writing survives editing an
   older one in passing

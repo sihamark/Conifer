@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
@@ -19,6 +20,7 @@ import eu.heha.conifer.ui.DatedBits
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /** Who is allowed to move the bit list, and who is not. */
@@ -29,7 +31,7 @@ class BitsListScrollTest {
     fun aSyncRewritingBitsLeavesTheScrollPositionAlone() = runComposeUiTest {
         var bits by mutableStateOf(bitsByDate())
         setContent {
-            Box(Modifier.size(400.dp, 400.dp)) {
+            Box(Modifier.size(VIEWPORT, VIEWPORT)) {
                 BitsList(
                     state = BitsPaneState(bitsByDate = bits),
                     visibleBitsByDate = bits,
@@ -56,7 +58,7 @@ class BitsListScrollTest {
         val all = bitsByDate()
         setContent {
             val visible = selected?.let { day -> all.filter { it.date == day } } ?: all
-            Box(Modifier.size(400.dp, 400.dp)) {
+            Box(Modifier.size(VIEWPORT, VIEWPORT)) {
                 BitsList(
                     state = BitsPaneState(bitsByDate = all, filterDate = selected),
                     visibleBitsByDate = visible,
@@ -73,11 +75,43 @@ class BitsListScrollTest {
         onNodeWithText("bit 19").assertIsDisplayed()
     }
 
-    private fun bitsByDate(synced: Boolean = false): List<DatedBits> = listOf(
+    /**
+     * The bit that was just written lands directly below the last one in view, where the list counts
+     * it as visible because a few of its pixels are — so it has to be scrolled to all the same.
+     */
+    @Test
+    fun aNewBitPeekingOverTheBottomEdgeIsStillScrolledTo() = runComposeUiTest {
+        var bits by mutableStateOf(bitsByDate())
+        var scrollToBitId by mutableStateOf<String?>(null)
+        setContent {
+            Box(Modifier.size(VIEWPORT, VIEWPORT)) {
+                BitsList(
+                    state = BitsPaneState(bitsByDate = bits, scrollToBitId = scrollToBitId),
+                    visibleBitsByDate = bits,
+                    actions = BitsPaneActions(onScrolledToBit = { scrollToBitId = null }),
+                    isTopBarVisible = true
+                )
+            }
+        }
+
+        // The list anchors to its newest bit, so the one written next starts off the bottom edge.
+        onNodeWithText("bit 19").assertIsDisplayed()
+
+        scrollToBitId = "bit-20"
+        bits = bitsByDate(count = 21)
+
+        onNodeWithText("bit 20").assertIsDisplayed()
+        // Displayed is not enough: a bit peeking over the edge is displayed too, and the whole
+        // point is that all of it is in view.
+        val bottom = onNodeWithText("bit 20").getUnclippedBoundsInRoot().bottom
+        assertTrue(bottom <= VIEWPORT, "bit 20 ends at $bottom, past the edge at $VIEWPORT")
+    }
+
+    private fun bitsByDate(synced: Boolean = false, count: Int = 20): List<DatedBits> = listOf(
         DatedBits(
             date = DAY,
             // Newest first, the way the DAO delivers them.
-            bits = (19 downTo 0).map { index ->
+            bits = (count - 1 downTo 0).map { index ->
                 Bit(
                     id = "bit-$index",
                     text = "bit $index",
@@ -93,5 +127,8 @@ class BitsListScrollTest {
 
     private companion object {
         val DAY = LocalDate(2026, 8, 3)
+
+        /** Both edges of the square window the list is given. */
+        val VIEWPORT = 400.dp
     }
 }
