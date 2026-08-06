@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -309,6 +310,93 @@ class BitsPaneShortcutsTest {
         assertEquals(listOf(-1), stepped)
     }
 
+    @Test
+    fun altHOpensAndClosesTheListOfShortcuts() = runComposeUiTest {
+        setContent { ShortcutPane() }
+        val title = "Keyboard shortcuts"
+
+        onNodeWithText(title).assertDoesNotExist()
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.H) } }
+        onNodeWithText(title).assertExists()
+        // The same key again puts it away: it is a thing being shown, not a place being gone to.
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.H) } }
+        onNodeWithText(title).assertDoesNotExist()
+    }
+
+    @Test
+    fun f1OpensTheListToo() = runComposeUiTest {
+        setContent { ShortcutPane() }
+
+        onRoot().performKeyInput { pressKey(Key.F1) }
+
+        onNodeWithText("Keyboard shortcuts").assertExists()
+    }
+
+    @Test
+    fun theListNamesEveryShortcutTheScreenHandles() = runComposeUiTest {
+        setContent { ShortcutPane() }
+        onRoot().performKeyInput { pressKey(Key.F1) }
+
+        // Not a spelling test: this is the one place that would notice a key being wired up in
+        // handleShortcut and never told to the user.
+        listOf(
+            "Enter", "Shift+Enter", "Alt+↑/↓", "Alt+←/→", "Alt+PgUp/PgDn", "Shift+Alt+←/→",
+            "Alt+Home", "Alt+0", "Esc", "Alt+H", "F1"
+        ).forEach { keys ->
+            onNodeWithText(keys).assertExists()
+        }
+    }
+
+    @Test
+    fun escapeClosesTheListBeforeItTouchesAnythingElse() = runComposeUiTest {
+        var cancelled = 0
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                // Both of the other things Esc could do are on offer; the overlay still goes first.
+                state = BitsPaneState(editingBitId = "a-bit", filterDate = LocalDate(2026, 8, 4)),
+                actions = BitsPaneActions(
+                    onResetSelection = { reset++ },
+                    onCancelEdit = { cancelled++ }
+                )
+            )
+        }
+        onRoot().performKeyInput { pressKey(Key.F1) }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        onNodeWithText("Keyboard shortcuts").assertDoesNotExist()
+        assertEquals(0, cancelled, "the edit is behind the overlay and should have been left alone")
+        assertEquals(0, reset)
+    }
+
+    @Test
+    fun theShortcutsIconIsOfferedOnlyWhereThereIsAKeyboardForIt() = runComposeUiTest {
+        setContent { ShortcutPane(hasHardwareKeyboard = false) }
+
+        onNodeWithContentDescription("Show keyboard shortcuts").assertDoesNotExist()
+    }
+
+    @Test
+    fun theShortcutsIconOpensTheListWhereThereIsAKeyboard() = runComposeUiTest {
+        setContent { ShortcutPane(hasHardwareKeyboard = true) }
+
+        onNodeWithContentDescription("Show keyboard shortcuts").performClick()
+
+        onNodeWithText("Keyboard shortcuts").assertExists()
+    }
+
+    @Test
+    fun aKeyboardThatArrivesLaterEarnsTheIconByBeingUsed() = runComposeUiTest {
+        // A tablet with a keyboard plugged in: the platform said no, and Alt says otherwise.
+        setContent { ShortcutPane(hasHardwareKeyboard = false) }
+        onNodeWithContentDescription("Show keyboard shortcuts").assertDoesNotExist()
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+
+        onNodeWithContentDescription("Show keyboard shortcuts").assertExists()
+    }
+
     private companion object {
         const val WRAPPING_TEXT = "a bit long enough to take more than one line in a narrow field"
     }
@@ -322,7 +410,8 @@ class BitsPaneShortcutsTest {
 private fun ShortcutPane(
     state: BitsPaneState = BitsPaneState(),
     actions: BitsPaneActions = BitsPaneActions(),
-    composerMaxLines: Int = 1
+    composerMaxLines: Int = 1,
+    hasHardwareKeyboard: Boolean = false
 ) {
     BitsPane(
         state = state.copy(
@@ -333,6 +422,7 @@ private fun ShortcutPane(
         actions = actions,
         layout = BitsLayout.Stacked,
         doesImeHideTopBar = false,
-        composerMaxLines = composerMaxLines
+        composerMaxLines = composerMaxLines,
+        hasHardwareKeyboard = hasHardwareKeyboard
     )
 }

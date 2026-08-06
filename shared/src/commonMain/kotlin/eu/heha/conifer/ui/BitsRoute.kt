@@ -3,8 +3,10 @@ package eu.heha.conifer.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.Platform
 import eu.heha.conifer.ui.bits.BitsPane
 import eu.heha.conifer.ui.bits.BitsPaneActions
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -51,6 +53,9 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickOpenLoginUrl = syncModel::onClickOpenLoginUrl,
             onClickSyncNow = syncModel::onClickSyncNow,
             onClickDisconnect = syncModel::onClickDisconnect,
-        )
+        ),
+        // The only place that knows what kind of device this is; the pane takes it as a plain
+        // argument so that it stays a composable a preview or a test can simply call.
+        hasHardwareKeyboard = koinInject<Platform>().hasHardwareKeyboard
     )
 }

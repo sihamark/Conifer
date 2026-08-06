@@ -8,6 +8,11 @@
   scroll position had nothing left to hold on to. They are two things now: the day lists (the day
   strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
   the list stays exactly where it was, and a day you picked stays picked
+- the shortcuts are written down: **Alt+H** (or F1) shows the whole list over the screen, grouped by
+  what it acts on, and Esc or another Alt+H puts it away. While it is up the keyboard belongs to it,
+  so nothing lands in the text field behind it. The keyboard icon that opens it appears only where
+  there is a keyboard to use — never on a phone, and on a tablet as soon as one is plugged in and
+  used
 - days can be switched from the keyboard. Alt+←/→ steps back and forth a day the way the day strip
   runs — today at the right, the month behind it to the left — and holding one down walks through
   the

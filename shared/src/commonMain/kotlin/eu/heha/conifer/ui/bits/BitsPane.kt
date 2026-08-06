@@ -24,7 +24,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,20 +38,16 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusTarget
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
-import androidx.compose.ui.input.key.isShiftPressed
-import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -58,6 +58,7 @@ import androidx.window.core.layout.WindowSizeClass
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
 import conifer.shared.generated.resources.bits_label_counter
+import conifer.shared.generated.resources.shortcuts_content_show
 import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.SyncPane
 import eu.heha.conifer.ui.SyncPaneActions
@@ -89,7 +90,13 @@ fun BitsPane(
         .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
     // How tall the text field may grow; also not part of BitsLayout, since it is the height left
     // over that decides it and not how the panes are arranged. Overridable like the layout.
-    composerMaxLines: Int = currentComposerMaxLines()
+    composerMaxLines: Int = currentComposerMaxLines(),
+    // Whether this device is one that comes with a keyboard, which decides whether the shortcuts are
+    // advertised — see Platform.hasHardwareKeyboard, which is what BitsRoute passes. Defaulted rather
+    // than injected here so that a preview or a test is a plain composable with nothing behind it,
+    // and defaulted to the quieter answer: a screen with no keyboard is the one with nothing extra
+    // on it.
+    hasHardwareKeyboard: Boolean = false
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         // Somewhere for the key events to go when the text field hasn't got them. A key event is
@@ -104,6 +111,13 @@ fun BitsPane(
         // exactly when nothing on it does.
         val paneFocusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) { paneFocusRequester.requestFocus() }
+        var isShortcutsOverlayOpen by remember { mutableStateOf(false) }
+        // The platform's answer is only a guess about the device (see Platform.hasHardwareKeyboard),
+        // and a modifier arriving is proof: nothing on a touch keyboard sends Alt. So a tablet with a
+        // keyboard plugged in earns the icon as soon as it is used, without asking the platform
+        // anything it cannot answer.
+        var hasSeenModifier by remember { mutableStateOf(false) }
+        val isKeyboardPresent = hasHardwareKeyboard || hasSeenModifier
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
@@ -121,7 +135,16 @@ fun BitsPane(
                 // Previewed at the top of the screen rather than on the text field, where the rest
                 // of the shortcuts live: these are the screen's, not the field's, and a day is
                 // switched just as often with a bit half-written and the mouse in the list.
-                .onPreviewKeyEvent { event -> handleShortcut(event, state, actions) }
+                .onPreviewKeyEvent { event ->
+                    if (event.isAltPressed) hasSeenModifier = true
+                    handleShortcut(
+                        event = event,
+                        state = state,
+                        actions = actions,
+                        isShortcutsOverlayOpen = isShortcutsOverlayOpen,
+                        onShortcutsOverlayChange = { isShortcutsOverlayOpen = it }
+                    )
+                }
                 .focusRequester(paneFocusRequester)
                 .focusTarget()
                 .padding(innerPadding)
@@ -161,6 +184,8 @@ fun BitsPane(
                 isTopBarVisible = isTopBarVisible,
                 composerMaxLines = composerMaxLines,
                 focusRequester = focusRequester,
+                isKeyboardPresent = isKeyboardPresent,
+                onClickShortcuts = { isShortcutsOverlayOpen = true },
                 modifier = Modifier.weight(1f)
             )
             // The mirror image of the sidebar, on the other side of the main pane and shown only
@@ -187,6 +212,9 @@ fun BitsPane(
                 }
             }
         }
+        if (isShortcutsOverlayOpen) {
+            ShortcutsOverlay(onDismiss = { isShortcutsOverlayOpen = false })
+        }
     }
 }
 
@@ -202,6 +230,8 @@ private fun MainPane(
     isTopBarVisible: Boolean,
     composerMaxLines: Int,
     focusRequester: FocusRequester,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // The state always holds all days; the day filter only decides what the list (and the counter)
@@ -226,6 +256,8 @@ private fun MainPane(
                 actions = actions,
                 syncState = syncState,
                 syncActions = syncActions,
+                isKeyboardPresent = isKeyboardPresent,
+                onClickShortcuts = onClickShortcuts,
                 syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 paneInset = paneInset,
@@ -336,6 +368,8 @@ private fun Bits(
     syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     paneInset: Dp,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier) {
@@ -356,7 +390,15 @@ private fun Bits(
             modifier = Modifier.fillMaxSize()
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-        Topbar(bitsCount, isTopBarVisible, syncState, syncActions, syncPresentation)
+        Topbar(
+            bitsCount = bitsCount,
+            isVisible = isTopBarVisible,
+            syncState = syncState,
+            syncActions = syncActions,
+            syncPresentation = syncPresentation,
+            isKeyboardPresent = isKeyboardPresent,
+            onClickShortcuts = onClickShortcuts
+        )
     }
 }
 
@@ -427,7 +469,9 @@ private fun Topbar(
     isVisible: Boolean,
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
-    syncPresentation: SyncPresentation
+    syncPresentation: SyncPresentation,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit
 ) {
     AnimatedVisibility(visible = isVisible, modifier = Modifier.fillMaxWidth()) {
         TopAppBar(
@@ -442,6 +486,16 @@ private fun Topbar(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(end = 8.dp)
                 )
+                // Only where there is a keyboard to use them with. There is no point advertising
+                // shortcuts to a phone, and nothing is lost by leaving them undiscovered on one.
+                if (isKeyboardPresent) {
+                    IconButton(onClick = onClickShortcuts) {
+                        Icon(
+                            imageVector = Icons.Default.Keyboard,
+                            contentDescription = stringResource(Res.string.shortcuts_content_show)
+                        )
+                    }
+                }
                 SyncStatusIcon(
                     state = syncState,
                     actions = syncActions,
@@ -544,86 +598,4 @@ private fun currentBitsLayout(): BitsLayout {
         WindowInsets.ime.getBottom(LocalDensity.current) > 0 -> BitsLayout.SideComposer
         else -> BitsLayout.DaySidebar
     }
-}
-
-/**
- * The screen's keyboard shortcuts: adjusting what the composer will stamp on the bit, and getting
- * out of things.
- *
- * Alt and the arrows are one idea, which is why they are in one place: they change the stamp,
- * vertically the time by a slider slot, horizontally the day. They take Alt because the text field
- * usually has focus and has a claim on every unmodified key — ↑/↓ and ←/→ are all the caret's, in a
- * field that can hold several lines now, and how many it holds depends on the window, so bare arrows
- * would mean one thing on a tall window and another on a short one. With Alt they mean the same
- * everywhere, at any place in the text, whether the field has the cursor or not. ←/→ are the way
- * round they are because that is the way the day strip runs: today at the right, and back through the
- * month to the left.
- *
- * PageUp/PageDown do the same as ←/→. They are here because Alt+←/→ is word-jump on macOS, so anyone
- * who wants that back needs somewhere else to switch days from; they follow the "previous/next"
- * reading of those keys rather than the list's scroll direction, since Alt+← is what they stand in
- * for.
- *
- * The day keys go through actions of their own ([BitsPaneActions.onShiftDate] and the rest) because
- * they carry a policy the day lists don't — what happens to the filter. The time nudge has no such
- * thing to say and so just picks a time, exactly as the slider does.
- *
- * Returns whether the event was the screen's, which is what stops it reaching the field.
- */
-private fun handleShortcut(
-    event: KeyEvent,
-    state: BitsPaneState,
-    actions: BitsPaneActions
-): Boolean {
-    // Only the presses; taking the releases as well would switch two days per key.
-    if (event.type != KeyEventType.KeyDown) return false
-    if (event.key == Key.Escape) {
-        return when {
-            // Whichever of the two the user is in, innermost first: an edit is the more recent
-            // thing to have got into, and the more surprising one to be left in.
-            state.editingBitId != null -> {
-                actions.onCancelEdit()
-                true
-            }
-
-            // Every day and now again — the time included, unlike the day lists' "All days".
-            state.hasSelection -> {
-                actions.onResetSelection()
-                true
-            }
-
-            // Nothing to get out of. Left unhandled rather than swallowed, in case anything below
-            // has its own use for it — a dialog's dismiss, say.
-            else -> false
-        }
-    }
-    if (!event.isAltPressed) return false
-    val days = when (event.key) {
-        // The time: off the same effective value the slider and the chip show, and
-        // [shiftedByTimeSlots] takes care of a time that isn't on a slot to begin with.
-        Key.DirectionUp, Key.DirectionDown -> {
-            val slots = if (event.key == Key.DirectionUp) 1 else -1
-            actions.onSelectTime(state.effectiveTime.shiftedByTimeSlots(slots))
-            return true
-        }
-
-        Key.DirectionLeft, Key.PageUp -> -1
-        Key.DirectionRight, Key.PageDown -> 1
-        // MoveHome, not Home: the latter is Android's system home key, which never reaches an app.
-        Key.MoveHome -> {
-            actions.onSelectToday()
-            return true
-        }
-        // The keyboard's "All days", which the stacked layout otherwise only offers as tapping the
-        // selected day a second time.
-        Key.Zero, Key.NumPad0 -> {
-            actions.onClickAllDays()
-            return true
-        }
-
-        else -> return false
-    }
-    // Most of the month is empty days, so Shift steps over them to the writing.
-    if (event.isShiftPressed) actions.onSkipToDateWithBits(days) else actions.onShiftDate(days)
-    return true
 }
