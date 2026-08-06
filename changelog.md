@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.3
+## Version 1.2.3 (06.08.2026)
 
 - saving an edited bit no longer throws the list around. The day filter and the date the composer
   writes with used to be one and the same, so starting an edit filtered the list to that bit's day
