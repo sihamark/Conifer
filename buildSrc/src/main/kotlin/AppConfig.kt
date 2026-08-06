@@ -10,6 +10,6 @@ object AppConfig {
     const val targetSdk = 37
     const val javaVersion = 21
 
-    const val versionName = "1.2.3"
-    const val versionCode = 8
+    const val versionName = "1.2.4"
+    const val versionCode = 9
 }
