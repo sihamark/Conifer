@@ -113,8 +113,13 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
 
+/**
+ * The ISO spelling, for the debug details only: those rows are read off the screen into bug reports
+ * and compared against server-side timestamps, where one reader's locale would only be in the way.
+ * The status line the user actually reads is localized — see [dateAndTimeOf].
+ */
 private fun Instant.printDateTime() =
-    dateTimeInDefaultTz().let { "${it.date.print()} ${it.time.print()}" }
+    dateTimeInDefaultTz().let { "${it.date.printIso()} ${it.time.printIso()}" }
 
 /**
  * How the sync surface is shown. [SyncUiState.isSyncOpen] only says that the user asked to see
@@ -376,7 +381,7 @@ private fun SyncStatusRow(isSyncing: Boolean, lastSyncAt: Instant?) {
         isSyncing -> stringResource(Res.string.sync_status_syncing)
         lastSyncAt != null -> stringResource(
             Res.string.sync_status_last_synced,
-            lastSyncAt.printDateTime()
+            LocalDateTimeFormats.current.dateAndTimeOf(lastSyncAt)
         )
 
         else -> stringResource(Res.string.sync_status_never_synced)

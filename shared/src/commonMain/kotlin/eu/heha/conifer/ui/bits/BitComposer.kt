@@ -67,11 +67,10 @@ import conifer.shared.generated.resources.bits_content_save_bit
 import conifer.shared.generated.resources.bits_label_date_time_now
 import conifer.shared.generated.resources.bits_label_new_bit
 import eu.heha.conifer.ui.DatedBits
+import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.label
-import eu.heha.conifer.ui.print
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.number
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -151,7 +150,7 @@ internal fun DateTimeSelector(
                     } else {
                         stringResource(Res.string.bits_label_date_time_now)
                     }
-                    val label = day + " · " + effectiveTime.print()
+                    val label = day + " · " + LocalDateTimeFormats.current.timeOfDay(effectiveTime)
                     Text(text = label, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.width(8.dp))
                     val chevronRotation by animateFloatAsState(
@@ -225,7 +224,7 @@ private fun TimeSlider(
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
             Text(
-                text = time.print(),
+                text = LocalDateTimeFormats.current.timeOfDay(time),
                 style = MaterialTheme.typography.titleSmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.primary,
@@ -321,6 +320,7 @@ private fun DaySelection(
         ) {
             item { Spacer(Modifier.width(14.dp)) }
             items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
+                val formats = LocalDateTimeFormats.current
                 val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
                 val isSelected = date == selectedDate
                 val isCurrent = date == currentDate
@@ -354,11 +354,11 @@ private fun DaySelection(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = date.dayOfWeek.name.take(3),
+                            text = formats.weekdayShort(date),
                             style = MaterialTheme.typography.labelSmall
                         )
                         Text(
-                            text = "${date.day}.${date.month.number}",
+                            text = formats.dayAndMonth(date),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold
                         )

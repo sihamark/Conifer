@@ -36,8 +36,8 @@ import conifer.shared.generated.resources.bits_action_all_days
 import conifer.shared.generated.resources.bits_label_days
 import conifer.shared.generated.resources.bits_label_today
 import eu.heha.conifer.ui.DatedBits
+import eu.heha.conifer.ui.LocalDateTimeFormats
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.number
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -93,11 +93,12 @@ internal fun DaySidebar(
                     )
                 }
                 items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
+                    val formats = LocalDateTimeFormats.current
                     val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
                     val datedBits = bitsByDate.firstOrNull { it.date == date }
                     DaySidebarItem(
-                        weekday = date.dayOfWeek.name.take(3),
-                        label = "${date.day}.${date.month.number}.",
+                        weekday = formats.weekdayShort(date),
+                        label = formats.dayAndMonth(date),
                         count = datedBits?.bits?.size,
                         dots = datedBits?.dots ?: 0,
                         isSelected = date == selectedDate,

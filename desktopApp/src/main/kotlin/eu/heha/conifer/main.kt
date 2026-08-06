@@ -35,6 +35,7 @@ fun main() = application {
     ConiferApp.initialize(
         isDebug = isDebug,
         platform = JvmPlatform,
+        dateTimeFormats = JvmDateTimeFormats(),
         databaseInitializer = JvmDatabaseInitializer,
         syncPrefsInitializer = JvmSyncPrefsInitializer,
         credentialsInitializer = JvmCredentialsInitializer,

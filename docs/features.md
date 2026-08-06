@@ -18,8 +18,9 @@ launchers.
 - **Delete a Bit** — "⋮" menu → Delete, with a confirmation dialog before permanent deletion.
 - **Grouping by day with sticky headers** — bits are grouped per calendar day, newest first
   (`ORDER BY date DESC, created_at DESC`); each card shows only its time of day.
-- **Date picker** — expandable selector with a horizontal row of the last 30 days, showing
-  3-letter weekday + day.month, today highlighted. Selecting a day filters the list and dates
+- **Date picker** — expandable selector with a horizontal row of the last 30 days, showing the
+  locale's short weekday + day and month (see **Localized dates and times**), today highlighted.
+  Selecting a day filters the list and dates
   new/edited bits; re-tapping deselects. The two are separate state
   (`BitsPaneState.filterDate`/`composerDate`): the day lists highlight the filtered day, the chip
   shows the day being written to, and a bit written for another day pulls the filter along with it.
@@ -27,6 +28,24 @@ launchers.
   once both morning (before 12:00) and afternoon have at least one, three past that once the day
   holds more than 3 bits (`DatedBits.dots`).
 - **Time picker** — slider in 15-minute steps (00:00–23:45) for the bit's time of day.
+- **Localized dates and times** — everything the reader sees is spelled by the platform:
+  `DateTimeFormats` (five methods — time of day, short weekday, day-and-month, whole date, date with
+  weekday) is passed to `ConiferApp.initialize` like the other platform interfaces, and reaches the
+  UI
+  through `LocalDateTimeFormats`, provided once in `AppContent`; `BitsViewModel` takes it by
+  constructor for the clipboard heading. Covers bit times, both day lists, the sticky day headers,
+  the
+  date chip, the time slider's label, "last synced" and the copied heading. Per platform:
+  `java.time`
+  localized styles on desktop (`JvmDateTimeFormats`), **ICU** on Android (`android.icu`, skeletons
+  `jm`/`Md`/`EEE`) and iOS (`NSDateFormatter` templates), `Intl.DateTimeFormat` on web. The default
+  is
+  `IsoDateTimeFormats` — ISO dates, 24-hour times, English weekdays — which is what previews and
+  tests
+  get, so a rendering does not depend on the machine it runs on. Storage is deliberately *not*
+  localized: the database converters, the sync files (`ReadableRenderer`), the log timestamps and
+  the
+  sync debug rows all stay ISO, since those are read by machines and by other devices.
 - **Keyboard shortcuts** — all of the screen's shortcuts live in one place, `handleShortcut` in
   `KeyboardShortcuts.kt`, and so work with or without the text field focused. `Alt`+the arrows
   adjust what the
@@ -89,8 +108,9 @@ launchers.
 
 ## Secondary features
 
-- **Copy a day to clipboard** — copy icon in each date header exports that day as a markdown block
-  (`##### Bits of <weekday>, <date>:` + one line per bit, chronological). Only shown when the
+- **Copy a day to clipboard** — copy icon in each date header exports that day as plain text
+  (`Bits of <weekday>, <date>` in the reader's own locale + one line per bit, chronological). Only
+  shown when the
   platform provides a `ClipboardController`.
 - **Notification permission prompt** — in-app card with rationale + grant button when permission
   is missing (Android only in practice).

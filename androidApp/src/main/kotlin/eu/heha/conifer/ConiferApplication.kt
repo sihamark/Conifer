@@ -8,6 +8,7 @@ class ConiferApplication : Application() {
         ConiferApp.initialize(
             isDebug = BuildConfig.DEBUG,
             platform = AndroidPlatform,
+            dateTimeFormats = AndroidDateTimeFormats(),
             databaseInitializer = AndroidDatabaseInitializer(this),
             syncPrefsInitializer = AndroidSyncPrefsInitializer(this),
             credentialsInitializer = AndroidCredentialsInitializer(this),

@@ -40,7 +40,7 @@ import conifer.shared.generated.resources.bits_message_beginning
 import conifer.shared.generated.resources.bits_message_empty
 import conifer.shared.generated.resources.bits_message_empty_filtered
 import eu.heha.conifer.ui.DatedBits
-import eu.heha.conifer.ui.print
+import eu.heha.conifer.ui.LocalDateTimeFormats
 import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 
@@ -229,7 +229,7 @@ private fun DateHeader(
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
             Text(
-                date.print(),
+                LocalDateTimeFormats.current.date(date),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 4.dp)
             )

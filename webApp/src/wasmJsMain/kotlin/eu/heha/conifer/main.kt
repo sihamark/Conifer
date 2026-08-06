@@ -9,6 +9,7 @@ fun main() {
     ConiferApp.initialize(
         isDebug = true,
         platform = WasmPlatform,
+        dateTimeFormats = WasmDateTimeFormats(),
         databaseInitializer = WasmDatabaseInitializer,
         syncPrefsInitializer = WasmSyncPrefsInitializer,
         credentialsInitializer = WasmCredentialsInitializer,

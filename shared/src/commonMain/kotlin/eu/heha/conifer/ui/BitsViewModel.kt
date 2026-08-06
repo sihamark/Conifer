@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ClipboardController
+import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
@@ -21,11 +22,11 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.atTime
-import kotlinx.datetime.number
 import kotlin.time.Duration.Companion.milliseconds
 
 class BitsViewModel(
     private val repository: BitsRepository,
+    private val dateTimeFormats: DateTimeFormats,
     private val clipboardController: ClipboardController? = null
 ) : ViewModel() {
 
@@ -318,7 +319,9 @@ class BitsViewModel(
         val clipboardController = clipboardController ?: return
         val bits = state.bitsByDate.firstOrNull { it.date == date }?.bits ?: return
         viewModelScope.launch {
-            val header = "Bits of ${date.dayOfWeek}, ${date.day}.${date.month.number}.${date.year}"
+            // The one export a person reads rather than a machine, so it is spelled their way; the
+            // sync files stay ISO (see ReadableRenderer).
+            val header = "Bits of ${dateTimeFormats.dateWithWeekday(date)}"
             buildString {
                 appendLine(header)
                 bits.reversed().forEach { bit ->

@@ -7,6 +7,7 @@ object IosConiferApp {
         ConiferApp.initialize(
             isDebug = isDebug,
             platform = IosPlatform,
+            dateTimeFormats = IosDateTimeFormats(),
             databaseInitializer = IosDatabaseInitializer,
             syncPrefsInitializer = IosSyncPrefsInitializer,
             credentialsInitializer = IosCredentialsInitializer,

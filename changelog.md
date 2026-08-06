@@ -8,6 +8,16 @@
   scroll position had nothing left to hold on to. They are two things now: the day lists (the day
   strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
   the list stays exactly where it was, and a day you picked stays picked
+- dates and times are written the way your own system writes them, instead of the way this app used
+  to insist on. Half past two in the afternoon is *2:30 PM* where that is how the clock is read and
+  *14:30* where it isn't; the sixth of August is *8/6* or *06.08* depending on which comes first
+  where you are; and weekdays and months are named in your language. That covers the time on every
+  bit, the day strip, the sidebar, the day headings over the list, the date chip, *last synced*, and
+  the heading on a day copied to the clipboard. Each platform is asked in its own words — Android
+  and
+  iOS through ICU, the browser through `Intl`, desktop through Java's locale data
+- what is *stored* has not changed and will not: the database, the sync files and the logs stay ISO,
+  so a bit written on a German phone still reads back as the same day on an American one
 - the shortcuts are written down: **Alt+H** (or F1) shows the whole list over the screen, grouped by
   what it acts on, and Esc or another Alt+H puts it away. While it is up the keyboard belongs to it,
   so nothing lands in the text field behind it. The keyboard icon that opens it appears only where
