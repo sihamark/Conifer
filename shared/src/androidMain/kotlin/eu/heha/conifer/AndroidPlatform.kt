@@ -11,4 +11,7 @@ data object AndroidPlatform : Platform {
      * modifier arrives, so guessing "no" here costs such a device only its first Alt press.
      */
     override val hasHardwareKeyboard: Boolean = false
+
+    /** Alt is Alt here: a keyboard attached to an Android device jumps words with Ctrl. */
+    override val usesOptionForWordJump: Boolean = false
 }

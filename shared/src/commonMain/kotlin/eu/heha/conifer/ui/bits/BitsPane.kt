@@ -96,7 +96,12 @@ fun BitsPane(
     // than injected here so that a preview or a test is a plain composable with nothing behind it,
     // and defaulted to the quieter answer: a screen with no keyboard is the one with nothing extra
     // on it.
-    hasHardwareKeyboard: Boolean = false
+    hasHardwareKeyboard: Boolean = false,
+    // What the shortcuts are held down with, which is a property of the platform's text editing
+    // rather than of this screen — see ShortcutChord, and BitsRoute for who decides it. Defaulted to
+    // the answer that holds everywhere but Apple's platforms, for the same reason as above: a
+    // preview or a test is a plain composable with nothing behind it.
+    shortcutChord: ShortcutChord = ShortcutChord.Alt
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         // Somewhere for the key events to go when the text field hasn't got them. A key event is
@@ -141,6 +146,7 @@ fun BitsPane(
                         event = event,
                         state = state,
                         actions = actions,
+                        chord = shortcutChord,
                         isShortcutsOverlayOpen = isShortcutsOverlayOpen,
                         onShortcutsOverlayChange = { isShortcutsOverlayOpen = it }
                     )
@@ -213,7 +219,10 @@ fun BitsPane(
             }
         }
         if (isShortcutsOverlayOpen) {
-            ShortcutsOverlay(onDismiss = { isShortcutsOverlayOpen = false })
+            ShortcutsOverlay(
+                chord = shortcutChord,
+                onDismiss = { isShortcutsOverlayOpen = false }
+            )
         }
     }
 }

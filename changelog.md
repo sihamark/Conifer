@@ -2,7 +2,13 @@
 
 ## Version 1.2.4
 
-- upcoming changed
+- on macOS the shortcuts have moved off ⌥ and onto **⌃⌥**: ⌃⌥←/→ for the day, ⌃⌥↑/↓ for the time,
+  and likewise ⌃⌥Home, ⌃⌥0 and ⌃⌥H. ⌥←/→ is how that platform has moved and selected by word for as
+  long as it has existed, and the screen was quietly swallowing it — it belongs to the text field
+  again, wherever the cursor is. Nothing changes on Windows, Linux, Android or a browser on any of
+  them, where Alt is nobody's and the keys stay as they were; the list of shortcuts (F1) writes out
+  whichever of the two the machine you are reading it on actually answers to. An iPad with a
+  keyboard counts as a Mac here, since its text editing does
 
 ## Version 1.2.3 (06.08.2026)
 

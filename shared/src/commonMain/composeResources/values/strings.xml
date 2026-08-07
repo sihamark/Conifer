@@ -49,7 +49,8 @@
     <string name="shortcuts_all_days">Show every day</string>
     <string name="shortcuts_escape">Stop editing — or, if you are not, back to every day and now</string>
     <string name="shortcuts_help">Show and hide this list</string>
-    <string name="shortcuts_note">The day and time keys work wherever the cursor is, and hold one down to keep going. On macOS, Alt is ⌥.</string>
+    <string name="shortcuts_note">The day and time keys work wherever the cursor is, and hold one down to keep going.</string>
+    <string name="shortcuts_note_mac">The day and time keys work wherever the cursor is, and hold one down to keep going. Ctrl+Alt is ⌃⌥ — ⌥ on its own still moves by word.</string>
 
     <string name="sync_content_status_icon">Sync status</string>
     <string name="sync_content_syncing">Syncing</string>

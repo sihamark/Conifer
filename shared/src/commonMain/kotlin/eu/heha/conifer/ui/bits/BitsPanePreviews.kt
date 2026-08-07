@@ -288,6 +288,18 @@ private fun BitsPaneEmptyFilteredPreview() {
 @Composable
 private fun ShortcutsOverlayPreview() {
     ConiferTheme {
-        ShortcutsOverlay(onDismiss = {})
+        ShortcutsOverlay(chord = ShortcutChord.Alt, onDismiss = {})
+    }
+}
+
+/**
+ * The same list as an Apple keyboard gets it, which is the layout worth a second look: every chord
+ * grows by "Ctrl+", and the key column has to still hold the longest of them on one line.
+ */
+@PreviewLightDark
+@Composable
+private fun ShortcutsOverlayCtrlAltPreview() {
+    ConiferTheme {
+        ShortcutsOverlay(chord = ShortcutChord.CtrlAlt, onDismiss = {})
     }
 }

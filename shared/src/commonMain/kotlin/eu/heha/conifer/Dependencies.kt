@@ -24,6 +24,19 @@ interface Platform {
      * used and takes that as the same answer — see `BitsPane`.
      */
     val hasHardwareKeyboard: Boolean
+
+    /**
+     * Whether this platform's *own* text editing moves and selects by word with Alt — which on
+     * Apple's platforms it does, Alt being ⌥ there, and nowhere else. It decides which modifier the
+     * screen's shortcuts are held down with (see `ShortcutChord`): where the answer is yes, ⌥←/→
+     * belongs to the words in the text field and the shortcuts add Ctrl rather than take it away.
+     *
+     * Not "is this macOS": what matters here is the keyboard convention and not the operating
+     * system, and the two only line up by coincidence. A browser is asked the same question and
+     * answers for the machine it is running on, since that is whose conventions the person at it
+     * has.
+     */
+    val usesOptionForWordJump: Boolean
 }
 
 /**
