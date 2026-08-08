@@ -12,7 +12,7 @@ a single `shared` library consumed by per-platform application modules.
     folders ([androidMain](./shared/src/androidMain/kotlin), [iosMain](./shared/src/iosMain/kotlin),
     [jvmMain](./shared/src/jvmMain/kotlin), [wasmJsMain](./shared/src/wasmJsMain/kotlin)) hold the
     platform-specific implementations of the shared interfaces (`Platform`, `DatabaseInitializer`,
-    `SyncPrefsInitializer`, `ClipboardController`).
+    `PreferencesInitializer`, `ClipboardController`).
 
 * [/androidApp](./androidApp) is the Android application (the `Application`/`Activity` entry point).
 * [/desktopApp](./desktopApp) is the Desktop (JVM) application entry point and packaging

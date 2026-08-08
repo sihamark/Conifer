@@ -7,7 +7,7 @@ import eu.heha.conifer.JvmCredentialsInitializer
 import eu.heha.conifer.JvmDatabaseInitializer
 import eu.heha.conifer.JvmDateTimeFormats
 import eu.heha.conifer.JvmPlatform
-import eu.heha.conifer.JvmSyncPrefsInitializer
+import eu.heha.conifer.JvmPreferencesInitializer
 import eu.heha.conifer.Platform
 import org.koin.dsl.koinApplication
 import kotlin.test.Test
@@ -35,7 +35,7 @@ class PlatformModuleTest {
                     platform = JvmPlatform,
                     dateTimeFormats = JvmDateTimeFormats(),
                     databaseInitializer = JvmDatabaseInitializer,
-                    syncPrefsInitializer = JvmSyncPrefsInitializer,
+                    preferencesInitializer = JvmPreferencesInitializer,
                     credentialsInitializer = JvmCredentialsInitializer,
                     browserOpener = JvmBrowserOpener,
                     clipboardController = JvmClipboardController

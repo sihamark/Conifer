@@ -1,8 +1,5 @@
 package eu.heha.conifer.sync
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.room3.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import eu.heha.conifer.DatabaseInitializer
@@ -10,10 +7,9 @@ import eu.heha.conifer.model.database.AppDatabase
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.model.database.ReadablePending
+import eu.heha.conifer.prefs.InMemoryPreferencesStore
 import eu.heha.conifer.prefs.SyncPrefs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
@@ -468,16 +464,6 @@ private class TestDevice(
     val engine: SyncEngine,
 ) {
     fun dao() = databaseController.syncDao()
-}
-
-private class InMemoryPreferencesStore : DataStore<Preferences> {
-    private val state = MutableStateFlow(emptyPreferences())
-    override val data: Flow<Preferences> = state
-    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
-        val updated = transform(state.value)
-        state.value = updated
-        return updated
-    }
 }
 
 private class CountingRemoteStore(private val delegate: RemoteStore) : RemoteStore {

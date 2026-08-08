@@ -29,7 +29,7 @@ object ConiferApp {
         platform: Platform,
         dateTimeFormats: DateTimeFormats,
         databaseInitializer: DatabaseInitializer,
-        syncPrefsInitializer: SyncPrefsInitializer,
+        preferencesInitializer: PreferencesInitializer,
         credentialsInitializer: CredentialsInitializer,
         browserOpener: BrowserOpener,
         clipboardController: ClipboardController? = null,
@@ -48,7 +48,7 @@ object ConiferApp {
                     platform,
                     dateTimeFormats,
                     databaseInitializer,
-                    syncPrefsInitializer,
+                    preferencesInitializer,
                     credentialsInitializer,
                     browserOpener,
                     clipboardController

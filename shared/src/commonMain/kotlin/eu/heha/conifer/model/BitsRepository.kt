@@ -65,6 +65,16 @@ class BitsRepository(
         }
     }
 
+    /**
+     * The bit with this id, or null when there is none — a restored draft asks this about the bit
+     * it was editing, which may have been deleted (here or on another device) in the meantime.
+     *
+     * A deleted bit counts as none: [delete] keeps a tombstone row so other devices learn of the
+     * deletion (sync spec §8), and that row is not something to hand back for editing.
+     */
+    suspend fun getBit(bitId: String): Bit? =
+        dao().getBitsByIds(listOf(bitId)).firstOrNull()?.takeUnless { it.deleted }
+
     suspend fun getTextsOfBits(bitIds: List<String>): List<String> {
         Napier.d { "get texts of bits with ids $bitIds" }
         return dao().getBitsByIds(bitIds).map { it.text }

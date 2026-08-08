@@ -86,13 +86,16 @@ interface DatabaseInitializer {
     fun createDatabase(): AppDatabase
 }
 
-interface SyncPrefsInitializer {
+interface PreferencesInitializer {
     /**
-     * Creates the Preferences DataStore backing `SyncPrefs`. Platform-specific because each
-     * platform chooses its own storage location (and the web target has no usable file system
-     * for DataStore yet, so it falls back to an in-memory store).
+     * Creates the Preferences DataStore named [fileName] — `SyncPrefs.STORE_FILE_NAME` and
+     * `DraftPrefs.STORE_FILE_NAME`, which are kept apart so that sync bookkeeping and the
+     * composer's unsent draft never share a file.
+     *
+     * Platform-specific because each platform chooses its own storage location (and the browser
+     * has no file system for DataStore at all, so it stores them in `localStorage` instead).
      */
-    fun createSyncPrefsStore(): DataStore<Preferences>
+    fun createStore(fileName: String): DataStore<Preferences>
 }
 
 interface ClipboardController {

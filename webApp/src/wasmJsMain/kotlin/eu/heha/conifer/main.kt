@@ -11,7 +11,7 @@ fun main() {
         platform = WasmPlatform,
         dateTimeFormats = WasmDateTimeFormats(),
         databaseInitializer = WasmDatabaseInitializer,
-        syncPrefsInitializer = WasmSyncPrefsInitializer,
+        preferencesInitializer = WasmPreferencesInitializer,
         credentialsInitializer = WasmCredentialsInitializer,
         browserOpener = WasmBrowserOpener
     )
