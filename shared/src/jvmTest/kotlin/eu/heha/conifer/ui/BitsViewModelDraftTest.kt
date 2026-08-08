@@ -42,6 +42,12 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Real dispatchers throughout (the database is a real Room one), so every assertion waits for the
  * state it is about rather than assuming a turn of the scheduler has been enough - see [awaitTrue].
+ *
+ * Each test body runs on [Dispatchers.Main], because that is where the screen calls the ViewModel
+ * from and the ViewModel is written for exactly that: `state = state.copy(...)` reads and then
+ * writes, so a call arriving on a second thread can drop what a coroutine of its own wrote in
+ * between — the typed text, in the one case where this test noticed. Nothing in the app makes that
+ * call off the main thread; a test that did was only testing something the app never does.
  */
 @OptIn(ExperimentalCoroutinesApi::class) // Dispatchers.setMain/resetMain
 class BitsViewModelDraftTest {
@@ -71,7 +77,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun restoresTheDraftIntoTheComposer() = runBlocking {
+    fun restoresTheDraftIntoTheComposer() = runBlocking(Dispatchers.Main) {
         draftPrefs.save(
             ComposerDraft(
                 text = "half a thought",
@@ -89,7 +95,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun restoresAnInterruptedEditAsAnEdit() = runBlocking {
+    fun restoresAnInterruptedEditAsAnEdit() = runBlocking(Dispatchers.Main) {
         val repository = repository()
         val bit = Bit(text = "as it was", date = LocalDateTime(2026, 8, 6, 14, 30))
         repository.add(bit)
@@ -107,7 +113,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun restoresTheTextOfAnEditWhoseBitIsGone() = runBlocking {
+    fun restoresTheTextOfAnEditWhoseBitIsGone() = runBlocking(Dispatchers.Main) {
         draftPrefs.save(ComposerDraft(text = "outlived its bit", editingBitId = "deleted-bit"))
 
         val model = viewModel()
@@ -117,7 +123,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun typingIsStoredOnceItStandsStill() = runBlocking {
+    fun typingIsStoredOnceItStandsStill() = runBlocking(Dispatchers.Main) {
         val model = viewModel()
         awaitTrue { model.state.today != LocalDate.fromEpochDays(0) }
 
@@ -130,7 +136,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun addingTheBitDropsTheDraft() = runBlocking {
+    fun addingTheBitDropsTheDraft() = runBlocking(Dispatchers.Main) {
         val model = viewModel()
 
         model.onNewBitTextChange("added straight away")
@@ -142,7 +148,7 @@ class BitsViewModelDraftTest {
     }
 
     @Test
-    fun cancellingAnEditDropsTheDraft() = runBlocking {
+    fun cancellingAnEditDropsTheDraft() = runBlocking(Dispatchers.Main) {
         val repository = repository()
         val bit = Bit(text = "left alone", date = LocalDateTime(2026, 8, 6, 14, 30))
         repository.add(bit)

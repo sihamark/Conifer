@@ -71,7 +71,9 @@ class BitsViewModelDraftCompositionTest {
             Text(model.state.newBitText)
         }
 
-        model.onNewBitTextChange("typed under composition")
+        // On the main thread, as the screen would type: see [BitsViewModelDraftTest] on why the
+        // ViewModel's state does not survive being written from two threads at once.
+        withContext(Dispatchers.Main) { model.onNewBitTextChange("typed under composition") }
         waitForIdle()
 
         // On a real dispatcher, and on neither of the two obvious alternatives. Not the test's own
