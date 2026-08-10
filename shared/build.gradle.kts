@@ -136,6 +136,8 @@ private val gitParameters: GitParameters.() -> Unit = {
     workingDirectory.set(rootProject.layout.projectDirectory)
 }
 val generateBuildInfo = tasks.register<GenerateBuildInfo>("generateBuildInfo") {
+    description = "Generates the BuildInfo object with the version, git commit and build time."
+    group = "build"
     packageName.set(AppConfig.namespace)
     versionName.set(AppConfig.versionName)
     versionCode.set(AppConfig.versionCode)
