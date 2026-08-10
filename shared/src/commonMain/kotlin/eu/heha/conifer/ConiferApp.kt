@@ -12,6 +12,7 @@ import eu.heha.conifer.di.coreModule
 import eu.heha.conifer.di.platformModule
 import eu.heha.conifer.log.FileAntilog
 import eu.heha.conifer.log.logFileName
+import eu.heha.conifer.log.logUncaughtError
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.LocalDateTimeFormats
@@ -34,13 +35,15 @@ object ConiferApp {
         browserOpener: BrowserOpener,
         clipboardController: ClipboardController? = null,
         logFileInitializer: LogFileInitializer? = null,
+        uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
     ) {
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
         // R8/ProGuard optimization in release builds — so only install it for debug builds.
         if (isDebug) {
             Napier.base(DebugAntilog())
         }
-        startLogFile(logFileInitializer, platform)
+        val fileAntilog = startLogFile(logFileInitializer, platform)
+        installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog)
         startKoin {
             modules(
                 coreModule,
@@ -63,13 +66,37 @@ object ConiferApp {
      * makes a "it didn't sync and I don't know why" report answerable at all.
      *
      * Best-effort by design: a platform without a writable file system (web) or with an
-     * unwritable folder passes/returns null and the app simply runs without a log file.
+     * unwritable folder passes/returns null and the app simply runs without a log file - which is
+     * what the returned null then means to [installUncaughtErrorHandler].
      */
-    private fun startLogFile(initializer: LogFileInitializer?, platform: Platform) {
+    private fun startLogFile(initializer: LogFileInitializer?, platform: Platform): FileAntilog? {
         val startedAt = Clock.System.now()
-        val sink = initializer?.createLogFile(logFileName(startedAt)) ?: return
-        Napier.base(FileAntilog(sink))
+        val sink = initializer?.createLogFile(logFileName(startedAt)) ?: return null
+        val antilog = FileAntilog(sink)
+        Napier.base(antilog)
         Napier.i { "--- log started, ${coniferUserAgent(platform)}, file ${sink.location} ---" }
+        return antilog
+    }
+
+    /**
+     * Sends every error nothing caught - on any thread, in any coroutine, thrown out of a
+     * composable - to this run's log file before the app goes down, so that the crash which ended a
+     * run is the last thing the log of that run says. Without this the run just stops mid-sentence,
+     * and a log shared afterwards has no answer for why.
+     *
+     * Installed here rather than lazily, and right after the log file, so that the window in which a
+     * crash goes unrecorded is as small as the app can make it: everything after this line - Koin,
+     * the database, the first composition - is covered.
+     *
+     * Only the log gains anything. The platform's own crash handling still runs afterwards
+     * untouched, so the Android crash dialog, the stack trace on stderr and the iOS crash report all
+     * happen exactly as they did before (see [UncaughtErrorInitializer]).
+     */
+    private fun installUncaughtErrorHandler(
+        initializer: UncaughtErrorInitializer?,
+        fileAntilog: FileAntilog?,
+    ) {
+        initializer?.installHandler { error -> logUncaughtError(error, fileAntilog) }
     }
 
     @Composable

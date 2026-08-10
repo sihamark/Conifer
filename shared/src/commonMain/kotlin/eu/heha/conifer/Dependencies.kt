@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.UncaughtError
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.datetime.LocalDate
@@ -113,6 +114,23 @@ interface LogFileInitializer {
      * from starting. Implementations therefore swallow their own failures rather than throwing.
      */
     fun createLogFile(fileName: String): LogFileSink?
+}
+
+interface UncaughtErrorInitializer {
+    /**
+     * Installs this platform's hook for errors that nothing caught - an exception off the end of any
+     * thread, an unhandled coroutine failure, a throw out of a composable - and calls
+     * [report] with each one.
+     *
+     * Called once at startup. Implementations report and then hand the error on to whatever handled
+     * it before, unchanged: the app is not being rescued here, it is being written down on its way
+     * out (see [eu.heha.conifer.log.logUncaughtError]), and a crash the platform stops reporting is
+     * a crash that stops reaching a crash dialog, stderr or an iOS crash report.
+     *
+     * [report] is called on the thread that failed, at a point where the app may have seconds to
+     * live, so implementations must call it before doing anything slower.
+     */
+    fun installHandler(report: (UncaughtError) -> Unit)
 }
 
 interface BrowserOpener {

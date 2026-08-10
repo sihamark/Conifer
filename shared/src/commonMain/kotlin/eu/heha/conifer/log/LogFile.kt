@@ -11,9 +11,13 @@ import kotlin.time.Instant
  * The one open log file of the current app run, created by a platform's
  * [eu.heha.conifer.LogFileInitializer] and written through by [FileAntilog].
  *
- * Implementations are called from a single background coroutine, so they don't need to be
- * thread-safe - but they do need to survive a failed write (a full disk, a revoked folder): losing
- * log lines is acceptable, taking the app down over them is not.
+ * Implementations are called from a single background coroutine - with one exception, an uncaught
+ * error being written on the crashing thread ([FileAntilog.logBlocking]), so an append has to
+ * tolerate one from elsewhere landing beside it. Appending per line, rather than holding an open
+ * writer, is what both makes that safe and keeps a killed run's lines from sitting in a buffer.
+ *
+ * They also need to survive a failed write (a full disk, a revoked folder): losing log lines is
+ * acceptable, taking the app down over them is not.
  */
 interface LogFileSink {
     /** Where the file is - written into the log's own header, and what a bug report needs. */

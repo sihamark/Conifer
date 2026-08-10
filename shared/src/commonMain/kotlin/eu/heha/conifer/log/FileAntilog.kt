@@ -62,6 +62,36 @@ class FileAntilog(
             )
         )
     }
+
+    /**
+     * Writes one line - and everything still queued ahead of it, so it lands in context - to [sink]
+     * on the *calling* thread. Giving up the queue is the point: this is for the moment before the
+     * app goes down (see [logUncaughtError]), which has no later in which a coroutine could run.
+     *
+     * Best effort in both directions. A queued line the drain coroutine has already taken is its to
+     * write and may still be lost with the process, and [sink] now sees writes from two threads -
+     * which is why a [LogFileSink] appends per line rather than holding an open writer.
+     */
+    internal fun logBlocking(
+        priority: LogLevel,
+        tag: String?,
+        throwable: Throwable?,
+        message: String?,
+    ) {
+        while (true) {
+            val queued = lines.tryReceive().getOrNull() ?: break
+            runCatching { sink.appendLine(queued) }
+        }
+        val line = formatLogLine(
+            at = clock.now(),
+            priority = priority,
+            tag = tag,
+            throwable = throwable,
+            message = message,
+            timeZone = timeZone,
+        )
+        runCatching { sink.appendLine(line) }
+    }
 }
 
 /**

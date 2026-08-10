@@ -41,7 +41,8 @@ fun main() = application {
         credentialsInitializer = JvmCredentialsInitializer,
         browserOpener = JvmBrowserOpener,
         clipboardController = JvmClipboardController,
-        logFileInitializer = JvmLogFileInitializer
+        logFileInitializer = JvmLogFileInitializer,
+        uncaughtErrorInitializer = JvmUncaughtErrorInitializer
     )
     Window(
         onCloseRequest = ::exitApplication,

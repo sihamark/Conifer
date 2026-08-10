@@ -2,6 +2,14 @@
 
 ## Version 1.2.4
 
+- a crash is written down. A run that ended badly used to stop mid-sentence: the log said what the
+  app had been doing and nothing said that it had died, so a log handed over afterwards had no
+  answer for the one question worth asking. Now the error and its whole stack trace are the last
+  thing that file gets, whichever part of the app it came out of — a thread, a background job, the
+  screen itself. It goes to disk on the spot rather than queueing up behind the lines still in
+  flight, because an app on its way out has no later. Nothing about the crash itself changes: it
+  ends the same way it ended before, and the report your phone offers to send, the trace on the
+  desktop console and the crash log on an iPhone are all still made
 - a bit can be given an exact time. The slider moves in quarter hours, which is the right size for
   *about now* and the wrong one for *seven minutes past* — the time beside it opens a proper clock
   now, and the minute you set there is the minute the bit gets. It is your system's clock: twelve or
