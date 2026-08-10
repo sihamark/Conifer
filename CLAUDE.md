@@ -105,6 +105,10 @@ committed.
 - **`buildSrc/src/main/kotlin/AppConfig.kt`** is the single source of truth for `versionName`,
   `versionCode`, `minSdk` (30), `targetSdk` (37), `javaVersion` (21), `namespace` (
   `eu.heha.conifer`), and `appName`. Edit there, not in individual build files.
+- **`BuildInfo` is generated, not written.** The `generateBuildInfo` task (`buildSrc`, wired up in
+  `shared/build.gradle.kts`) writes `eu.heha.conifer.BuildInfo` into `commonMain` at build time with
+  the `AppConfig` version, the git commit, whether the tree was modified, and the build time — which
+  is how runtime code gets at the version at all. `buildLabel()` formats it for a log or a report.
 - Versions/plugins are centralized in `gradle/libs.versions.toml`.
 - Opt-ins `kotlin.time.ExperimentalTime` and `kotlin.uuid.ExperimentalUuidApi` are enabled
   project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx

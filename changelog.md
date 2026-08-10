@@ -2,6 +2,11 @@
 
 ## Version 1.2.4
 
+- the log says which build wrote it. Its second line now names the version, the commit the app was
+  built from and when it was built — so a log sent in can be lined up against what was actually
+  shipped, instead of against a version number that covers a month of changes. A build made on
+  someone's own machine from work in progress says so, since its commit describes source that exists
+  nowhere else
 - a crash is written down. A run that ended badly used to stop mid-sentence: the log said what the
   app had been doing and nothing said that it had died, so a log handed over afterwards had no
   answer for the one question worth asking. Now the error and its whole stack trace are the last

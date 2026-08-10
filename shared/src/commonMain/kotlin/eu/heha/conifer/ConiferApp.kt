@@ -75,6 +75,9 @@ object ConiferApp {
         val antilog = FileAntilog(sink)
         Napier.base(antilog)
         Napier.i { "--- log started, ${coniferUserAgent(platform)}, file ${sink.location} ---" }
+        // Its own line, and the second one, so that a log opened by someone else answers "which
+        // build is this?" before it answers anything else (see buildLabel).
+        Napier.i { "--- build ${buildLabel()} ---" }
         return antilog
     }
 
