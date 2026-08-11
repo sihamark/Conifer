@@ -2,6 +2,8 @@ package eu.heha.conifer.log
 
 import io.github.aakira.napier.LogLevel
 import io.github.aakira.napier.Napier
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * An error that reached the top of a thread, a coroutine or an event loop with nothing left to catch
@@ -26,11 +28,20 @@ data class UncaughtError(
  * ([FileAntilog.logBlocking]) rather than through the queue that normally carries log lines: the
  * queue's other end needs a coroutine to get scheduled, and there may be no next scheduling.
  *
+ * Then, and only then, the short version goes into [breadcrumbs] for the next run to find
+ * ([CrashBreadcrumb]) - in that order, because the log line is the record and the breadcrumb is only
+ * the pointer to it. A process with seconds to live spends them on the record first.
+ *
  * Everything here is best effort and nothing here throws. A crash handler that crashes turns a
  * reported bug into an unreported one, and a log file that can't be written - a full disk is a
  * plausible cause of the crash in the first place - is not worth ending a second run over.
  */
-internal fun logUncaughtError(error: UncaughtError, fileAntilog: FileAntilog?) {
+internal fun logUncaughtError(
+    error: UncaughtError,
+    fileAntilog: FileAntilog?,
+    breadcrumbs: CrashBreadcrumbStore? = null,
+    at: Instant = Clock.System.now(),
+) {
     val message = "uncaught error" + (error.message?.let { ": $it" } ?: "")
     runCatching {
         if (fileAntilog == null) {
@@ -46,4 +57,8 @@ internal fun logUncaughtError(error: UncaughtError, fileAntilog: FileAntilog?) {
             )
         }
     }
+    writeCrashBreadcrumb(
+        store = breadcrumbs,
+        breadcrumb = crashBreadcrumb(error, at = at, logFile = fileAntilog?.logFileLocation),
+    )
 }

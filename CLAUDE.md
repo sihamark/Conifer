@@ -83,7 +83,8 @@ built by the injected `DatabaseInitializer`) → `BitsRepository` →
 **The bits screen** is split by region across `ui/bits/`, one file per part of the screen:
 `BitsPane` (the multi-pane frame, the main pane and the top bar), `BitsList` (the day-grouped list
 and its scroll position), `BitComposer` (date/time chip, day strip, time slider, text field),
-`DaySidebar` (the two-pane day list), `BitItem`, `PermissionPrompt`, `BitsPaneContract`
+`DaySidebar` (the two-pane day list), `BitItem`, `PermissionPrompt`, `CrashReportPrompt` (the banner
+offering the previous run's crash for reporting, fed by `log/CrashBreadcrumb`), `BitsPaneContract`
 (`BitsPaneState`/`BitsPaneActions`) and `BitsPanePreviews`. Since Kotlin has no package-private,
 anything used across those files is `internal`; `BitsPane` and the contract types are the only
 public API of the package. `DatedBits` lives next to `BitsViewModel`, which builds it.
@@ -114,5 +115,12 @@ committed.
   project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx
   variants).
 - Logging uses **Napier** (`Napier.d/i/e`), initialized via the `antilog` passed into
-  `ConiferApp.initialize`.
+  `ConiferApp.initialize`. Every call is also mirrored into this run's own log file (
+  `log/FileAntilog`,
+  a new file per start, ten kept). An uncaught error goes into that file *and* into a small
+  `last-crash.json` breadcrumb beside it (`log/CrashBreadcrumb`); the next start reads the
+  breadcrumb
+  (`CrashReports`) and the bits screen offers that crash for reporting (
+  `ui/bits/CrashReportPrompt`).
+  Web has neither: no file system, so `logFileInitializer` is null there and both are simply absent.
 - Gradle configuration cache and build cache are enabled.

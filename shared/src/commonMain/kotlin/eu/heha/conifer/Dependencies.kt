@@ -3,6 +3,7 @@ package eu.heha.conifer
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
+import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.UncaughtError
 import eu.heha.conifer.model.database.AppDatabase
@@ -114,6 +115,17 @@ interface LogFileInitializer {
      * from starting. Implementations therefore swallow their own failures rather than throwing.
      */
     fun createLogFile(fileName: String): LogFileSink?
+
+    /**
+     * Opens the crash breadcrumb file ([eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME]) in the same
+     * folder as the log files, creating nothing until it is written to.
+     *
+     * Here rather than in an interface of its own because the breadcrumb is the log folder's other
+     * file: whoever knows where a log may be written is exactly who knows where this may be, and a
+     * platform that has nowhere for the one has nowhere for the other. Returns `null` on the same
+     * terms as [createLogFile].
+     */
+    fun createCrashBreadcrumbStore(): CrashBreadcrumbStore?
 }
 
 interface UncaughtErrorInitializer {

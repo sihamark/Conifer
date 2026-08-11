@@ -28,6 +28,30 @@ interface LogFileSink {
 }
 
 /**
+ * The one small file beside the run logs that holds the [CrashBreadcrumb] of the run that crashed -
+ * created by a platform's [eu.heha.conifer.LogFileInitializer], written on the crashing thread and
+ * read once at the next start.
+ *
+ * At most one crash is kept, the newest, so a write replaces rather than appends: the banner asks
+ * about the run that just ended, and a device that crashes repeatedly must not accumulate.
+ *
+ * Implementations survive their own failures - an unwritable folder, a file half written by a
+ * process that was killed - rather than throwing. A crash handler that fails writes off the report
+ * it was in the middle of making, and a start that fails over an unreadable breadcrumb turns a
+ * crashed run into two.
+ */
+interface CrashBreadcrumbStore {
+    /** Replaces whatever is stored with [text]. Called on the thread that is crashing. */
+    fun write(text: String)
+
+    /** What [write] last stored, or null where there is nothing (or nothing readable). */
+    fun read(): String?
+
+    /** Forgets the stored crash, so the next start has nothing to report. */
+    fun clear()
+}
+
+/**
  * How many run log files a platform keeps around: the newest [MAX_LOG_FILES] survive, older ones
  * are deleted when a new run starts. Without this, "a new log file per app start" would grow
  * without bound.
@@ -38,6 +62,14 @@ const val MAX_LOG_FILES = 10
 const val LOG_FILE_PREFIX = "conifer-"
 
 const val LOG_FILE_SUFFIX = ".log"
+
+/**
+ * What the platforms call the [CrashBreadcrumbStore]'s file, in the same folder as the run logs.
+ *
+ * Deliberately not starting with [LOG_FILE_PREFIX]: that prefix is what pruning deletes by, and a
+ * breadcrumb named like a log would be swept away by the very start that was meant to read it.
+ */
+const val CRASH_BREADCRUMB_FILE_NAME = "last-crash.json"
 
 /**
  * `conifer-2026-07-28_143201.log`. Named after the *local* start time, so that an alphabetical

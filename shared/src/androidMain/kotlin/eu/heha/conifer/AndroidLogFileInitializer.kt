@@ -1,6 +1,8 @@
 package eu.heha.conifer
 
 import android.content.Context
+import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
+import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.MAX_LOG_FILES
@@ -14,10 +16,33 @@ import java.io.File
  */
 class AndroidLogFileInitializer(private val context: Context) : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? = runCatching {
-        val folder = File(context.applicationContext.filesDir, "logs").also { it.mkdirs() }
+        val folder = logFolder()
         pruneOldLogFiles(folder)
         AndroidLogFileSink(File(folder, fileName))
     }.getOrNull()
+
+    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? = runCatching {
+        AndroidCrashBreadcrumbStore(File(logFolder(), CRASH_BREADCRUMB_FILE_NAME))
+    }.getOrNull()
+
+    private fun logFolder(): File =
+        File(context.applicationContext.filesDir, "logs").also { it.mkdirs() }
+}
+
+/**
+ * The crash breadcrumb as one small file in the log folder, replaced whole on every write - see
+ * [CrashBreadcrumbStore] for why it swallows its own failures rather than reporting them.
+ */
+private class AndroidCrashBreadcrumbStore(private val file: File) : CrashBreadcrumbStore {
+    override fun write(text: String) {
+        runCatching { file.writeText(text) }
+    }
+
+    override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
+
+    override fun clear() {
+        runCatching { file.delete() }
+    }
 }
 
 /**

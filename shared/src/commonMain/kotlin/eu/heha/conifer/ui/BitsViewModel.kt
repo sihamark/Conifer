@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.log.CrashReports
+import eu.heha.conifer.log.crashReportText
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.prefs.ComposerDraft
@@ -33,7 +35,8 @@ class BitsViewModel(
     private val repository: BitsRepository,
     private val dateTimeFormats: DateTimeFormats,
     private val draftPrefs: DraftPrefs,
-    private val clipboardController: ClipboardController? = null
+    private val clipboardController: ClipboardController? = null,
+    private val crashReports: CrashReports = CrashReports()
 ) : ViewModel() {
 
     /** Collection of the currently bound handler, see [bindPermissionHandler]. */
@@ -52,7 +55,10 @@ class BitsViewModel(
 
     var state by mutableStateOf(
         BitsPaneState(
-            isCopyPossible = clipboardController != null
+            isCopyPossible = clipboardController != null,
+            // Straight into the first state the screen is ever handed: the crash it reports is
+            // already on disk before this app run started, so there is nothing to wait for.
+            lastCrash = crashReports.lastCrash
         )
     )
         private set
@@ -420,6 +426,28 @@ class BitsViewModel(
                 clipboardController.copyToClipboard(textToCopy)
             }
         }
+    }
+
+    /**
+     * Puts the previous run's crash on the clipboard as text ([crashReportText]) - the build, the
+     * error, its top frames and where that run's log file is.
+     *
+     * Leaves the banner up: a report copied is not a report sent, and the one thing worse than
+     * pasting it twice is losing it to a tap. Dismissing is its own action.
+     */
+    fun copyCrashReportToClipboard() {
+        val clipboardController = clipboardController ?: return
+        val lastCrash = state.lastCrash ?: return
+        clipboardController.copyToClipboard(crashReportText(lastCrash))
+    }
+
+    /**
+     * Takes the crash banner down for good: the stored breadcrumb goes with it, so the next start is
+     * quiet again. The log file it pointed at is untouched and is pruned in its own time.
+     */
+    fun dismissCrashReport() {
+        crashReports.forget()
+        state = state.copy(lastCrash = null)
     }
 }
 

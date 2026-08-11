@@ -36,6 +36,9 @@ class FileAntilog(
 
     private val lines = Channel<String>(Channel.UNLIMITED)
 
+    /** Where the lines are going - what a crash breadcrumb points a reader at ([CrashBreadcrumb]). */
+    internal val logFileLocation: String get() = sink.location
+
     init {
         scope.launch {
             for (line in lines) {

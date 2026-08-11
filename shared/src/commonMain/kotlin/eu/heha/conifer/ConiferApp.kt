@@ -7,12 +7,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import eu.heha.conifer.ConiferApp.installUncaughtErrorHandler
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.di.coreModule
 import eu.heha.conifer.di.platformModule
+import eu.heha.conifer.log.CrashBreadcrumb
+import eu.heha.conifer.log.CrashBreadcrumbStore
+import eu.heha.conifer.log.CrashReports
 import eu.heha.conifer.log.FileAntilog
 import eu.heha.conifer.log.logFileName
 import eu.heha.conifer.log.logUncaughtError
+import eu.heha.conifer.log.readCrashBreadcrumb
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.LocalDateTimeFormats
@@ -43,7 +48,11 @@ object ConiferApp {
             Napier.base(DebugAntilog())
         }
         val fileAntilog = startLogFile(logFileInitializer, platform)
-        installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog)
+        // Read before the handler that writes it is installed, so what the screen reports is the
+        // crash of the run before this one and never one of this run's own.
+        val breadcrumbs = logFileInitializer?.createCrashBreadcrumbStore()
+        val crashReports = CrashReports(breadcrumbs, readLastCrash(breadcrumbs))
+        installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog, breadcrumbs)
         startKoin {
             modules(
                 coreModule,
@@ -54,7 +63,8 @@ object ConiferApp {
                     preferencesInitializer,
                     credentialsInitializer,
                     browserOpener,
-                    clipboardController
+                    clipboardController,
+                    crashReports
                 )
             )
         }
@@ -82,10 +92,31 @@ object ConiferApp {
     }
 
     /**
+     * Reads the crash the previous run left behind, if it left one, and says so in this run's log -
+     * a log that opens with "the run before this one crashed" is a good deal easier to read than one
+     * that leaves the reader to line two files up by hand.
+     *
+     * The breadcrumb itself is kept until the user dismisses the banner it feeds
+     * ([eu.heha.conifer.log.CrashReports.forget]), so a crash survives a restart the user made
+     * before they got round to reporting it.
+     */
+    private fun readLastCrash(breadcrumbs: CrashBreadcrumbStore?): CrashBreadcrumb? {
+        val lastCrash = readCrashBreadcrumb(breadcrumbs) ?: return null
+        Napier.i {
+            "the previous run ended in an uncaught error at ${lastCrash.at}, " +
+                    "in build ${lastCrash.buildLabel} - see ${lastCrash.logFile}"
+        }
+        return lastCrash
+    }
+
+    /**
      * Sends every error nothing caught - on any thread, in any coroutine, thrown out of a
      * composable - to this run's log file before the app goes down, so that the crash which ended a
      * run is the last thing the log of that run says. Without this the run just stops mid-sentence,
      * and a log shared afterwards has no answer for why.
+     *
+     * The same error also goes into [breadcrumbs] in short form, which is what the next run reads to
+     * offer the crash for sharing - the log file alone waits for somebody to think of looking.
      *
      * Installed here rather than lazily, and right after the log file, so that the window in which a
      * crash goes unrecorded is as small as the app can make it: everything after this line - Koin,
@@ -98,8 +129,9 @@ object ConiferApp {
     private fun installUncaughtErrorHandler(
         initializer: UncaughtErrorInitializer?,
         fileAntilog: FileAntilog?,
+        breadcrumbs: CrashBreadcrumbStore?,
     ) {
-        initializer?.installHandler { error -> logUncaughtError(error, fileAntilog) }
+        initializer?.installHandler { error -> logUncaughtError(error, fileAntilog, breadcrumbs) }
     }
 
     @Composable

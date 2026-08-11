@@ -7,6 +7,7 @@ import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.Platform
 import eu.heha.conifer.PreferencesInitializer
+import eu.heha.conifer.log.CrashReports
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.net.coniferUserAgent
@@ -45,7 +46,8 @@ val coreModule = module {
             repository = get(),
             dateTimeFormats = get(),
             draftPrefs = get(),
-            clipboardController = getOrNull()
+            clipboardController = getOrNull(),
+            crashReports = get()
         )
     }
     // Same reason as BitsViewModel above: the clipboard controller is optional, so it has to
@@ -62,6 +64,11 @@ val coreModule = module {
 /**
  * Wraps the explicitly supplied platform implementations into a Koin module. A null
  * [clipboardController] is simply left unbound, so `getOrNull()` resolves it to null.
+ *
+ * [crashReports] is not a platform implementation but a startup finding - what the previous run left
+ * behind, read once in `ConiferApp.initialize` - and comes in here for the same reason: it is decided
+ * before the graph is built and cannot be resolved from inside it. It defaults to an empty one, which
+ * is what a test or a preview graph has: no crash to report and nowhere to forget it.
  */
 fun platformModule(
     platform: Platform,
@@ -70,7 +77,8 @@ fun platformModule(
     preferencesInitializer: PreferencesInitializer,
     credentialsInitializer: CredentialsInitializer,
     browserOpener: BrowserOpener,
-    clipboardController: ClipboardController?
+    clipboardController: ClipboardController?,
+    crashReports: CrashReports = CrashReports()
 ) = module {
     single { platform }
     single { dateTimeFormats }
@@ -78,5 +86,6 @@ fun platformModule(
     single { preferencesInitializer }
     single { credentialsInitializer }
     single { browserOpener }
+    single { crashReports }
     clipboardController?.let { controller -> single { controller } }
 }

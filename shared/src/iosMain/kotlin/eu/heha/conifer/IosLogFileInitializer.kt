@@ -4,11 +4,16 @@
 
 package eu.heha.conifer
 
+import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
+import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.MAX_LOG_FILES
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.stringWithContentsOfFile
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fputs
@@ -20,6 +25,18 @@ import platform.posix.fputs
  */
 object IosLogFileInitializer : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? {
+        val folder = logFolder() ?: return null
+        pruneOldLogFiles(folder)
+        return PosixLogFileSink("$folder/$fileName")
+    }
+
+    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? {
+        val folder = logFolder() ?: return null
+        return PosixCrashBreadcrumbStore("$folder/$CRASH_BREADCRUMB_FILE_NAME")
+    }
+
+    /** The log folder, created if it isn't there yet; null when it cannot be had at all. */
+    private fun logFolder(): String? {
         val folder = iosDocumentDirectory() + "/logs"
         val created = NSFileManager.defaultManager.createDirectoryAtPath(
             path = folder,
@@ -28,8 +45,7 @@ object IosLogFileInitializer : LogFileInitializer {
             error = null,
         )
         if (!created && !NSFileManager.defaultManager.fileExistsAtPath(folder)) return null
-        pruneOldLogFiles(folder)
-        return PosixLogFileSink("$folder/$fileName")
+        return folder
     }
 }
 
@@ -64,5 +80,32 @@ private class PosixLogFileSink(private val path: String) : LogFileSink {
         } finally {
             fclose(file)
         }
+    }
+}
+
+/**
+ * The crash breadcrumb as one small file, written through `fopen`/`fputs` for the same reason the log
+ * lines are - it is written by a process that is going down, and the cheapest write is the one most
+ * likely to land. Mode `w` truncates, which is what "the newest crash, replacing the last" means.
+ *
+ * Reading is a different situation entirely (an ordinary app start), so it goes through Foundation,
+ * which can hand back the whole file as a string in one call. See [CrashBreadcrumbStore] for why
+ * every failure here is swallowed.
+ */
+private class PosixCrashBreadcrumbStore(private val path: String) : CrashBreadcrumbStore {
+    override fun write(text: String) {
+        val file = fopen(path, "w") ?: return
+        try {
+            fputs(text, file)
+        } finally {
+            fclose(file)
+        }
+    }
+
+    override fun read(): String? =
+        NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null)
+
+    override fun clear() {
+        NSFileManager.defaultManager.removeItemAtPath(path, error = null)
     }
 }

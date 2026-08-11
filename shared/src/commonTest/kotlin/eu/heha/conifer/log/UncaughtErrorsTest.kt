@@ -86,6 +86,52 @@ class UncaughtErrorsTest {
         )
     }
 
+    /**
+     * The log line is the record; the breadcrumb is what makes the next run mention it at all. It
+     * points back at the log file of the run that crashed, which is where the rest of the story is.
+     */
+    @Test
+    fun leavesTheCrashAsABreadcrumbForTheNextRun() = runTest {
+        val sink = RecordingSink()
+        val breadcrumbs = InMemoryCrashBreadcrumbStore()
+
+        logUncaughtError(
+            error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
+            fileAntilog = fileAntilog(sink),
+            breadcrumbs = breadcrumbs,
+            at = AT,
+        )
+
+        val breadcrumb = readCrashBreadcrumb(breadcrumbs)
+        assertEquals("main", breadcrumb?.origin)
+        assertEquals("IllegalStateException", breadcrumb?.type)
+        assertEquals("boom", breadcrumb?.message)
+        assertEquals(AT, breadcrumb?.at)
+        assertEquals(sink.location, breadcrumb?.logFile)
+    }
+
+    /**
+     * A breadcrumb that cannot be written costs a banner. The log line it comes after must survive
+     * that - which is also why it is written first.
+     */
+    @Test
+    fun writesTheLogLineEvenWhenTheBreadcrumbCannotBeStored() = runTest {
+        val sink = RecordingSink()
+        val failing = object : CrashBreadcrumbStore {
+            override fun write(text: String) = throw RuntimeException("no space left on device")
+            override fun read(): String? = null
+            override fun clear() = Unit
+        }
+
+        logUncaughtError(
+            error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
+            fileAntilog = fileAntilog(sink),
+            breadcrumbs = failing,
+        )
+
+        assertContains(sink.lines.single(), "uncaught error")
+    }
+
     /** No log file on this platform (web) - there is nowhere to write, and that is not a failure. */
     @Test
     fun survivesHavingNoLogFileAtAll() {

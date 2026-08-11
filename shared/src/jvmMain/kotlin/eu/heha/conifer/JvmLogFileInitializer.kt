@@ -1,5 +1,7 @@
 package eu.heha.conifer
 
+import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
+import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.MAX_LOG_FILES
@@ -8,10 +10,35 @@ import java.io.File
 /** Log files land in `logs/` next to the desktop app's `data/` folder (see [jvmDataFolder]). */
 object JvmLogFileInitializer : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? = runCatching {
-        val folder = File(jvmDataFolder(), "logs").also { it.mkdirs() }
+        val folder = logFolder()
         pruneOldLogFiles(folder)
         JvmLogFileSink(File(folder, fileName))
     }.getOrNull()
+
+    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? = runCatching {
+        FileCrashBreadcrumbStore(File(logFolder(), CRASH_BREADCRUMB_FILE_NAME))
+    }.getOrNull()
+
+    private fun logFolder(): File = File(jvmDataFolder(), "logs").also { it.mkdirs() }
+}
+
+/**
+ * The crash breadcrumb as one small file, replaced whole on every write - see [CrashBreadcrumbStore]
+ * for why it swallows its own failures rather than reporting them.
+ *
+ * Internal rather than private so a test can point one at a temporary file; the object above is the
+ * only production caller, and it always names [CRASH_BREADCRUMB_FILE_NAME] in the log folder.
+ */
+internal class FileCrashBreadcrumbStore(private val file: File) : CrashBreadcrumbStore {
+    override fun write(text: String) {
+        runCatching { file.writeText(text) }
+    }
+
+    override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
+
+    override fun clear() {
+        runCatching { file.delete() }
+    }
 }
 
 /**
