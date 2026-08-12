@@ -13,7 +13,13 @@ fun main() {
         databaseInitializer = WasmDatabaseInitializer,
         preferencesInitializer = WasmPreferencesInitializer,
         credentialsInitializer = WasmCredentialsInitializer,
-        browserOpener = WasmBrowserOpener
+        browserOpener = WasmBrowserOpener,
+        reportShareController = WasmReportShareController,
+        // The browser has no files, so all three of these keep to localStorage - see
+        // WasmLogFileInitializer for what that costs and why a tab is worth it anyway.
+        logFileInitializer = WasmLogFileInitializer,
+        uncaughtErrorInitializer = WasmUncaughtErrorInitializer,
+        logClosingInitializer = WasmLogClosingInitializer
     )
     ComposeViewport(document.body!!) {
         ConiferApp.AppContent()
