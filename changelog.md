@@ -2,12 +2,15 @@
 
 ## Version 1.2.4
 
-- the app now says when the last run crashed. A crash was already being written down, into a file
-  nobody was ever told about — the next start now says so on screen instead: when it happened and
-  what the error was. *Share report* hands the whole thing to the share sheet on a phone, or drops
-  it in a folder on the desktop, and *Copy details* puts it on the clipboard instead: the build, the
-  error, and the log of the run that crashed — which is the part that says what the app had been
-  doing — and nothing you have written. The notice stays until you dismiss it
+- the app now says when the last run ended badly. A crash was already being written down, into a
+  file nobody was ever told about — the next start now says so on screen instead: when it happened
+  and what the error was. It also notices the endings that leave nothing behind at all, where the
+  app was closed by the system, killed for memory or stopped by something below it: the log now says
+  goodbye whenever the app is put away, so one that simply stops means something. *Share report*
+  hands the whole thing to the share sheet on a phone, drops it in a folder on the desktop or
+  downloads it in a browser, and *Copy details* puts it on the clipboard instead: the build, what
+  went wrong, and the log of that run — the part that says what the app had been doing — and nothing
+  you have written. The notice stays until you dismiss it
 - the log says which build wrote it. Its second line now names the version, the commit the app was
   built from and when it was built — so a log sent in can be lined up against what was actually
   shipped, instead of against a version number that covers a month of changes. A build made on

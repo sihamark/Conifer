@@ -115,18 +115,20 @@ committed.
   project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx
   variants).
 - Logging uses **Napier** (`Napier.d/i/e`), initialized via the `antilog` passed into
-  `ConiferApp.initialize`. Every call is also mirrored into this run's own log file (
-  `log/FileAntilog`,
-  a new file per start, ten kept). An uncaught error goes into that file *and* into a small
-  `last-crash.json` breadcrumb beside it (`log/CrashBreadcrumb`); the next start reads the
-  breadcrumb
-  (`CrashReports`) and the bits screen offers that crash for reporting (
-  `ui/bits/CrashReportPrompt`).
-  What it offers is `log/CrashReport`: the breadcrumb plus the tail of that run's log file, read
-  back
-  through `LogTailReader` (which `LogFileInitializer` implements) and handed to the clipboard or to
-  the platform's `ReportShareController` — share sheet on Android/iOS, a folder in the file manager
-  on desktop.
-  Web has none of it: no file system, so `logFileInitializer` is null there and the banner never
-  appears.
+  `ConiferApp.initialize`. Every call is also mirrored into this run's own log file
+  (`log/FileAntilog`, a new file per start, ten kept).
+- **How a run ended is reported at the next start** (`log/LastRun.kt`). Every start writes a
+  `last-run.json` record beside the logs (`LastRunStore`) naming the log file it is writing. A crash
+  adds a `CrashBreadcrumb` to that record on the crashing thread; an ordinary ending instead writes
+  `--- log closed ---` into the log (`LogClosingInitializer` — a JVM shutdown hook, Android/iOS
+  going to the background, `pagehide` on web). So the next start classifies the previous run as
+  `LastRunEnd.Crashed`, `Vanished` (log stops mid-sentence: killed for memory, a signal, a native
+  crash below Kotlin) or nothing at all, and `ui/bits/RunEndPrompt` offers the bad ones for
+  reporting.
+- What it offers is `log/RunEndReport`: the summary plus the tail of that run's log, read back
+  through `LogTailReader` (which `LogFileInitializer` implements — always by *file name*, never a
+  path, see `logTailFileName`) and handed to the clipboard or to the platform's
+  `ReportShareController` — share sheet on Android/iOS, a folder in the file manager on desktop, a
+  download on web. All four targets have the whole chain; web keeps its logs and record in
+  `localStorage` (`WasmLogFileInitializer`, fewer and smaller — see its KDoc).
 - Gradle configuration cache and build cache are enabled.
