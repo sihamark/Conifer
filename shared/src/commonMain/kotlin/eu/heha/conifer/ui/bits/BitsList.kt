@@ -1,6 +1,7 @@
 package eu.heha.conifer.ui.bits
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +49,39 @@ import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.LocalDateTimeFormats
 import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
+
+/**
+ * Keeps whatever was at the bottom edge of the list at the bottom edge when the list's height
+ * changes — which is what happens every time the keyboard opens: the composer grows by the height of
+ * the IME and takes that much off the list from below.
+ *
+ * Without this the newest bits simply go behind the keyboard. A LazyColumn measured into a shorter
+ * viewport holds its *first visible item* still, so the space is taken off the end — the end being
+ * where this list keeps the bits worth reading, since it is laid out oldest-first. Scrolling by the
+ * same number of pixels the viewport lost hands them back.
+ *
+ * Growing back is followed the same way, so closing the keyboard puts the list where it was rather
+ * than a screenful further on — except when the list is at its end, where the measure pass has
+ * already pushed the content down to fill the viewport and scrolling again would take it off the
+ * very end it was holding.
+ */
+@Composable
+private fun KeepBottomInView(listState: LazyListState) {
+    var previousHeight by remember(listState) { mutableIntStateOf(0) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.viewportSize.height }
+            .collect { height ->
+                val previous = previousHeight
+                previousHeight = height
+                // The first measurement is the height the list starts at: nothing was lost yet, and
+                // there is no earlier bottom edge to keep anything at.
+                if (previous == 0 || height == 0 || height == previous) return@collect
+                val lost = previous - height
+                if (lost < 0 && !listState.canScrollForward) return@collect
+                listState.scrollBy(lost.toFloat())
+            }
+    }
+}
 
 /**
  * The bits of the (possibly day-filtered) list, oldest first so the newest sit next to the input,
@@ -71,6 +110,7 @@ internal fun BitsList(
     val topBarInset = with(LocalDensity.current) {
         if (isTopBarVisible) TopAppBarDefaults.TopAppBarExpandedHeight.roundToPx() else 0
     }
+    KeepBottomInView(listState)
     // Jump to a bit that was just added or edited. Keyed on the list: scrollToBitId is already in
     // the state by the time the bit is saved, but only becomes scrollable once the database flow
     // has delivered it. Clearing the id afterwards must not rerun this.
