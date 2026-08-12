@@ -15,7 +15,8 @@ object IosConiferApp {
             clipboardController = IosClipboardController,
             reportShareController = IosReportShareController,
             logFileInitializer = IosLogFileInitializer,
-            uncaughtErrorInitializer = IosUncaughtErrorInitializer
+            uncaughtErrorInitializer = IosUncaughtErrorInitializer,
+            logClosingInitializer = IosLogClosingInitializer
         )
     }
 }

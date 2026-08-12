@@ -1,6 +1,5 @@
 package eu.heha.conifer.log
 
-import eu.heha.conifer.AppJson
 import eu.heha.conifer.buildLabel
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -8,11 +7,11 @@ import kotlin.time.Instant
 /**
  * What the run that crashed leaves behind for the run after it: which build it was, when it went
  * down and what took it - the short version of the log file's last line, in the one place the next
- * run is willing to look.
+ * run is willing to look ([LastRunStore]).
  *
  * It exists because a log file nobody opens answers nothing. The next start reads this one small
  * file, and that is what lets the app say "the last run ended in an error" instead of waiting for
- * someone to go looking in a folder they have never heard of ([CrashBreadcrumbStore]).
+ * someone to go looking in a folder they have never heard of.
  *
  * Deliberately small and deliberately not the log: it is written on the crashing thread, on its way
  * out, where the only affordable write is a short one. Everything here is either already in the log
@@ -79,71 +78,3 @@ private fun Throwable.topFrames(): List<String> = stackTraceToString()
     .take(MAX_CRASH_FRAMES)
     .map { redactSecrets(it) }
     .toList()
-
-/**
- * Stores [breadcrumb] as the crash the next run will hear about, replacing any older one.
- *
- * Called from the crash path and so silent about its own failures: this runs after the log line has
- * already been written ([logUncaughtError]), and a breadcrumb that cannot be stored costs a banner,
- * while a crash handler that throws costs the report entirely.
- */
-internal fun writeCrashBreadcrumb(store: CrashBreadcrumbStore?, breadcrumb: CrashBreadcrumb) {
-    store ?: return
-    runCatching { store.write(AppJson.encodeToString(breadcrumb)) }
-}
-
-/**
- * The breadcrumb a previous run left, or null where there is none - and also where there is one
- * that cannot be read. Nothing stored here is worth failing a start over: the file is written by a
- * process on its way out, so a truncated or half-written one is a thing that happens, and an older
- * version of the app is entitled to have written a shape this one no longer knows.
- */
-fun readCrashBreadcrumb(store: CrashBreadcrumbStore?): CrashBreadcrumb? {
-    store ?: return null
-    return runCatching {
-        store.read()?.let { AppJson.decodeFromString<CrashBreadcrumb>(it) }
-    }.getOrNull()
-}
-
-/**
- * The crash the previous run left behind, the report made out of it, and the ability to forget it.
- * One instance, built at startup by `ConiferApp` and injected from there.
- *
- * [lastCrash] is read once rather than watched: the only writer is a run that is over, so it cannot
- * change while this one is looking at it. Read at startup and not on demand for a second reason -
- * this run's own crash would overwrite it, and the banner would then report the crash the user is
- * still in rather than the one before it.
- */
-class CrashReports(
-    private val store: CrashBreadcrumbStore? = null,
-    val lastCrash: CrashBreadcrumb? = null,
-    private val logFiles: LogTailReader? = null,
-    /** How the app names itself and this device - `coniferUserAgent`, as the log's header uses. */
-    private val userAgent: String? = null,
-) {
-    /**
-     * The whole report for [lastCrash] - the summary and the end of the log file of the run that
-     * crashed ([crashReportText]) - or null when there is no crash to report.
-     *
-     * Reads a file, so it is not for the main thread. A log file that has since been pruned or
-     * cannot be read costs the report its second half and nothing else.
-     */
-    fun report(): String? {
-        val lastCrash = lastCrash ?: return null
-        val logTail = logTailFileName(lastCrash.logFile)?.let { fileName ->
-            runCatching { logFiles?.readLogTail(fileName, MAX_LOG_TAIL_CHARS) }.getOrNull()
-        }
-        return crashReportText(lastCrash, userAgent = userAgent, logTail = logTail)
-    }
-
-    /** What that report is called where it is shared as a file; null with no crash to report. */
-    fun reportFileName(): String? = lastCrash?.let { crashReportFileName(it) }
-
-    /**
-     * Drops the stored crash, so the next start says nothing. What dismissing the banner does - the
-     * log file it points at stays where it is, and is pruned in its own time.
-     */
-    fun forget() {
-        runCatching { store?.clear() }
-    }
-}

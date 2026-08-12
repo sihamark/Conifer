@@ -91,18 +91,18 @@ class UncaughtErrorsTest {
      * points back at the log file of the run that crashed, which is where the rest of the story is.
      */
     @Test
-    fun leavesTheCrashAsABreadcrumbForTheNextRun() = runTest {
+    fun leavesTheCrashInTheRecordForTheNextRun() = runTest {
         val sink = RecordingSink()
-        val breadcrumbs = InMemoryCrashBreadcrumbStore()
+        val lastRun = InMemoryLastRunStore()
 
         logUncaughtError(
             error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
             fileAntilog = fileAntilog(sink),
-            breadcrumbs = breadcrumbs,
+            lastRun = lastRun,
             at = AT,
         )
 
-        val breadcrumb = readCrashBreadcrumb(breadcrumbs)
+        val breadcrumb = readLastRun(lastRun)?.crash
         assertEquals("main", breadcrumb?.origin)
         assertEquals("IllegalStateException", breadcrumb?.type)
         assertEquals("boom", breadcrumb?.message)
@@ -115,18 +115,17 @@ class UncaughtErrorsTest {
      * that - which is also why it is written first.
      */
     @Test
-    fun writesTheLogLineEvenWhenTheBreadcrumbCannotBeStored() = runTest {
+    fun writesTheLogLineEvenWhenTheRecordCannotBeStored() = runTest {
         val sink = RecordingSink()
-        val failing = object : CrashBreadcrumbStore {
+        val failing = object : LastRunStore {
             override fun write(text: String) = throw RuntimeException("no space left on device")
             override fun read(): String? = null
-            override fun clear() = Unit
         }
 
         logUncaughtError(
             error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
             fileAntilog = fileAntilog(sink),
-            breadcrumbs = failing,
+            lastRun = failing,
         )
 
         assertContains(sink.lines.single(), "uncaught error")

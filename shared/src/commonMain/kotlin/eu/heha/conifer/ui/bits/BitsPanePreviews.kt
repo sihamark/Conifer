@@ -6,6 +6,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import eu.heha.conifer.PermissionRationale
 import eu.heha.conifer.log.CrashBreadcrumb
+import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
@@ -55,15 +56,18 @@ private fun BitsPaneAfterACrashPreview() {
     ConiferTheme {
         BitsPane(
             state = BitsPaneState(
-                lastCrash = CrashBreadcrumb(
-                    buildLabel = "1.2.4 (9), commit 29ba2459, built 2026-08-10T19:58:08Z",
-                    atEpochMillis = 1_785_242_096_789,
-                    origin = "main",
-                    type = "IllegalStateException",
-                    message = "sync bucket 2026-07 was not readable",
-                    frames = listOf("at eu.heha.conifer.sync.SyncEngine.push(SyncEngine.kt:214)"),
-                    logFile = "/logs/conifer-2026-07-28_143201.log"
+                lastRunEnd = LastRunEnd.Crashed(
+                    CrashBreadcrumb(
+                        buildLabel = "1.2.4 (9), commit 29ba2459, built 2026-08-10T19:58:08Z",
+                        atEpochMillis = 1_785_242_096_789,
+                        origin = "main",
+                        type = "IllegalStateException",
+                        message = "sync bucket 2026-07 was not readable",
+                        frames = listOf("at eu.heha.conifer.sync.SyncEngine.push(SyncEngine.kt:214)"),
+                        logFile = "/logs/conifer-2026-07-28_143201.log"
+                    )
                 ),
+                isSharePossible = true,
                 bitsByDate = listOf(
                     DatedBits(
                         date = LocalDate(2024, 6, 1),

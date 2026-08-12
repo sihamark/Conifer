@@ -4,19 +4,18 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 /**
- * The file behind the crash banner: one crash kept, the newest, and no failure of its own on the way
- * in or out - see `CrashBreadcrumbStore`.
+ * The file behind the banner: one record kept, the newest, and no failure of its own on the way in
+ * or out - see `LastRunStore`.
  */
-class JvmCrashBreadcrumbStoreTest {
+class JvmLastRunStoreTest {
 
     @Test
-    fun keepsWhatWasLastWrittenAndForgetsItOnRequest() {
+    fun keepsWhatWasLastWritten() {
         val file = tempFile()
-        val store = FileCrashBreadcrumbStore(file)
+        val store = FileLastRunStore(file)
 
         assertNull(store.read(), "nothing has been written yet")
 
@@ -28,24 +27,19 @@ class JvmCrashBreadcrumbStoreTest {
         store.write("""{"origin":"worker"}""")
         assertEquals("""{"origin":"worker"}""", store.read())
 
-        store.clear()
-        assertNull(store.read())
-        assertFalse(file.exists(), "clearing should take the file with it")
-
         file.parentFile.deleteRecursively()
     }
 
-    /** A folder that isn't there stands in for every unwritable one: no crash, just no breadcrumb. */
+    /** A folder that isn't there stands in for every unwritable one: no record, and no crash. */
     @Test
     fun staysQuietWhenTheFileCannotBeWritten() {
-        val store = FileCrashBreadcrumbStore(File(tempFile().parentFile, "gone/last-crash.json"))
+        val store = FileLastRunStore(File(tempFile().parentFile, "gone/last-run.json"))
 
         store.write("""{"origin":"main"}""")
 
         assertNull(store.read())
-        store.clear()
     }
 
     private fun tempFile() =
-        File(Files.createTempDirectory("conifer-crash-breadcrumb").toFile(), "last-crash.json")
+        File(Files.createTempDirectory("conifer-last-run").toFile(), "last-run.json")
 }

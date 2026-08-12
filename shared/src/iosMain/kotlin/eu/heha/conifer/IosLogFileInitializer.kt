@@ -4,8 +4,8 @@
 
 package eu.heha.conifer
 
-import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
-import eu.heha.conifer.log.CrashBreadcrumbStore
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.LogTailReader
@@ -31,9 +31,9 @@ object IosLogFileInitializer : LogFileInitializer {
         return PosixLogFileSink("$folder/$fileName")
     }
 
-    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? {
+    override fun createLastRunStore(): LastRunStore? {
         val folder = logFolder() ?: return null
-        return PosixCrashBreadcrumbStore("$folder/$CRASH_BREADCRUMB_FILE_NAME")
+        return PosixLastRunStore("$folder/$LAST_RUN_FILE_NAME")
     }
 
     /**
@@ -100,15 +100,15 @@ private class PosixLogFileSink(private val path: String) : LogFileSink {
 }
 
 /**
- * The crash breadcrumb as one small file, written through `fopen`/`fputs` for the same reason the log
+ * The last-run record as one small file, written through `fopen`/`fputs` for the same reason the log
  * lines are - it is written by a process that is going down, and the cheapest write is the one most
- * likely to land. Mode `w` truncates, which is what "the newest crash, replacing the last" means.
+ * likely to land. Mode `w` truncates, which is what "one record, the newest" means.
  *
  * Reading is a different situation entirely (an ordinary app start), so it goes through Foundation,
- * which can hand back the whole file as a string in one call. See [CrashBreadcrumbStore] for why
+ * which can hand back the whole file as a string in one call. See [LastRunStore] for why
  * every failure here is swallowed.
  */
-private class PosixCrashBreadcrumbStore(private val path: String) : CrashBreadcrumbStore {
+private class PosixLastRunStore(private val path: String) : LastRunStore {
     override fun write(text: String) {
         val file = fopen(path, "w") ?: return
         try {
@@ -120,8 +120,4 @@ private class PosixCrashBreadcrumbStore(private val path: String) : CrashBreadcr
 
     override fun read(): String? =
         NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null)
-
-    override fun clear() {
-        NSFileManager.defaultManager.removeItemAtPath(path, error = null)
-    }
 }

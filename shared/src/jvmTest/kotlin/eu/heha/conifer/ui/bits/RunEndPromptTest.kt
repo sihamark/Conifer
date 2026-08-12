@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import eu.heha.conifer.log.CrashBreadcrumb
+import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -15,16 +16,16 @@ import kotlin.test.assertTrue
  * to stay away entirely when the last run ended the way runs are supposed to.
  */
 @OptIn(ExperimentalTestApi::class)
-class CrashReportPromptTest {
+class RunEndPromptTest {
 
     @Test
     fun saysWhatTheLastRunDiedOfAndOffersToCopyIt() = runComposeUiTest {
         var copied = false
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(
-                    state = BitsPaneState(lastCrash = LAST_CRASH),
-                    actions = BitsPaneActions(onClickCopyCrashReport = { copied = true })
+                RunEndPromptItem(
+                    state = BitsPaneState(lastRunEnd = LastRunEnd.Crashed(LAST_CRASH)),
+                    actions = BitsPaneActions(onClickCopyRunEndReport = { copied = true })
                 )
             }
         }
@@ -43,9 +44,9 @@ class CrashReportPromptTest {
         var shared = false
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(
-                    state = BitsPaneState(lastCrash = LAST_CRASH, isSharePossible = true),
-                    actions = BitsPaneActions(onClickShareCrashReport = { shared = true })
+                RunEndPromptItem(
+                    state = BitsPaneState(lastRunEnd = LastRunEnd.Crashed(LAST_CRASH), isSharePossible = true),
+                    actions = BitsPaneActions(onClickShareRunEndReport = { shared = true })
                 )
             }
         }
@@ -60,8 +61,8 @@ class CrashReportPromptTest {
     fun leavesOutTheShareButtonWhereThereIsNowhereToShareTo() = runComposeUiTest {
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(
-                    state = BitsPaneState(lastCrash = LAST_CRASH),
+                RunEndPromptItem(
+                    state = BitsPaneState(lastRunEnd = LastRunEnd.Crashed(LAST_CRASH)),
                     actions = BitsPaneActions()
                 )
             }
@@ -77,9 +78,9 @@ class CrashReportPromptTest {
         var dismissed = false
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(
-                    state = BitsPaneState(lastCrash = LAST_CRASH),
-                    actions = BitsPaneActions(onDismissCrashReport = { dismissed = true })
+                RunEndPromptItem(
+                    state = BitsPaneState(lastRunEnd = LastRunEnd.Crashed(LAST_CRASH)),
+                    actions = BitsPaneActions(onDismissRunEndReport = { dismissed = true })
                 )
             }
         }
@@ -97,8 +98,8 @@ class CrashReportPromptTest {
     fun leavesOutTheCopyButtonWithoutAClipboard() = runComposeUiTest {
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(
-                    state = BitsPaneState(lastCrash = LAST_CRASH, isCopyPossible = false),
+                RunEndPromptItem(
+                    state = BitsPaneState(lastRunEnd = LastRunEnd.Crashed(LAST_CRASH), isCopyPossible = false),
                     actions = BitsPaneActions()
                 )
             }
@@ -113,7 +114,7 @@ class CrashReportPromptTest {
     fun staysAwayWhenTheLastRunEndedNormally() = runComposeUiTest {
         setContent {
             ConiferTheme {
-                CrashReportPromptItem(state = BitsPaneState(), actions = BitsPaneActions())
+                RunEndPromptItem(state = BitsPaneState(), actions = BitsPaneActions())
             }
         }
         waitForIdle()

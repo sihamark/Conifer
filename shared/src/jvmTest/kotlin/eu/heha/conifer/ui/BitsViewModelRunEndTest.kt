@@ -7,8 +7,10 @@ import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.ReportShareController
 import eu.heha.conifer.log.CrashBreadcrumb
-import eu.heha.conifer.log.CrashReports
-import eu.heha.conifer.log.InMemoryCrashBreadcrumbStore
+import eu.heha.conifer.log.LastRunEnd
+import eu.heha.conifer.log.readLastRun
+import eu.heha.conifer.log.RunEndReports
+import eu.heha.conifer.log.InMemoryLastRunStore
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.AppDatabase
 import eu.heha.conifer.model.database.DatabaseController
@@ -45,7 +47,7 @@ import kotlin.time.Duration.Companion.seconds
  * assertions that wait rather than assume.
  */
 @OptIn(ExperimentalCoroutinesApi::class) // Dispatchers.setMain/resetMain
-class BitsViewModelCrashReportTest {
+class BitsViewModelRunEndTest {
 
     private lateinit var mainThread: ExecutorCoroutineDispatcher
 
@@ -67,7 +69,7 @@ class BitsViewModelCrashReportTest {
         val sharer = RecordingShareController(isTaken = true)
         val model = viewModel(shareController = sharer)
 
-        model.shareCrashReport()
+        model.shareRunEndReport()
 
         assertTrue(awaitTrue { sharer.shared != null }, "nothing was ever offered for sharing")
         val (fileName, report) = assertNotNull(sharer.shared)
@@ -87,7 +89,7 @@ class BitsViewModelCrashReportTest {
             clipboardController = clipboard,
         )
 
-        model.shareCrashReport()
+        model.shareRunEndReport()
 
         assertTrue(awaitTrue { clipboard.text != null }, "the refused report was not copied either")
         assertContains(assertNotNull(clipboard.text), "IllegalStateException")
@@ -98,41 +100,45 @@ class BitsViewModelCrashReportTest {
         val clipboard = RecordingClipboardController()
         val model = viewModel(clipboardController = clipboard)
 
-        model.copyCrashReportToClipboard()
+        model.copyRunEndReportToClipboard()
 
         assertTrue(awaitTrue { clipboard.text != null }, "nothing was copied")
         assertContains(assertNotNull(clipboard.text), "pull: 3 buckets changed")
     }
 
-    /** Dismissing takes the banner down and forgets the crash, so the next start is quiet. */
+    /** Dismissing takes the banner down and forgets the ending, so the next start is quiet. */
     @Test
-    fun dismissingForgetsTheCrash() = runBlocking(Dispatchers.Main) {
-        val store =
-            InMemoryCrashBreadcrumbStore("""{"buildLabel":"x","atEpochMillis":0,"origin":"main"}""")
+    fun dismissingForgetsTheEnding() = runBlocking(Dispatchers.Main) {
+        val store = InMemoryLastRunStore()
         val model = viewModel(store = store)
-        assertEquals(BREADCRUMB, model.state.lastCrash)
+        assertEquals(LastRunEnd.Crashed(BREADCRUMB), model.state.lastRunEnd)
 
-        model.dismissCrashReport()
+        model.dismissRunEndReport()
 
-        assertNull(model.state.lastCrash)
-        assertNull(store.read())
+        assertNull(model.state.lastRunEnd)
+        // Not cleared but rewritten: what goes is the crash, while the log file this run is writing
+        // stays named for the next start to look at.
+        val record = assertNotNull(readLastRun(store))
+        assertNull(record.crash)
+        assertEquals(LOG_NAME, record.runningLogFile)
     }
 
     private fun viewModel(
         shareController: ReportShareController? = null,
         clipboardController: ClipboardController? = null,
-        store: InMemoryCrashBreadcrumbStore? = null,
+        store: InMemoryLastRunStore? = null,
     ) = BitsViewModel(
         repository = repository(),
         dateTimeFormats = IsoDateTimeFormats,
         draftPrefs = DraftPrefs(InMemoryPreferencesStore()),
         clipboardController = clipboardController,
         reportShareController = shareController,
-        crashReports = CrashReports(
+        runEndReports = RunEndReports(
             store = store,
-            lastCrash = BREADCRUMB,
+            lastEnd = LastRunEnd.Crashed(BREADCRUMB),
             logFiles = { _, _ -> "12:34:50.001 I  pull: 3 buckets changed" },
             userAgent = "Conifer (Mac OS X, Java 21)",
+            runningLogFile = LOG_NAME,
         )
     )
 
@@ -182,6 +188,9 @@ class BitsViewModelCrashReportTest {
 
     private companion object {
         const val BUILD_LABEL = "1.2.4 (9), commit 29ba2459, built 2026-08-10T19:58:08Z"
+
+        /** This run's own log file, which the record keeps naming after the banner is dismissed. */
+        const val LOG_NAME = "conifer-2026-08-12_090000.log"
         val BREADCRUMB = CrashBreadcrumb(
             buildLabel = BUILD_LABEL,
             atEpochMillis = 1_785_242_096_789,

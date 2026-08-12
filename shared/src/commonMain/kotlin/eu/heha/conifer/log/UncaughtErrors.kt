@@ -28,7 +28,7 @@ data class UncaughtError(
  * ([FileAntilog.logBlocking]) rather than through the queue that normally carries log lines: the
  * queue's other end needs a coroutine to get scheduled, and there may be no next scheduling.
  *
- * Then, and only then, the short version goes into [breadcrumbs] for the next run to find
+ * Then, and only then, the short version goes into [lastRun] for the next run to find
  * ([CrashBreadcrumb]) - in that order, because the log line is the record and the breadcrumb is only
  * the pointer to it. A process with seconds to live spends them on the record first.
  *
@@ -39,7 +39,7 @@ data class UncaughtError(
 internal fun logUncaughtError(
     error: UncaughtError,
     fileAntilog: FileAntilog?,
-    breadcrumbs: CrashBreadcrumbStore? = null,
+    lastRun: LastRunStore? = null,
     at: Instant = Clock.System.now(),
 ) {
     val message = "uncaught error" + (error.message?.let { ": $it" } ?: "")
@@ -57,8 +57,14 @@ internal fun logUncaughtError(
             )
         }
     }
-    writeCrashBreadcrumb(
-        store = breadcrumbs,
-        breadcrumb = crashBreadcrumb(error, at = at, logFile = fileAntilog?.logFileLocation),
+    val logFile = fileAntilog?.logFileLocation
+    writeLastRun(
+        store = lastRun,
+        record = LastRunRecord(
+            // Kept alongside the crash, so that a start after the banner has been dismissed still
+            // knows which log file this run was writing.
+            runningLogFile = logTailFileName(logFile),
+            crash = crashBreadcrumb(error, at = at, logFile = logFile),
+        ),
     )
 }

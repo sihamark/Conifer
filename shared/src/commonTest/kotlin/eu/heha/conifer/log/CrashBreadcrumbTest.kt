@@ -100,7 +100,7 @@ class CrashBreadcrumbTest {
 
     @Test
     fun isWrittenAndReadBackThroughTheStore() {
-        val store = InMemoryCrashBreadcrumbStore()
+        val store = InMemoryLastRunStore()
         val breadcrumb = crashBreadcrumb(
             error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
             at = AT,
@@ -108,16 +108,16 @@ class CrashBreadcrumbTest {
             buildLabel = BUILD_LABEL,
         )
 
-        writeCrashBreadcrumb(store, breadcrumb)
+        writeLastRun(store, LastRunRecord(crash = breadcrumb))
 
-        assertEquals(breadcrumb, readCrashBreadcrumb(store))
+        assertEquals(breadcrumb, readLastRun(store)?.crash)
     }
 
     /** Nothing stored, and nowhere to store it: both are ordinary, and neither is a failure. */
     @Test
     fun readsNothingWhereThereIsNothingToRead() {
-        assertNull(readCrashBreadcrumb(InMemoryCrashBreadcrumbStore()))
-        assertNull(readCrashBreadcrumb(null))
+        assertNull(readLastRun(InMemoryLastRunStore())?.crash)
+        assertNull(readLastRun(null)?.crash)
     }
 
     /**
@@ -127,33 +127,39 @@ class CrashBreadcrumbTest {
      */
     @Test
     fun readsNothingFromAFileItCannotMakeSenseOf() {
-        assertNull(readCrashBreadcrumb(InMemoryCrashBreadcrumbStore("""{"buildLabel":"1.0.0""")))
-        assertNull(readCrashBreadcrumb(InMemoryCrashBreadcrumbStore("not json at all")))
+        assertNull(readLastRun(InMemoryLastRunStore("""{"crash":{"buildLabel":"1.0.0"""))?.crash)
+        assertNull(readLastRun(InMemoryLastRunStore("not json at all"))?.crash)
     }
 
     /** A crash handler that throws replaces a reported bug with an unreported one. */
     @Test
     fun survivesAStoreThatCannotBeWritten() {
-        val failing = object : CrashBreadcrumbStore {
+        val failing = object : LastRunStore {
             override fun write(text: String) = throw RuntimeException("no space left on device")
             override fun read(): String = throw RuntimeException("no space left on device")
-            override fun clear() = throw RuntimeException("no space left on device")
         }
 
-        writeCrashBreadcrumb(failing, breadcrumb())
-        assertNull(readCrashBreadcrumb(failing))
-        CrashReports(failing, breadcrumb()).forget()
+        writeLastRun(failing, LastRunRecord(crash = breadcrumb()))
+        assertNull(readLastRun(failing)?.crash)
+        RunEndReports(failing, LastRunEnd.Crashed(breadcrumb())).forget()
     }
 
     /** Dismissing the banner is what forgets the crash, so the next start is quiet again. */
     @Test
-    fun forgettingClearsTheStore() {
-        val store = InMemoryCrashBreadcrumbStore()
-        writeCrashBreadcrumb(store, breadcrumb())
+    fun forgettingTakesTheCrashOutOfTheRecord() {
+        val store = InMemoryLastRunStore()
+        writeLastRun(store, LastRunRecord(runningLogFile = LOG_NAME, crash = breadcrumb()))
 
-        CrashReports(store, readCrashBreadcrumb(store)).forget()
+        RunEndReports(
+            store = store,
+            lastEnd = LastRunEnd.Crashed(breadcrumb()),
+            runningLogFile = LOG_NAME,
+        ).forget()
 
-        assertNull(readCrashBreadcrumb(store))
+        assertNull(readLastRun(store)?.crash)
+        // The log file this run is writing stays named, because the next start still needs to know
+        // which log to look at if *this* run is the one that ends without a word.
+        assertEquals(LOG_NAME, readLastRun(store)?.runningLogFile)
     }
 
     private fun breadcrumb() = crashBreadcrumb(
@@ -178,5 +184,6 @@ class CrashBreadcrumbTest {
         val AT = Instant.fromEpochMilliseconds(1_785_242_096_789)
         const val BUILD_LABEL = "1.2.4 (9), commit 29ba2459, built 2026-08-10T19:58:08Z"
         const val DEEP_MESSAGE = "down here"
+        const val LOG_NAME = "conifer-2026-07-28_143201.log"
     }
 }

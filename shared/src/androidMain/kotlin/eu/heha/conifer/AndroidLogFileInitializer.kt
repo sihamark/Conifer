@@ -1,8 +1,8 @@
 package eu.heha.conifer
 
 import android.content.Context
-import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
-import eu.heha.conifer.log.CrashBreadcrumbStore
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.LogTailReader
@@ -22,8 +22,8 @@ class AndroidLogFileInitializer(private val context: Context) : LogFileInitializ
         AndroidLogFileSink(File(folder, fileName))
     }.getOrNull()
 
-    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? = runCatching {
-        AndroidCrashBreadcrumbStore(File(logFolder(), CRASH_BREADCRUMB_FILE_NAME))
+    override fun createLastRunStore(): LastRunStore? = runCatching {
+        AndroidLastRunStore(File(logFolder(), LAST_RUN_FILE_NAME))
     }.getOrNull()
 
     /**
@@ -44,19 +44,15 @@ class AndroidLogFileInitializer(private val context: Context) : LogFileInitializ
 }
 
 /**
- * The crash breadcrumb as one small file in the log folder, replaced whole on every write - see
- * [CrashBreadcrumbStore] for why it swallows its own failures rather than reporting them.
+ * The last-run record as one small file in the log folder, replaced whole on every write - see
+ * [LastRunStore] for why it swallows its own failures rather than reporting them.
  */
-private class AndroidCrashBreadcrumbStore(private val file: File) : CrashBreadcrumbStore {
+private class AndroidLastRunStore(private val file: File) : LastRunStore {
     override fun write(text: String) {
         runCatching { file.writeText(text) }
     }
 
     override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
-
-    override fun clear() {
-        runCatching { file.delete() }
-    }
 }
 
 /**

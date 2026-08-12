@@ -67,6 +67,23 @@ class FileAntilog(
     }
 
     /**
+     * Ends the log with [LOG_CLOSED_MARKER]: the run is at a point where being killed is ordinary
+     * (see [eu.heha.conifer.LogClosingInitializer]), and this is what the next start reads to tell
+     * an ordinary ending from a run that simply stopped ([lastRunEndedQuietly]).
+     *
+     * Blocking, for the same reason the crash line is: on a desktop this runs in a shutdown hook,
+     * where the queue's other end will not be scheduled again.
+     */
+    internal fun closeLog() {
+        logBlocking(LogLevel.INFO, tag = null, throwable = null, message = LOG_CLOSED_MARKER)
+    }
+
+    /** Undoes [closeLog] by writing after it - the app is back, and being killed now means something. */
+    internal fun reopenLog() {
+        logBlocking(LogLevel.INFO, tag = null, throwable = null, message = LOG_REOPENED_MARKER)
+    }
+
+    /**
      * Writes one line - and everything still queued ahead of it, so it lands in context - to [sink]
      * on the *calling* thread. Giving up the queue is the point: this is for the moment before the
      * app goes down (see [logUncaughtError]), which has no later in which a coroutine could run.

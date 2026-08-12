@@ -1,6 +1,6 @@
 package eu.heha.conifer
 
-import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.MAX_LOG_FILES
 import eu.heha.conifer.log.logFileName
@@ -42,23 +42,23 @@ class JvmLogFilePruningTest {
     }
 
     /**
-     * The crash breadcrumb sits in the log folder but is not a log, and it is read by the very start
+     * The last-run record sits in the log folder but is not a log, and it is read by the very start
      * that prunes - a name inside [LOG_FILE_PREFIX] would have it swept away moments before the
      * banner it feeds was to be shown.
      */
     @Test
-    fun leavesTheCrashBreadcrumbWhereTheNextStartCanFindIt() {
-        val folder = Files.createTempDirectory("conifer-log-prune-breadcrumb").toFile()
+    fun leavesTheLastRunRecordWhereTheNextStartCanFindIt() {
+        val folder = Files.createTempDirectory("conifer-log-prune-record").toFile()
         val start = Instant.fromEpochMilliseconds(1_785_242_096_789)
         repeat(MAX_LOG_FILES + 4) { runIndex ->
             File(folder, logFileName(start + (runIndex * 3).hours, TimeZone.UTC))
                 .writeText("run $runIndex")
         }
-        val breadcrumb = File(folder, CRASH_BREADCRUMB_FILE_NAME).apply { writeText("{}") }
+        val record = File(folder, LAST_RUN_FILE_NAME).apply { writeText("{}") }
 
         pruneOldLogFiles(folder)
 
-        assertTrue(breadcrumb.isFile, "the crash breadcrumb was pruned along with the logs")
+        assertTrue(record.isFile, "the last-run record was pruned along with the logs")
         folder.deleteRecursively()
     }
 }

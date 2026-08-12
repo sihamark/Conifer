@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.format.char
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
@@ -28,6 +29,16 @@ interface LogFileSink {
 }
 
 /**
+ * The last line of a log file whose run ended the way runs are supposed to - see
+ * [eu.heha.conifer.LogClosingInitializer] for when that is, and [lastRunEndedQuietly] for what its
+ * absence is then taken to mean.
+ */
+const val LOG_CLOSED_MARKER = "--- log closed ---"
+
+/** What [LOG_CLOSED_MARKER] is undone by, when the app comes back rather than going away. */
+const val LOG_REOPENED_MARKER = "--- log reopened ---"
+
+/**
  * Reads a run's log file back out of the platform's log folder - the other direction of
  * [LogFileSink], and what turns a crash report from a summary into something that can be read.
  *
@@ -45,27 +56,30 @@ fun interface LogTailReader {
 }
 
 /**
- * The one small file beside the run logs that holds the [CrashBreadcrumb] of the run that crashed -
- * created by a platform's [eu.heha.conifer.LogFileInitializer], written on the crashing thread and
- * read once at the next start.
+ * The one small file beside the run logs that holds the [LastRunRecord] - created by a platform's
+ * [eu.heha.conifer.LogFileInitializer], written at every start and again on the crashing thread if a
+ * run ends that way, and read once at the next start.
  *
- * At most one crash is kept, the newest, so a write replaces rather than appends: the banner asks
- * about the run that just ended, and a device that crashes repeatedly must not accumulate.
+ * One record is kept, the newest, so a write replaces rather than appends: the banner asks about the
+ * run that just ended, and a device that crashes repeatedly must not accumulate.
  *
  * Implementations survive their own failures - an unwritable folder, a file half written by a
  * process that was killed - rather than throwing. A crash handler that fails writes off the report
- * it was in the middle of making, and a start that fails over an unreadable breadcrumb turns a
- * crashed run into two.
+ * it was in the middle of making, and a start that fails over an unreadable record turns a crashed
+ * run into two.
  */
-interface CrashBreadcrumbStore {
-    /** Replaces whatever is stored with [text]. Called on the thread that is crashing. */
+interface LastRunStore {
+    /**
+     * Replaces whatever is stored with [text]. Also called on the thread that is crashing.
+     *
+     * The only way the record ever changes, deletion included: forgetting an ending is writing the
+     * record back without it ([RunEndReports.forget]), because this run's log file has to stay named
+     * in it either way.
+     */
     fun write(text: String)
 
     /** What [write] last stored, or null where there is nothing (or nothing readable). */
     fun read(): String?
-
-    /** Forgets the stored crash, so the next start has nothing to report. */
-    fun clear()
 }
 
 /**
@@ -81,12 +95,12 @@ const val LOG_FILE_PREFIX = "conifer-"
 const val LOG_FILE_SUFFIX = ".log"
 
 /**
- * What the platforms call the [CrashBreadcrumbStore]'s file, in the same folder as the run logs.
+ * What the platforms call the [LastRunStore]'s file, in the same folder as the run logs.
  *
  * Deliberately not starting with [LOG_FILE_PREFIX]: that prefix is what pruning deletes by, and a
- * breadcrumb named like a log would be swept away by the very start that was meant to read it.
+ * record named like a log would be swept away by the very start that was meant to read it.
  */
-const val CRASH_BREADCRUMB_FILE_NAME = "last-crash.json"
+const val LAST_RUN_FILE_NAME = "last-run.json"
 
 /**
  * `conifer-2026-07-28_143201.log`. Named after the *local* start time, so that an alphabetical
@@ -115,6 +129,24 @@ fun logTailFileName(path: String?): String? {
             ".." !in name
     return name.takeIf { isALogFileName }
 }
+
+/**
+ * When the run that wrote [fileName] started, out of the name itself - which is how a run that left
+ * nothing else behind still gets a "when" in the report about it ([VanishedRun]).
+ *
+ * In the local time zone, because that is the one [logFileName] wrote it in. A machine whose zone has
+ * changed since therefore reads an hour or two off; that is the cost of a name that sorts
+ * chronologically in a folder listing, and it buys a great deal more than it costs.
+ */
+fun logFileStartTime(
+    fileName: String,
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): Instant? = runCatching {
+    LocalDateTime.parse(
+        input = fileName.removePrefix(LOG_FILE_PREFIX).removeSuffix(LOG_FILE_SUFFIX),
+        format = FILE_NAME_FORMAT,
+    ).toInstant(timeZone)
+}.getOrNull()
 
 private val FILE_NAME_FORMAT = LocalDateTime.Format {
     year(); char('-'); monthNumber(); char('-'); day()

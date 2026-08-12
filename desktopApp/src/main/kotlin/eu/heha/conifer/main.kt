@@ -43,7 +43,8 @@ fun main() = application {
         clipboardController = JvmClipboardController,
         reportShareController = JvmReportShareController,
         logFileInitializer = JvmLogFileInitializer,
-        uncaughtErrorInitializer = JvmUncaughtErrorInitializer
+        uncaughtErrorInitializer = JvmUncaughtErrorInitializer,
+        logClosingInitializer = JvmLogClosingInitializer
     )
     Window(
         onCloseRequest = ::exitApplication,

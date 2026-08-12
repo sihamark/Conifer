@@ -11,13 +11,18 @@ import eu.heha.conifer.ConiferApp.installUncaughtErrorHandler
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.di.coreModule
 import eu.heha.conifer.di.platformModule
-import eu.heha.conifer.log.CrashBreadcrumb
-import eu.heha.conifer.log.CrashBreadcrumbStore
-import eu.heha.conifer.log.CrashReports
 import eu.heha.conifer.log.FileAntilog
+import eu.heha.conifer.log.LastRunEnd
+import eu.heha.conifer.log.LastRunRecord
+import eu.heha.conifer.log.LastRunStore
+import eu.heha.conifer.log.LogTailReader
+import eu.heha.conifer.log.RunEndReports
+import eu.heha.conifer.log.lastRunEnd
 import eu.heha.conifer.log.logFileName
+import eu.heha.conifer.log.logTailFileName
 import eu.heha.conifer.log.logUncaughtError
-import eu.heha.conifer.log.readCrashBreadcrumb
+import eu.heha.conifer.log.readLastRun
+import eu.heha.conifer.log.writeLastRun
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.LocalDateTimeFormats
@@ -42,6 +47,7 @@ object ConiferApp {
         reportShareController: ReportShareController? = null,
         logFileInitializer: LogFileInitializer? = null,
         uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
+        logClosingInitializer: LogClosingInitializer? = null,
     ) {
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
         // R8/ProGuard optimization in release builds — so only install it for debug builds.
@@ -50,17 +56,11 @@ object ConiferApp {
         }
         val fileAntilog = startLogFile(logFileInitializer, platform)
         // Read before the handler that writes it is installed, so what the screen reports is the
-        // crash of the run before this one and never one of this run's own.
-        val breadcrumbs = logFileInitializer?.createCrashBreadcrumbStore()
-        val crashReports = CrashReports(
-            store = breadcrumbs,
-            lastCrash = readLastCrash(breadcrumbs),
-            // The log files are read back through the same thing that wrote them, and the report
-            // names the device the same way the log's own header does.
-            logFiles = logFileInitializer,
-            userAgent = coniferUserAgent(platform),
-        )
-        installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog, breadcrumbs)
+        // ending of the run before this one and never one of this run's own.
+        val lastRun = logFileInitializer?.createLastRunStore()
+        val runEndReports = startRunEndReports(lastRun, logFileInitializer, fileAntilog, platform)
+        installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog, lastRun)
+        installLogClosing(logClosingInitializer, fileAntilog)
         startKoin {
             modules(
                 coreModule,
@@ -73,7 +73,7 @@ object ConiferApp {
                     browserOpener,
                     clipboardController,
                     reportShareController,
-                    crashReports
+                    runEndReports
                 )
             )
         }
@@ -101,21 +101,68 @@ object ConiferApp {
     }
 
     /**
-     * Reads the crash the previous run left behind, if it left one, and says so in this run's log -
-     * a log that opens with "the run before this one crashed" is a good deal easier to read than one
+     * Works out how the run before this one ended ([lastRunEnd]) and says so in this run's log - a
+     * log that opens with "the run before this one crashed" is a good deal easier to read than one
      * that leaves the reader to line two files up by hand.
      *
-     * The breadcrumb itself is kept until the user dismisses the banner it feeds
-     * ([eu.heha.conifer.log.CrashReports.forget]), so a crash survives a restart the user made
-     * before they got round to reporting it.
+     * Then puts the record back with this run's log file named in it and that same ending still in
+     * it, which does two things: the next start knows which log to look at if this run ends without
+     * a word, and an ending the user has not dismissed yet survives a restart made before they got
+     * round to reporting it ([RunEndReports.forget] is what drops it).
      */
-    private fun readLastCrash(breadcrumbs: CrashBreadcrumbStore?): CrashBreadcrumb? {
-        val lastCrash = readCrashBreadcrumb(breadcrumbs) ?: return null
-        Napier.i {
-            "the previous run ended in an uncaught error at ${lastCrash.at}, " +
-                    "in build ${lastCrash.buildLabel} - see ${lastCrash.logFile}"
+    private fun startRunEndReports(
+        lastRun: LastRunStore?,
+        logFiles: LogTailReader?,
+        fileAntilog: FileAntilog?,
+        platform: Platform,
+    ): RunEndReports {
+        val lastEnd = lastRunEnd(readLastRun(lastRun), logFiles)
+        when (lastEnd) {
+            is LastRunEnd.Crashed -> Napier.i {
+                "the previous run ended in an uncaught error at ${lastEnd.breadcrumb.at}, " +
+                        "in build ${lastEnd.breadcrumb.buildLabel} - see ${lastEnd.logFile}"
+            }
+
+            is LastRunEnd.Vanished -> Napier.i {
+                "the previous run stopped without closing its log " +
+                        "(started ${lastEnd.run.startedAt}) - see ${lastEnd.logFile}"
+            }
+
+            null -> Unit
         }
-        return lastCrash
+        val runningLogFile = logTailFileName(fileAntilog?.logFileLocation)
+        writeLastRun(
+            lastRun,
+            LastRunRecord(
+                runningLogFile = runningLogFile,
+                crash = (lastEnd as? LastRunEnd.Crashed)?.breadcrumb,
+                vanish = (lastEnd as? LastRunEnd.Vanished)?.run,
+            )
+        )
+        return RunEndReports(
+            store = lastRun,
+            lastEnd = lastEnd,
+            // The log files are read back through the same thing that wrote them, and the report
+            // names the device the same way the log's own header does.
+            logFiles = logFiles,
+            userAgent = coniferUserAgent(platform),
+            runningLogFile = runningLogFile,
+        )
+    }
+
+    /**
+     * Has the log say goodbye whenever this platform knows the app is about to be put away, so that
+     * a log which simply stops means something (see [LogClosingInitializer]).
+     */
+    private fun installLogClosing(
+        initializer: LogClosingInitializer?,
+        fileAntilog: FileAntilog?,
+    ) {
+        fileAntilog ?: return
+        initializer?.installHandler(
+            closeLog = { fileAntilog.closeLog() },
+            reopenLog = { fileAntilog.reopenLog() },
+        )
     }
 
     /**
@@ -138,9 +185,9 @@ object ConiferApp {
     private fun installUncaughtErrorHandler(
         initializer: UncaughtErrorInitializer?,
         fileAntilog: FileAntilog?,
-        breadcrumbs: CrashBreadcrumbStore?,
+        lastRun: LastRunStore?,
     ) {
-        initializer?.installHandler { error -> logUncaughtError(error, fileAntilog, breadcrumbs) }
+        initializer?.installHandler { error -> logUncaughtError(error, fileAntilog, lastRun) }
     }
 
     @Composable

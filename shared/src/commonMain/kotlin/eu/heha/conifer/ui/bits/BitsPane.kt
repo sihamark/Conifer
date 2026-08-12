@@ -410,7 +410,7 @@ private fun Bits(
         // scrolling with the bits: the list opens anchored to its newest bit, so a banner among the
         // items would sit far above the fold and never be seen by the one person it is for. It
         // travels with the bar as that comes and goes, and is gone for good once dismissed.
-        CrashReportPromptItem(
+        RunEndPromptItem(
             state = state,
             actions = actions,
             modifier = Modifier

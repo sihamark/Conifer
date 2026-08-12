@@ -1,7 +1,7 @@
 package eu.heha.conifer
 
-import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
-import eu.heha.conifer.log.CrashBreadcrumbStore
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.LogTailReader
@@ -16,8 +16,8 @@ object JvmLogFileInitializer : LogFileInitializer {
         JvmLogFileSink(File(folder, fileName))
     }.getOrNull()
 
-    override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? = runCatching {
-        FileCrashBreadcrumbStore(File(logFolder(), CRASH_BREADCRUMB_FILE_NAME))
+    override fun createLastRunStore(): LastRunStore? = runCatching {
+        FileLastRunStore(File(logFolder(), LAST_RUN_FILE_NAME))
     }.getOrNull()
 
     override fun readLogTail(fileName: String, maxChars: Int): String? =
@@ -42,22 +42,18 @@ internal fun readLogTail(folder: File, fileName: String, maxChars: Int): String?
 }.getOrNull()
 
 /**
- * The crash breadcrumb as one small file, replaced whole on every write - see [CrashBreadcrumbStore]
+ * The last-run record as one small file, replaced whole on every write - see [LastRunStore]
  * for why it swallows its own failures rather than reporting them.
  *
  * Internal rather than private so a test can point one at a temporary file; the object above is the
- * only production caller, and it always names [CRASH_BREADCRUMB_FILE_NAME] in the log folder.
+ * only production caller, and it always names [LAST_RUN_FILE_NAME] in the log folder.
  */
-internal class FileCrashBreadcrumbStore(private val file: File) : CrashBreadcrumbStore {
+internal class FileLastRunStore(private val file: File) : LastRunStore {
     override fun write(text: String) {
         runCatching { file.writeText(text) }
     }
 
     override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
-
-    override fun clear() {
-        runCatching { file.delete() }
-    }
 }
 
 /**

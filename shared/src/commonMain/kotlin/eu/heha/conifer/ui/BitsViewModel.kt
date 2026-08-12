@@ -10,7 +10,7 @@ import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.ReportShareController
-import eu.heha.conifer.log.CrashReports
+import eu.heha.conifer.log.RunEndReports
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.prefs.ComposerDraft
@@ -39,7 +39,7 @@ class BitsViewModel(
     private val draftPrefs: DraftPrefs,
     private val clipboardController: ClipboardController? = null,
     private val reportShareController: ReportShareController? = null,
-    private val crashReports: CrashReports = CrashReports()
+    private val runEndReports: RunEndReports = RunEndReports()
 ) : ViewModel() {
 
     /** Collection of the currently bound handler, see [bindPermissionHandler]. */
@@ -62,7 +62,7 @@ class BitsViewModel(
             isSharePossible = reportShareController != null,
             // Straight into the first state the screen is ever handed: the crash it reports is
             // already on disk before this app run started, so there is nothing to wait for.
-            lastCrash = crashReports.lastCrash
+            lastRunEnd = runEndReports.lastEnd
         )
     )
         private set
@@ -433,16 +433,16 @@ class BitsViewModel(
     }
 
     /**
-     * Puts the previous run's crash report on the clipboard - the build, the error and the end of
-     * the log file of the run that crashed (see [CrashReports.report]).
+     * Puts the report about the previous run's ending on the clipboard - what is known about it and
+     * the end of that run's log file (see [RunEndReports.report]).
      *
      * Leaves the banner up: a report copied is not a report sent, and the one thing worse than
      * pasting it twice is losing it to a tap. Dismissing is its own action.
      */
-    fun copyCrashReportToClipboard() {
+    fun copyRunEndReportToClipboard() {
         val clipboardController = clipboardController ?: return
         viewModelScope.launch {
-            val report = crashReport() ?: return@launch
+            val report = runEndReport() ?: return@launch
             clipboardController.copyToClipboard(report)
         }
     }
@@ -455,32 +455,32 @@ class BitsViewModel(
      * asked to send and which then went nowhere is the worst of the outcomes available here. The
      * banner stays up either way, so the offer is still there to try again.
      */
-    fun shareCrashReport() {
+    fun shareRunEndReport() {
         val reportShareController = reportShareController ?: return
         viewModelScope.launch {
-            val report = crashReport() ?: return@launch
-            val fileName = crashReports.reportFileName() ?: return@launch
+            val report = runEndReport() ?: return@launch
+            val fileName = runEndReports.reportFileName() ?: return@launch
             val isShared = withContext(Dispatchers.Default) {
                 reportShareController.share(fileName, report)
             }
             if (!isShared) {
-                Napier.w { "the crash report was not taken for sharing - copying it instead" }
+                Napier.w { "the report was not taken for sharing - copying it instead" }
                 clipboardController?.copyToClipboard(report)
             }
         }
     }
 
-    /** The report as text. Off the main thread: it reads the log file of the run that crashed. */
-    private suspend fun crashReport(): String? =
-        withContext(Dispatchers.Default) { crashReports.report() }
+    /** The report as text. Off the main thread: it reads the log file of the run that ended. */
+    private suspend fun runEndReport(): String? =
+        withContext(Dispatchers.Default) { runEndReports.report() }
 
     /**
-     * Takes the crash banner down for good: the stored breadcrumb goes with it, so the next start is
-     * quiet again. The log file it pointed at is untouched and is pruned in its own time.
+     * Takes the banner down for good: the ending goes out of the stored record with it, so the next
+     * start is quiet again. The log file it pointed at is untouched and is pruned in its own time.
      */
-    fun dismissCrashReport() {
-        crashReports.forget()
-        state = state.copy(lastCrash = null)
+    fun dismissRunEndReport() {
+        runEndReports.forget()
+        state = state.copy(lastRunEnd = null)
     }
 }
 

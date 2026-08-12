@@ -3,7 +3,7 @@ package eu.heha.conifer
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
-import eu.heha.conifer.log.CrashBreadcrumbStore
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.UncaughtError
@@ -124,8 +124,8 @@ interface ReportShareController {
 
 /**
  * Where this platform keeps the app's log files: it opens them ([createLogFile]), reads them back
- * ([LogTailReader], for the crash report), and holds the crash breadcrumb beside them
- * ([createCrashBreadcrumbStore]). One interface, because all three are the same folder.
+ * ([LogTailReader], for the report about a run that ended badly), and holds the record of the last
+ * run beside them ([createLastRunStore]). One interface, because all three are the same folder.
  */
 interface LogFileInitializer : LogTailReader {
     /**
@@ -140,15 +140,32 @@ interface LogFileInitializer : LogTailReader {
     fun createLogFile(fileName: String): LogFileSink?
 
     /**
-     * Opens the crash breadcrumb file ([eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME]) in the same
-     * folder as the log files, creating nothing until it is written to.
+     * Opens the last-run record ([eu.heha.conifer.log.LAST_RUN_FILE_NAME]) in the same folder as the
+     * log files, creating nothing until it is written to.
      *
-     * Here rather than in an interface of its own because the breadcrumb is the log folder's other
-     * file: whoever knows where a log may be written is exactly who knows where this may be, and a
+     * Here rather than in an interface of its own because the record is the log folder's other file:
+     * whoever knows where a log may be written is exactly who knows where this may be, and a
      * platform that has nowhere for the one has nowhere for the other. Returns `null` on the same
      * terms as [createLogFile].
      */
-    fun createCrashBreadcrumbStore(): CrashBreadcrumbStore?
+    fun createLastRunStore(): LastRunStore?
+}
+
+interface LogClosingInitializer {
+    /**
+     * Installs this platform's notice that the app has reached a point where being killed is
+     * ordinary - a desktop process shutting down, a phone app going to the background - and calls
+     * [closeLog] there, [reopenLog] when the app comes back from it.
+     *
+     * That notice is the whole difference between "the run ended" and "the run vanished". A crash
+     * writes itself down ([eu.heha.conifer.log.UncaughtError]), but the endings that leave nothing
+     * behind - killed for memory, killed outright, a native crash below Kotlin, a machine losing
+     * power - can only be told from an ordinary quit by whether the log says goodbye.
+     *
+     * Called on whatever thread the platform gives the notice on, and possibly with very little time
+     * left, so implementations do the least they can: both callbacks write one line and return.
+     */
+    fun installHandler(closeLog: () -> Unit, reopenLog: () -> Unit)
 }
 
 interface UncaughtErrorInitializer {

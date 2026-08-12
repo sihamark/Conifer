@@ -36,12 +36,14 @@
     <string name="bits_message_empty">No bits yet.\nWrite your first one below.</string>
     <string name="bits_message_empty_filtered">No bits on this day yet.\nWrite one below — it will land here.</string>
 
-    <string name="crash_prompt_lead">The last run ended in an error.</string>
-    <string name="crash_prompt_unknown_error">no details recorded</string>
-    <string name="crash_prompt_note">The report holds the build, the error and the log of the run that crashed — never anything you wrote.</string>
-    <string name="crash_action_share">Share report…</string>
-    <string name="crash_action_copy">Copy details</string>
-    <string name="crash_action_dismiss">Dismiss</string>
+    <string name="run_end_lead_crashed">The last run ended in an error.</string>
+    <string name="run_end_lead_vanished">The last run ended unexpectedly.</string>
+    <string name="run_end_summary_unknown">no details recorded</string>
+    <string name="run_end_summary_vanished">it stopped without a word</string>
+    <string name="run_end_note">The report holds the build, what went wrong and the log of that run — never anything you wrote.</string>
+    <string name="run_end_action_share">Share report…</string>
+    <string name="run_end_action_copy">Copy details</string>
+    <string name="run_end_action_dismiss">Dismiss</string>
 
     <string name="shortcuts_title">Keyboard shortcuts</string>
     <string name="shortcuts_content_show">Show keyboard shortcuts</string>

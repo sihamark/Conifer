@@ -23,29 +23,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
-import conifer.shared.generated.resources.crash_action_copy
-import conifer.shared.generated.resources.crash_action_dismiss
-import conifer.shared.generated.resources.crash_action_share
-import conifer.shared.generated.resources.crash_prompt_lead
-import conifer.shared.generated.resources.crash_prompt_note
-import conifer.shared.generated.resources.crash_prompt_unknown_error
+import conifer.shared.generated.resources.run_end_action_copy
+import conifer.shared.generated.resources.run_end_action_dismiss
+import conifer.shared.generated.resources.run_end_action_share
+import conifer.shared.generated.resources.run_end_lead_crashed
+import conifer.shared.generated.resources.run_end_lead_vanished
+import conifer.shared.generated.resources.run_end_note
+import conifer.shared.generated.resources.run_end_summary_unknown
+import conifer.shared.generated.resources.run_end_summary_vanished
 import eu.heha.conifer.log.CrashBreadcrumb
+import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.dateAndTimeOf
 import org.jetbrains.compose.resources.stringResource
 
-/** [CrashReportPrompt] with its show/hide animation; nothing is shown without a crash to report. */
+/** [RunEndPrompt] with its show/hide animation; nothing is shown after a run that ended properly. */
 @Composable
-internal fun CrashReportPromptItem(
+internal fun RunEndPromptItem(
     state: BitsPaneState,
     actions: BitsPaneActions,
     modifier: Modifier = Modifier
 ) {
-    val lastCrash = state.lastCrash
-    AnimatedVisibility(lastCrash != null, modifier = modifier) {
-        if (lastCrash != null) {
-            CrashReportPrompt(
-                lastCrash = lastCrash,
+    val lastRunEnd = state.lastRunEnd
+    AnimatedVisibility(lastRunEnd != null, modifier = modifier) {
+        if (lastRunEnd != null) {
+            RunEndPrompt(
+                lastRunEnd = lastRunEnd,
                 isCopyPossible = state.isCopyPossible,
                 isSharePossible = state.isSharePossible,
                 actions = actions
@@ -55,19 +58,21 @@ internal fun CrashReportPromptItem(
 }
 
 /**
- * The banner that turns the last run's crash into something a person can report: when it happened,
- * what it was, and a button that puts the whole thing on the clipboard.
+ * The banner that turns the last run's bad ending into something a person can report: what is known
+ * about it, and a button that hands the whole report over.
  *
- * It is here because a log file nobody knows about answers nothing - see [CrashBreadcrumb]. It says
- * what it will hand over, and it is honest: the copied text names the build and the error and never
- * a single bit (see `crashReportText`).
+ * It is here because a log file nobody knows about answers nothing - see
+ * [eu.heha.conifer.log.CrashBreadcrumb]. It says what it will hand over, and it is honest twice
+ * over: the report names the build and the error and never a single bit (see `runEndReportText`),
+ * and a run that merely stopped is not called a crash, because from here nobody can tell whether it
+ * was one.
  *
  * Shaped like [PermissionPrompt] - the screen's other banner - but in the error colours and with no
  * dashed frame: this one reports something that already went wrong rather than asking for something.
  */
 @Composable
-private fun CrashReportPrompt(
-    lastCrash: CrashBreadcrumb,
+private fun RunEndPrompt(
+    lastRunEnd: LastRunEnd,
     isCopyPossible: Boolean,
     isSharePossible: Boolean,
     actions: BitsPaneActions
@@ -91,6 +96,22 @@ private fun CrashReportPrompt(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
+                val lead = when (lastRunEnd) {
+                    is LastRunEnd.Crashed -> stringResource(Res.string.run_end_lead_crashed)
+                    is LastRunEnd.Vanished -> stringResource(Res.string.run_end_lead_vanished)
+                }
+                // A crash knows when it happened; a run that vanished only knows when it started,
+                // that being the last moment anybody wrote down.
+                val moment = when (lastRunEnd) {
+                    is LastRunEnd.Crashed -> lastRunEnd.breadcrumb.at
+                    is LastRunEnd.Vanished -> lastRunEnd.run.startedAt
+                }
+                val summary = when (lastRunEnd) {
+                    is LastRunEnd.Crashed -> lastRunEnd.breadcrumb.summary
+                        ?: stringResource(Res.string.run_end_summary_unknown)
+
+                    is LastRunEnd.Vanished -> stringResource(Res.string.run_end_summary_vanished)
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -98,27 +119,22 @@ private fun CrashReportPrompt(
                     Text(text = "⚠️", style = MaterialTheme.typography.titleLarge)
                     Text(
                         text = buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                append(stringResource(Res.string.crash_prompt_lead))
-                            }
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(lead) }
                             appendLine()
-                            // The moment in the reader's own spelling, the error in the machine's:
-                            // one of the two is for them and the other is for whoever gets the
-                            // report. A crash with neither a type nor a message is possible (a
-                            // platform that reported it in no words at all), so it says so.
-                            append(formats.dateAndTimeOf(lastCrash.at))
-                            append(" · ")
-                            append(
-                                lastCrash.summary
-                                    ?: stringResource(Res.string.crash_prompt_unknown_error)
-                            )
+                            // The moment in the reader's own spelling, what happened in the
+                            // machine's: one half is for them, the other for whoever gets the report.
+                            moment?.let {
+                                append(formats.dateAndTimeOf(it))
+                                append(" · ")
+                            }
+                            append(summary)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
                 }
                 Text(
-                    text = stringResource(Res.string.crash_prompt_note),
+                    text = stringResource(Res.string.run_end_note),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
@@ -127,20 +143,19 @@ private fun CrashReportPrompt(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Sharing first: it is the one that gets the report to somebody, where copying
                     // only gets it as far as the clipboard. Either can be missing - a platform with
-                    // neither leaves the banner as a notice, which still says the run crashed and
-                    // still names the log file.
+                    // neither leaves the banner as a notice, which still says the run ended badly.
                     if (isSharePossible) {
-                        TextButton(onClick = actions.onClickShareCrashReport) {
-                            Text(stringResource(Res.string.crash_action_share))
+                        TextButton(onClick = actions.onClickShareRunEndReport) {
+                            Text(stringResource(Res.string.run_end_action_share))
                         }
                     }
                     if (isCopyPossible) {
-                        TextButton(onClick = actions.onClickCopyCrashReport) {
-                            Text(stringResource(Res.string.crash_action_copy))
+                        TextButton(onClick = actions.onClickCopyRunEndReport) {
+                            Text(stringResource(Res.string.run_end_action_copy))
                         }
                     }
-                    TextButton(onClick = actions.onDismissCrashReport) {
-                        Text(stringResource(Res.string.crash_action_dismiss))
+                    TextButton(onClick = actions.onDismissRunEndReport) {
+                        Text(stringResource(Res.string.run_end_action_dismiss))
                     }
                 }
             }

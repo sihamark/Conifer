@@ -11,15 +11,15 @@ import kotlin.time.Instant
 
 /**
  * The report is what actually gets sent, so it has to answer the two questions a maintainer asks in
- * order: which build died of what, and what had the app been doing. The first comes from the
- * breadcrumb, the second from the log file of the run that crashed - and the second is the reason
- * this is a file to share rather than a line to read out.
+ * order: which build ended how, and what had the app been doing. The first comes from whatever the
+ * run left behind, the second from its log file - and the second is the reason this is a file to
+ * share rather than a line to read out.
  */
-class CrashReportTest {
+class RunEndReportTest {
 
     @Test
     fun namesTheBuildTheDeviceTheErrorAndTheLog() {
-        val text = crashReportText(BREADCRUMB, userAgent = "Conifer (Android 36)")
+        val text = runEndReportText(CRASHED, userAgent = "Conifer (Android 36)")
 
         assertContains(text, BUILD_LABEL)
         assertContains(text, "Conifer (Android 36)")
@@ -29,12 +29,12 @@ class CrashReportTest {
         assertContains(text, LOG_PATH)
     }
 
-    /** The lines leading up to a crash are the ones that explain it. */
+    /** The lines leading up to a bad ending are the ones that explain it. */
     @Test
-    fun carriesTheLogOfTheRunThatCrashed() {
-        val text = crashReportText(BREADCRUMB, logTail = "12:34:50.001 I  pull: 3 buckets changed")
+    fun carriesTheLogOfTheRunThatEnded() {
+        val text = runEndReportText(CRASHED, logTail = "12:34:50.001 I  pull: 3 buckets changed")
 
-        assertContains(text, "--- the log of the run that crashed ---")
+        assertContains(text, "--- the log of the run that ended ---")
         assertContains(text, "pull: 3 buckets changed")
     }
 
@@ -44,7 +44,7 @@ class CrashReportTest {
      */
     @Test
     fun saysSoWhenTheLogWasCutShort() {
-        val text = crashReportText(BREADCRUMB, logTail = "x".repeat(MAX_LOG_TAIL_CHARS))
+        val text = runEndReportText(CRASHED, logTail = "x".repeat(MAX_LOG_TAIL_CHARS))
 
         assertContains(text, "last $MAX_LOG_TAIL_CHARS characters")
     }
@@ -52,27 +52,47 @@ class CrashReportTest {
     /** A log that has since been pruned costs the report its second half and nothing else. */
     @Test
     fun isStillWorthSendingWithoutTheLog() {
-        val text = crashReportText(BREADCRUMB, logTail = null)
+        val text = runEndReportText(CRASHED, logTail = null)
 
         assertContains(text, "IllegalStateException: boom")
         assertTrue("the log of the run" !in text, "an empty log section was written anyway: $text")
     }
 
+    /**
+     * A run that vanished has no build and no error to give, because nothing was left running to
+     * write either down - and the report says that rather than guessing at this run's build.
+     */
     @Test
-    fun isNamedAfterTheCrashItReports() {
+    fun saysWhatLittleIsKnownAboutARunThatVanished() {
+        val text = runEndReportText(VANISHED, userAgent = "Conifer (iOS 26.4)", logTail = "a line")
+
+        assertContains(text, "ended without a word")
+        assertContains(text, "Conifer (iOS 26.4)")
+        assertContains(text, LOG_NAME)
+        assertContains(text, "a line")
+        assertTrue(BUILD_LABEL !in text, "a build was claimed that nobody recorded: $text")
+    }
+
+    @Test
+    fun isNamedAfterTheEndingItReports() {
         assertEquals(
             "conifer-crash-2026-07-28_123456.txt",
-            crashReportFileName(BREADCRUMB, TimeZone.UTC)
+            runEndReportFileName(CRASHED, TimeZone.UTC)
+        )
+        // A run that vanished is named after when it started, that being the only moment known.
+        assertEquals(
+            "conifer-run-2026-07-28_143201.txt",
+            runEndReportFileName(VANISHED, TimeZone.UTC)
         )
     }
 
-    /** [CrashReports] is what the screen holds, and the whole report comes out of it in one call. */
+    /** [RunEndReports] is what the screen holds, and the whole report comes out of it in one call. */
     @Test
-    fun isAssembledFromTheBreadcrumbAndTheLogFolder() {
-        val reports = CrashReports(
-            lastCrash = BREADCRUMB,
+    fun isAssembledFromTheRecordAndTheLogFolder() {
+        val reports = RunEndReports(
+            lastEnd = CRASHED,
             logFiles = { fileName, maxChars ->
-                assertEquals("conifer-2026-07-28_143201.log", fileName)
+                assertEquals(LOG_NAME, fileName)
                 assertEquals(MAX_LOG_TAIL_CHARS, maxChars)
                 "12:34:50.001 I  pull: 3 buckets changed"
             },
@@ -91,8 +111,8 @@ class CrashReportTest {
 
     /** Nothing to report, nothing to name - the banner is not up in the first place. */
     @Test
-    fun isNothingWithoutACrash() {
-        val reports = CrashReports()
+    fun isNothingWithoutAnEnding() {
+        val reports = RunEndReports()
 
         assertNull(reports.report())
         assertNull(reports.reportFileName())
@@ -105,23 +125,20 @@ class CrashReportTest {
      */
     @Test
     fun onlyEverReadsSomethingShapedLikeALogFile() {
-        assertEquals("conifer-2026-07-28_143201.log", logTailFileName(LOG_PATH))
-        assertEquals(
-            "conifer-2026-07-28_143201.log",
-            logTailFileName("""C:\Users\alice\conifer\logs\conifer-2026-07-28_143201.log""")
-        )
+        assertEquals(LOG_NAME, logTailFileName(LOG_PATH))
+        assertEquals(LOG_NAME, logTailFileName("""C:\Users\alice\conifer\logs\$LOG_NAME"""))
         assertNull(logTailFileName(null))
         assertNull(logTailFileName("/etc/passwd"))
         assertNull(logTailFileName("/logs/conifer-../../../.ssh/id_rsa.log"))
-        assertNull(logTailFileName("/logs/last-crash.json"))
+        assertNull(logTailFileName("/logs/last-run.json"))
     }
 
     /** A crash whose log path is not one, so the reader is never asked for it. */
     @Test
-    fun readsNoLogForACrashThatNamesNone() {
+    fun readsNoLogForAnEndingThatNamesNone() {
         var wasRead = false
-        val reports = CrashReports(
-            lastCrash = BREADCRUMB.copy(logFile = "/etc/passwd"),
+        val reports = RunEndReports(
+            lastEnd = LastRunEnd.Crashed(BREADCRUMB.copy(logFile = "/etc/passwd")),
             logFiles = { _, _ -> wasRead = true; "root:x:0:0" },
         )
 
@@ -135,7 +152,8 @@ class CrashReportTest {
         /** 2026-07-28 12:34:56.789 UTC. */
         val AT = Instant.fromEpochMilliseconds(1_785_242_096_789)
         const val BUILD_LABEL = "1.2.4 (9), commit 29ba2459, built 2026-08-10T19:58:08Z"
-        const val LOG_PATH = "/logs/conifer-2026-07-28_143201.log"
+        const val LOG_NAME = "conifer-2026-07-28_143201.log"
+        const val LOG_PATH = "/logs/$LOG_NAME"
         val BREADCRUMB = CrashBreadcrumb(
             buildLabel = BUILD_LABEL,
             atEpochMillis = AT.toEpochMilliseconds(),
@@ -144,6 +162,16 @@ class CrashReportTest {
             message = "boom",
             frames = listOf("at eu.heha.conifer.sync.SyncEngine.push(SyncEngine.kt:214)"),
             logFile = LOG_PATH,
+        )
+        val CRASHED = LastRunEnd.Crashed(BREADCRUMB)
+
+        /** 2026-07-28 14:32:01 UTC, which is what [LOG_NAME] says the run started at. */
+        val VANISHED = LastRunEnd.Vanished(
+            VanishedRun(
+                logFile = LOG_NAME,
+                startedAtEpochMillis = logFileStartTime(LOG_NAME, TimeZone.UTC)
+                    ?.toEpochMilliseconds(),
+            )
         )
     }
 }
