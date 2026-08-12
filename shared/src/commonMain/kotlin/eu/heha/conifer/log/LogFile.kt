@@ -28,6 +28,23 @@ interface LogFileSink {
 }
 
 /**
+ * Reads a run's log file back out of the platform's log folder - the other direction of
+ * [LogFileSink], and what turns a crash report from a summary into something that can be read.
+ *
+ * By file name rather than by path, and the name is resolved against the log folder by whoever
+ * implements this. That is the safety property: the name a report is built from comes off a file on
+ * disk ([CrashBreadcrumb.logFile]), and a name is a great deal harder to point somewhere else than
+ * a path is (see [logTailFileName], which is what checks it).
+ */
+fun interface LogTailReader {
+    /**
+     * The last [maxChars] characters of the log file [fileName], or null where there is no such
+     * file, it cannot be read, or this platform keeps no logs at all. Never throws.
+     */
+    fun readLogTail(fileName: String, maxChars: Int): String?
+}
+
+/**
  * The one small file beside the run logs that holds the [CrashBreadcrumb] of the run that crashed -
  * created by a platform's [eu.heha.conifer.LogFileInitializer], written on the crashing thread and
  * read once at the next start.
@@ -80,6 +97,24 @@ const val CRASH_BREADCRUMB_FILE_NAME = "last-crash.json"
  */
 fun logFileName(startedAt: Instant, timeZone: TimeZone = TimeZone.currentSystemDefault()): String =
     LOG_FILE_PREFIX + startedAt.toLocalDateTime(timeZone).format(FILE_NAME_FORMAT) + LOG_FILE_SUFFIX
+
+/**
+ * The name of the log file at [path], if [path] names one - the file name a [LogTailReader] may be
+ * asked for, and null for anything else.
+ *
+ * Everything but the last path segment is dropped (on either kind of separator, since a Windows
+ * desktop writes the other one), and what is left has to look like a name [logFileName] produced.
+ * A report is built from a path stored in a file, and a file on disk is not a promise: this is what
+ * keeps `conifer-../../../.ssh/id_rsa.log` from being a thing the app will read out and hand to
+ * whoever the report goes to.
+ */
+fun logTailFileName(path: String?): String? {
+    val name = path?.substringAfterLast('/')?.substringAfterLast('\\') ?: return null
+    val isALogFileName = name.startsWith(LOG_FILE_PREFIX) &&
+            name.endsWith(LOG_FILE_SUFFIX) &&
+            ".." !in name
+    return name.takeIf { isALogFileName }
+}
 
 private val FILE_NAME_FORMAT = LocalDateTime.Format {
     year(); char('-'); monthNumber(); char('-'); day()

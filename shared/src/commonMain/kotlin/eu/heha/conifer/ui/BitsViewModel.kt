@@ -9,8 +9,8 @@ import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.ReportShareController
 import eu.heha.conifer.log.CrashReports
-import eu.heha.conifer.log.crashReportText
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.prefs.ComposerDraft
@@ -20,10 +20,12 @@ import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -36,6 +38,7 @@ class BitsViewModel(
     private val dateTimeFormats: DateTimeFormats,
     private val draftPrefs: DraftPrefs,
     private val clipboardController: ClipboardController? = null,
+    private val reportShareController: ReportShareController? = null,
     private val crashReports: CrashReports = CrashReports()
 ) : ViewModel() {
 
@@ -56,6 +59,7 @@ class BitsViewModel(
     var state by mutableStateOf(
         BitsPaneState(
             isCopyPossible = clipboardController != null,
+            isSharePossible = reportShareController != null,
             // Straight into the first state the screen is ever handed: the crash it reports is
             // already on disk before this app run started, so there is nothing to wait for.
             lastCrash = crashReports.lastCrash
@@ -429,17 +433,46 @@ class BitsViewModel(
     }
 
     /**
-     * Puts the previous run's crash on the clipboard as text ([crashReportText]) - the build, the
-     * error, its top frames and where that run's log file is.
+     * Puts the previous run's crash report on the clipboard - the build, the error and the end of
+     * the log file of the run that crashed (see [CrashReports.report]).
      *
      * Leaves the banner up: a report copied is not a report sent, and the one thing worse than
      * pasting it twice is losing it to a tap. Dismissing is its own action.
      */
     fun copyCrashReportToClipboard() {
         val clipboardController = clipboardController ?: return
-        val lastCrash = state.lastCrash ?: return
-        clipboardController.copyToClipboard(crashReportText(lastCrash))
+        viewModelScope.launch {
+            val report = crashReport() ?: return@launch
+            clipboardController.copyToClipboard(report)
+        }
     }
+
+    /**
+     * Hands the report to the platform's own way of sending something - a share sheet, a folder in
+     * the file manager (see [ReportShareController]).
+     *
+     * Falls back to the clipboard where the platform would not take it, since a report the user
+     * asked to send and which then went nowhere is the worst of the outcomes available here. The
+     * banner stays up either way, so the offer is still there to try again.
+     */
+    fun shareCrashReport() {
+        val reportShareController = reportShareController ?: return
+        viewModelScope.launch {
+            val report = crashReport() ?: return@launch
+            val fileName = crashReports.reportFileName() ?: return@launch
+            val isShared = withContext(Dispatchers.Default) {
+                reportShareController.share(fileName, report)
+            }
+            if (!isShared) {
+                Napier.w { "the crash report was not taken for sharing - copying it instead" }
+                clipboardController?.copyToClipboard(report)
+            }
+        }
+    }
+
+    /** The report as text. Off the main thread: it reads the log file of the run that crashed. */
+    private suspend fun crashReport(): String? =
+        withContext(Dispatchers.Default) { crashReports.report() }
 
     /**
      * Takes the crash banner down for good: the stored breadcrumb goes with it, so the next start is

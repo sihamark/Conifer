@@ -4,6 +4,7 @@ import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
 import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import java.io.File
 
@@ -19,8 +20,26 @@ object JvmLogFileInitializer : LogFileInitializer {
         FileCrashBreadcrumbStore(File(logFolder(), CRASH_BREADCRUMB_FILE_NAME))
     }.getOrNull()
 
+    override fun readLogTail(fileName: String, maxChars: Int): String? =
+        readLogTail(logFolder(), fileName, maxChars)
+
     private fun logFolder(): File = File(jvmDataFolder(), "logs").also { it.mkdirs() }
 }
+
+/**
+ * The end of [fileName] in [folder], for a crash report - see [LogTailReader] for why this is a name
+ * in a known folder rather than a path.
+ *
+ * The whole file is read and then cut. A run log is small (a handful of lines per sync round), and
+ * seeking to the tail of a UTF-8 file lands mid-character often enough that the arithmetic to avoid
+ * it would outweigh what it saves here.
+ */
+internal fun readLogTail(folder: File, fileName: String, maxChars: Int): String? = runCatching {
+    File(folder, fileName)
+        .takeIf { it.isFile && it.parentFile?.canonicalFile == folder.canonicalFile }
+        ?.readText()
+        ?.takeLast(maxChars)
+}.getOrNull()
 
 /**
  * The crash breadcrumb as one small file, replaced whole on every write - see [CrashBreadcrumbStore]

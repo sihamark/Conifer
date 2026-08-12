@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    What the FileProvider below the <provider> in AndroidManifest.xml is allowed to hand out: the
+    crash reports AndroidReportShareController writes, and nothing else. The path is the folder that
+    controller writes into (cacheDir/reports) - the two have to agree, or a share fails at the moment
+    the URI is built.
+-->
+<paths>
+    <cache-path
+        name="reports"
+        path="reports/" />
+</paths>

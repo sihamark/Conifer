@@ -4,9 +4,10 @@
 
 - the app now says when the last run crashed. A crash was already being written down, into a file
   nobody was ever told about — the next start now says so on screen instead: when it happened and
-  what the error was. *Copy details* puts it on your clipboard ready for a bug report — the build,
-  the error, where it came from and where that run's log file is, and nothing you have written. The
-  notice stays until you dismiss it
+  what the error was. *Share report* hands the whole thing to the share sheet on a phone, or drops
+  it in a folder on the desktop, and *Copy details* puts it on the clipboard instead: the build, the
+  error, and the log of the run that crashed — which is the part that says what the app had been
+  doing — and nothing you have written. The notice stays until you dismiss it
 - the log says which build wrote it. Its second line now names the version, the commit the app was
   built from and when it was built — so a log sent in can be lined up against what was actually
   shipped, instead of against a version number that covers a month of changes. A build made on

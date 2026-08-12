@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.UncaughtError
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
@@ -104,7 +105,29 @@ interface ClipboardController {
     fun copyToClipboard(text: String)
 }
 
-interface LogFileInitializer {
+interface ReportShareController {
+    /**
+     * Offers [text] to whatever this platform sends things with - a share sheet on Android and iOS,
+     * a file in a folder the user can see on desktop - under the file name [fileName].
+     *
+     * The one thing it is asked for is a crash report ([eu.heha.conifer.log.crashReportText]), which
+     * is too long to read on screen and belongs in a mail, a chat or an issue. Implementations write
+     * it out as a file rather than as text in an intent: a share sheet's text is meant for a
+     * sentence, and every target on the other side handles an attachment better than a wall of log.
+     *
+     * Returns whether the platform took it - `false` where there is no sheet to show, no window to
+     * show it from, or no folder to write to, which leaves the caller its clipboard to fall back on.
+     * Called from a background thread, so an implementation that needs the main one asks for it.
+     */
+    fun share(fileName: String, text: String): Boolean
+}
+
+/**
+ * Where this platform keeps the app's log files: it opens them ([createLogFile]), reads them back
+ * ([LogTailReader], for the crash report), and holds the crash breadcrumb beside them
+ * ([createCrashBreadcrumbStore]). One interface, because all three are the same folder.
+ */
+interface LogFileInitializer : LogTailReader {
     /**
      * Opens [fileName] for appending in this platform's log folder, after deleting all but the
      * newest [eu.heha.conifer.log.MAX_LOG_FILES] files already there (see

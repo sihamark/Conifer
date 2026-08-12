@@ -1,6 +1,7 @@
 package eu.heha.conifer.ui.bits
 
 import eu.heha.conifer.PermissionRationale
+import eu.heha.conifer.ReportShareController
 import eu.heha.conifer.log.CrashBreadcrumb
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.DatedBits
@@ -47,6 +48,8 @@ internal const val DAY_LIST_DAYS = 30
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
+    /** Whether this platform has somewhere to send a crash report - see [ReportShareController]. */
+    val isSharePossible: Boolean = false,
     /**
      * The crash the previous run left behind, which the screen offers to report ([CrashReportPrompt]);
      * null when the last run ended the way runs are supposed to. Read once at startup - see
@@ -148,8 +151,10 @@ class BitsPaneActions(
     val onSelectTime: (LocalTime) -> Unit = {},
     val onResetToNow: () -> Unit = {},
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},
-    /** Copies the previous run's crash to the clipboard, and leaves the banner up. */
+    /** Copies the previous run's crash report to the clipboard, and leaves the banner up. */
     val onClickCopyCrashReport: () -> Unit = {},
+    /** Hands that report to the platform's share sheet (or file manager), banner still up. */
+    val onClickShareCrashReport: () -> Unit = {},
     /** Takes the crash banner down and forgets the crash it reported. */
     val onDismissCrashReport: () -> Unit = {},
     val onClickEditBit: (Bit) -> Unit = {},

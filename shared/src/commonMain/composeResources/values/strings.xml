@@ -38,7 +38,8 @@
 
     <string name="crash_prompt_lead">The last run ended in an error.</string>
     <string name="crash_prompt_unknown_error">no details recorded</string>
-    <string name="crash_prompt_note">Copying puts the build, the error and where the log file is on your clipboard — never anything you wrote.</string>
+    <string name="crash_prompt_note">The report holds the build, the error and the log of the run that crashed — never anything you wrote.</string>
+    <string name="crash_action_share">Share report…</string>
     <string name="crash_action_copy">Copy details</string>
     <string name="crash_action_dismiss">Dismiss</string>
 

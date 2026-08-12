@@ -41,6 +41,7 @@ fun main() = application {
         credentialsInitializer = JvmCredentialsInitializer,
         browserOpener = JvmBrowserOpener,
         clipboardController = JvmClipboardController,
+        reportShareController = JvmReportShareController,
         logFileInitializer = JvmLogFileInitializer,
         uncaughtErrorInitializer = JvmUncaughtErrorInitializer
     )

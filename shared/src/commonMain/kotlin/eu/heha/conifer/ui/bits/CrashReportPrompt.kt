@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.crash_action_copy
 import conifer.shared.generated.resources.crash_action_dismiss
+import conifer.shared.generated.resources.crash_action_share
 import conifer.shared.generated.resources.crash_prompt_lead
 import conifer.shared.generated.resources.crash_prompt_note
 import conifer.shared.generated.resources.crash_prompt_unknown_error
@@ -42,7 +44,12 @@ internal fun CrashReportPromptItem(
     val lastCrash = state.lastCrash
     AnimatedVisibility(lastCrash != null, modifier = modifier) {
         if (lastCrash != null) {
-            CrashReportPrompt(lastCrash, isCopyPossible = state.isCopyPossible, actions = actions)
+            CrashReportPrompt(
+                lastCrash = lastCrash,
+                isCopyPossible = state.isCopyPossible,
+                isSharePossible = state.isSharePossible,
+                actions = actions
+            )
         }
     }
 }
@@ -62,6 +69,7 @@ internal fun CrashReportPromptItem(
 private fun CrashReportPrompt(
     lastCrash: CrashBreadcrumb,
     isCopyPossible: Boolean,
+    isSharePossible: Boolean,
     actions: BitsPaneActions
 ) {
     val formats = LocalDateTimeFormats.current
@@ -114,9 +122,18 @@ private fun CrashReportPrompt(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // No clipboard on this platform leaves the banner as a notice: it still says the
-                    // run crashed, and the log file it names is still where it says it is.
+                // Three buttons is more than the narrowest window this app runs in has room for in
+                // one line, so they wrap rather than being squeezed or cut off.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Sharing first: it is the one that gets the report to somebody, where copying
+                    // only gets it as far as the clipboard. Either can be missing - a platform with
+                    // neither leaves the banner as a notice, which still says the run crashed and
+                    // still names the log file.
+                    if (isSharePossible) {
+                        TextButton(onClick = actions.onClickShareCrashReport) {
+                            Text(stringResource(Res.string.crash_action_share))
+                        }
+                    }
                     if (isCopyPossible) {
                         TextButton(onClick = actions.onClickCopyCrashReport) {
                             Text(stringResource(Res.string.crash_action_copy))

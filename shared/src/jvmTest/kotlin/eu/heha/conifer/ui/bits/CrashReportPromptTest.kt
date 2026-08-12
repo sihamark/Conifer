@@ -37,6 +37,40 @@ class CrashReportPromptTest {
         assertTrue(copied, "the copy button did not hand the report over")
     }
 
+    /** Where the platform has a share sheet, that is the offer that actually sends the report. */
+    @Test
+    fun offersToShareTheReportWhereThePlatformCan() = runComposeUiTest {
+        var shared = false
+        setContent {
+            ConiferTheme {
+                CrashReportPromptItem(
+                    state = BitsPaneState(lastCrash = LAST_CRASH, isSharePossible = true),
+                    actions = BitsPaneActions(onClickShareCrashReport = { shared = true })
+                )
+            }
+        }
+        waitForIdle()
+
+        onNodeWithText("Share report…").performClick()
+        assertTrue(shared, "the share button did not hand the report over")
+    }
+
+    /** Web has neither a log file nor a share sheet, so it gets neither offer. */
+    @Test
+    fun leavesOutTheShareButtonWhereThereIsNowhereToShareTo() = runComposeUiTest {
+        setContent {
+            ConiferTheme {
+                CrashReportPromptItem(
+                    state = BitsPaneState(lastCrash = LAST_CRASH),
+                    actions = BitsPaneActions()
+                )
+            }
+        }
+        waitForIdle()
+
+        onNodeWithText("Share report…").assertDoesNotExist()
+    }
+
     /** Dismissing is its own action, and copying deliberately is not it - see `dismissCrashReport`. */
     @Test
     fun canBeDismissed() = runComposeUiTest {

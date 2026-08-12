@@ -26,5 +26,18 @@
         <receiver
             android:name=".ConversationBroadcastReceiver"
             android:exported="false" />
+        <!-- Lets the share sheet read a crash report out of the app's own cache folder, and only
+             that folder (see res/xml/file_paths.xml) - a private file cannot otherwise be handed to
+             another app at all. The authority matches what AndroidReportShareController asks for,
+             which builds it from the package name. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

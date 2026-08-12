@@ -39,6 +39,7 @@ object ConiferApp {
         credentialsInitializer: CredentialsInitializer,
         browserOpener: BrowserOpener,
         clipboardController: ClipboardController? = null,
+        reportShareController: ReportShareController? = null,
         logFileInitializer: LogFileInitializer? = null,
         uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
     ) {
@@ -51,7 +52,14 @@ object ConiferApp {
         // Read before the handler that writes it is installed, so what the screen reports is the
         // crash of the run before this one and never one of this run's own.
         val breadcrumbs = logFileInitializer?.createCrashBreadcrumbStore()
-        val crashReports = CrashReports(breadcrumbs, readLastCrash(breadcrumbs))
+        val crashReports = CrashReports(
+            store = breadcrumbs,
+            lastCrash = readLastCrash(breadcrumbs),
+            // The log files are read back through the same thing that wrote them, and the report
+            // names the device the same way the log's own header does.
+            logFiles = logFileInitializer,
+            userAgent = coniferUserAgent(platform),
+        )
         installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog, breadcrumbs)
         startKoin {
             modules(
@@ -64,6 +72,7 @@ object ConiferApp {
                     credentialsInitializer,
                     browserOpener,
                     clipboardController,
+                    reportShareController,
                     crashReports
                 )
             )

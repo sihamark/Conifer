@@ -14,6 +14,7 @@ class ConiferApplication : Application() {
             credentialsInitializer = AndroidCredentialsInitializer(this),
             browserOpener = AndroidBrowserOpener(this),
             clipboardController = AndroidClipboardController(this),
+            reportShareController = AndroidReportShareController(this),
             logFileInitializer = AndroidLogFileInitializer(this),
             uncaughtErrorInitializer = AndroidUncaughtErrorInitializer
         )

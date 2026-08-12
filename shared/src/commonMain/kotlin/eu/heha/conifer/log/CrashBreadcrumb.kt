@@ -106,27 +106,8 @@ fun readCrashBreadcrumb(store: CrashBreadcrumbStore?): CrashBreadcrumb? {
 }
 
 /**
- * The crash as text to hand somebody: the build, the moment, the error and where the full log of
- * that run is. What the banner copies to the clipboard.
- *
- * Nothing the user wrote is in here - a bit's text never reaches a log line, and every line that
- * does went through [redactSecrets] on the way. That is what makes this safe to paste into an issue,
- * and what the banner promises.
- */
-fun crashReportText(breadcrumb: CrashBreadcrumb): String = buildString {
-    appendLine("Conifer crash report")
-    appendLine("build ${breadcrumb.buildLabel}")
-    appendLine("when  ${breadcrumb.at}")
-    appendLine("where ${breadcrumb.origin}")
-    val error = listOfNotNull(breadcrumb.type, breadcrumb.message).joinToString(": ")
-    appendLine("error ${error.ifEmpty { "unknown" }}")
-    breadcrumb.frames.forEach { appendLine("      $it") }
-    breadcrumb.logFile?.let { appendLine("log   $it") }
-}
-
-/**
- * The crash the previous run left behind, and the ability to forget it. One instance, built at
- * startup by `ConiferApp` and injected from there.
+ * The crash the previous run left behind, the report made out of it, and the ability to forget it.
+ * One instance, built at startup by `ConiferApp` and injected from there.
  *
  * [lastCrash] is read once rather than watched: the only writer is a run that is over, so it cannot
  * change while this one is looking at it. Read at startup and not on demand for a second reason -
@@ -136,7 +117,28 @@ fun crashReportText(breadcrumb: CrashBreadcrumb): String = buildString {
 class CrashReports(
     private val store: CrashBreadcrumbStore? = null,
     val lastCrash: CrashBreadcrumb? = null,
+    private val logFiles: LogTailReader? = null,
+    /** How the app names itself and this device - `coniferUserAgent`, as the log's header uses. */
+    private val userAgent: String? = null,
 ) {
+    /**
+     * The whole report for [lastCrash] - the summary and the end of the log file of the run that
+     * crashed ([crashReportText]) - or null when there is no crash to report.
+     *
+     * Reads a file, so it is not for the main thread. A log file that has since been pruned or
+     * cannot be read costs the report its second half and nothing else.
+     */
+    fun report(): String? {
+        val lastCrash = lastCrash ?: return null
+        val logTail = logTailFileName(lastCrash.logFile)?.let { fileName ->
+            runCatching { logFiles?.readLogTail(fileName, MAX_LOG_TAIL_CHARS) }.getOrNull()
+        }
+        return crashReportText(lastCrash, userAgent = userAgent, logTail = logTail)
+    }
+
+    /** What that report is called where it is shared as a file; null with no crash to report. */
+    fun reportFileName(): String? = lastCrash?.let { crashReportFileName(it) }
+
     /**
      * Drops the stored crash, so the next start says nothing. What dismissing the banner does - the
      * log file it points at stays where it is, and is pruned in its own time.

@@ -136,31 +136,13 @@ class CrashBreadcrumbTest {
     fun survivesAStoreThatCannotBeWritten() {
         val failing = object : CrashBreadcrumbStore {
             override fun write(text: String) = throw RuntimeException("no space left on device")
-            override fun read(): String? = throw RuntimeException("no space left on device")
+            override fun read(): String = throw RuntimeException("no space left on device")
             override fun clear() = throw RuntimeException("no space left on device")
         }
 
         writeCrashBreadcrumb(failing, breadcrumb())
         assertNull(readCrashBreadcrumb(failing))
         CrashReports(failing, breadcrumb()).forget()
-    }
-
-    /** Everything a report needs to be looked up: the build, the moment, the error, the log file. */
-    @Test
-    fun readsAsAReportSomebodyCanBeHanded() {
-        val text = crashReportText(
-            crashBreadcrumb(
-                error = UncaughtError(origin = "main", throwable = IllegalStateException("boom")),
-                at = AT,
-                logFile = "/logs/conifer-2026-07-28_143201.log",
-                buildLabel = BUILD_LABEL,
-            )
-        )
-
-        assertContains(text, BUILD_LABEL)
-        assertContains(text, "2026-07-28T12:34:56.789Z")
-        assertContains(text, "IllegalStateException: boom")
-        assertContains(text, "/logs/conifer-2026-07-28_143201.log")
     }
 
     /** Dismissing the banner is what forgets the crash, so the next start is quiet again. */

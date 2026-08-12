@@ -8,6 +8,7 @@ import eu.heha.conifer.log.CRASH_BREADCRUMB_FILE_NAME
 import eu.heha.conifer.log.CrashBreadcrumbStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
@@ -33,6 +34,21 @@ object IosLogFileInitializer : LogFileInitializer {
     override fun createCrashBreadcrumbStore(): CrashBreadcrumbStore? {
         val folder = logFolder() ?: return null
         return PosixCrashBreadcrumbStore("$folder/$CRASH_BREADCRUMB_FILE_NAME")
+    }
+
+    /**
+     * The end of a run's log, for a crash report - a name resolved against the log folder rather
+     * than a path, see [LogTailReader]. Whole file in, tail out: a run log is small, and seeking to
+     * the tail of a UTF-8 file lands mid-character often enough not to bother.
+     */
+    override fun readLogTail(fileName: String, maxChars: Int): String? {
+        if ('/' in fileName) return null
+        val folder = logFolder() ?: return null
+        return NSString.stringWithContentsOfFile(
+            path = "$folder/$fileName",
+            encoding = NSUTF8StringEncoding,
+            error = null,
+        )?.takeLast(maxChars)
     }
 
     /** The log folder, created if it isn't there yet; null when it cannot be had at all. */

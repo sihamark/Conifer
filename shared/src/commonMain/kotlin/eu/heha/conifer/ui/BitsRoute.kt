@@ -34,6 +34,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onResetToNow = model::resetToNow,
             onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,
             onClickCopyCrashReport = model::copyCrashReportToClipboard,
+            onClickShareCrashReport = model::shareCrashReport,
             onDismissCrashReport = model::dismissCrashReport,
             onClickEditBit = model::startEditing,
             onCancelEdit = model::cancelEdit,

@@ -122,5 +122,11 @@ committed.
   breadcrumb
   (`CrashReports`) and the bits screen offers that crash for reporting (
   `ui/bits/CrashReportPrompt`).
-  Web has neither: no file system, so `logFileInitializer` is null there and both are simply absent.
+  What it offers is `log/CrashReport`: the breadcrumb plus the tail of that run's log file, read
+  back
+  through `LogTailReader` (which `LogFileInitializer` implements) and handed to the clipboard or to
+  the platform's `ReportShareController` — share sheet on Android/iOS, a folder in the file manager
+  on desktop.
+  Web has none of it: no file system, so `logFileInitializer` is null there and the banner never
+  appears.
 - Gradle configuration cache and build cache are enabled.

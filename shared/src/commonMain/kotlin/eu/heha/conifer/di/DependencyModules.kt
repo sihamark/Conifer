@@ -7,6 +7,7 @@ import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.Platform
 import eu.heha.conifer.PreferencesInitializer
+import eu.heha.conifer.ReportShareController
 import eu.heha.conifer.log.CrashReports
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
@@ -47,6 +48,7 @@ val coreModule = module {
             dateTimeFormats = get(),
             draftPrefs = get(),
             clipboardController = getOrNull(),
+            reportShareController = getOrNull(),
             crashReports = get()
         )
     }
@@ -78,6 +80,7 @@ fun platformModule(
     credentialsInitializer: CredentialsInitializer,
     browserOpener: BrowserOpener,
     clipboardController: ClipboardController?,
+    reportShareController: ReportShareController? = null,
     crashReports: CrashReports = CrashReports()
 ) = module {
     single { platform }
@@ -88,4 +91,5 @@ fun platformModule(
     single { browserOpener }
     single { crashReports }
     clipboardController?.let { controller -> single { controller } }
+    reportShareController?.let { controller -> single { controller } }
 }
