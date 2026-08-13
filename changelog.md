@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.4
+## Version 1.2.4 (13.08.2026)
 
 - turning the screen with the keyboard up no longer takes the app down with it. The new-bit field is
   given as many lines as the room left over affords it, so a screen put away lying down and picked
