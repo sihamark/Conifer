@@ -204,7 +204,11 @@ internal fun BitsList(
                         onClickStartEdit = { actions.onClickEditBit(bit) },
                         onClickCancelEdit = actions.onCancelEdit,
                         onClickDelete = { actions.onDeleteBit(bit) },
-                        modifier = Modifier.animateItem()
+                        // The placement spring is what is wanted; the fade out is not. A bit fading
+                        // out is drawn from a layer of its own, behind the live bits and frozen
+                        // where it last was, and picking a day retires a whole screenful at once —
+                        // one of those layers has been seen to stay standing behind the new list.
+                        modifier = Modifier.animateItem(fadeOutSpec = null)
                     )
                 }
             }

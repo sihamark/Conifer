@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.2.5
+
+- the bits of the day you left no longer stay standing behind the ones you picked. Opening the app
+  and landing on a day sometimes left the previous list showing through underneath it — a second
+  screenful of bits from other days, sitting still while the real list scrolled over them, until
+  something emptied the list and swept them away. They were the bits on their way out: a bit leaving
+  the list used to fade rather than go, and a whole list leaving at once left one of those fades
+  hanging. A bit that goes is gone at once now, and the ones below it slide up into its place
+
 ## Version 1.2.4 (13.08.2026)
 
 - turning the screen with the keyboard up no longer takes the app down with it. The new-bit field is
