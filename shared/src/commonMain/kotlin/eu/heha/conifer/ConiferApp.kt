@@ -23,6 +23,7 @@ import eu.heha.conifer.log.logTailFileName
 import eu.heha.conifer.log.logUncaughtError
 import eu.heha.conifer.log.readLastRun
 import eu.heha.conifer.log.writeLastRun
+import eu.heha.conifer.log.writeLogClosed
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.LocalDateTimeFormats
@@ -47,7 +48,7 @@ object ConiferApp {
         reportShareController: ReportShareController? = null,
         logFileInitializer: LogFileInitializer? = null,
         uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
-        logClosingInitializer: LogClosingInitializer? = null,
+        appPresenceInitializer: AppPresenceInitializer? = null,
     ) {
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
         // R8/ProGuard optimization in release builds — so only install it for debug builds.
@@ -60,7 +61,8 @@ object ConiferApp {
         val lastRun = logFileInitializer?.createLastRunStore()
         val runEndReports = startRunEndReports(lastRun, logFileInitializer, fileAntilog, platform)
         installUncaughtErrorHandler(uncaughtErrorInitializer, fileAntilog, lastRun)
-        installLogClosing(logClosingInitializer, fileAntilog)
+        val appPresence = AppPresence()
+        installAppPresence(appPresenceInitializer, fileAntilog, lastRun, appPresence)
         startKoin {
             modules(
                 coreModule,
@@ -73,7 +75,8 @@ object ConiferApp {
                     browserOpener,
                     clipboardController,
                     reportShareController,
-                    runEndReports
+                    runEndReports,
+                    appPresence
                 )
             )
         }
@@ -151,17 +154,31 @@ object ConiferApp {
     }
 
     /**
-     * Has the log say goodbye whenever this platform knows the app is about to be put away, so that
-     * a log which simply stops means something (see [LogClosingInitializer]).
+     * Hands this platform's notice that the app has been put away, or brought back, to the two
+     * things that live off it (see [AppPresenceInitializer]): the log, which says goodbye so that a
+     * log which simply stops means something, and [presence], which is how the rest of the app finds
+     * out that nobody is looking.
+     *
+     * The log part is conditional on there being a log at all; the presence part is not, since a
+     * platform that writes no log still has an app that can be put away.
      */
-    private fun installLogClosing(
-        initializer: LogClosingInitializer?,
+    private fun installAppPresence(
+        initializer: AppPresenceInitializer?,
         fileAntilog: FileAntilog?,
+        lastRun: LastRunStore?,
+        presence: AppPresence,
     ) {
-        fileAntilog ?: return
         initializer?.installHandler(
-            closeLog = { fileAntilog.closeLog() },
-            reopenLog = { fileAntilog.reopenLog() },
+            onPutAway = {
+                presence.onPutAway()
+                fileAntilog?.closeLog()
+                writeLogClosed(lastRun, true)
+            },
+            onBroughtBack = {
+                presence.onBroughtBack()
+                fileAntilog?.reopenLog()
+                writeLogClosed(lastRun, false)
+            },
         )
     }
 

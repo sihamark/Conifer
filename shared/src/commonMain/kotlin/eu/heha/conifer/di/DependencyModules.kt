@@ -1,5 +1,6 @@
 package eu.heha.conifer.di
 
+import eu.heha.conifer.AppPresence
 import eu.heha.conifer.BrowserOpener
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.CredentialsInitializer
@@ -58,6 +59,7 @@ val coreModule = module {
         SyncViewModel(
             coordinator = get(),
             bitsRepository = get(),
+            appPresence = get(),
             clipboardController = getOrNull()
         )
     }
@@ -71,6 +73,10 @@ val coreModule = module {
  * behind, read once in `ConiferApp.initialize` - and comes in here for the same reason: it is decided
  * before the graph is built and cannot be resolved from inside it. It defaults to an empty one, which
  * is what a test or a preview graph has: no crash to report and nowhere to forget it.
+ *
+ * [appPresence] comes in for the same reason again: the platform's notice is installed into it before
+ * the graph exists. Its default is one nothing ever puts away, which is what a test or a preview
+ * wants - always on screen.
  */
 fun platformModule(
     platform: Platform,
@@ -81,7 +87,8 @@ fun platformModule(
     browserOpener: BrowserOpener,
     clipboardController: ClipboardController?,
     reportShareController: ReportShareController? = null,
-    runEndReports: RunEndReports = RunEndReports()
+    runEndReports: RunEndReports = RunEndReports(),
+    appPresence: AppPresence = AppPresence()
 ) = module {
     single { platform }
     single { dateTimeFormats }
@@ -90,6 +97,7 @@ fun platformModule(
     single { credentialsInitializer }
     single { browserOpener }
     single { runEndReports }
+    single { appPresence }
     clipboardController?.let { controller -> single { controller } }
     reportShareController?.let { controller -> single { controller } }
 }

@@ -23,6 +23,11 @@ data class LastRunRecord(
     val crash: CrashBreadcrumb? = null,
     /** A run that ended without a word, carried until the user has been told about it. */
     val vanish: VanishedRun? = null,
+    /**
+     * Whether this run has said goodbye and not taken it back - see [writeLogClosed], which is also
+     * why this is here rather than read off the end of the log.
+     */
+    val isLogClosed: Boolean = false,
 )
 
 /**
@@ -73,13 +78,16 @@ private const val LOG_ENDING_CHARS = 2_000
  * ordinary case, and includes a first ever start (no record) and a run that closed its log.
  *
  * In order: a crash explains itself; an ending already worked out and not yet dismissed is carried
- * on unchanged, so that restarting before getting round to reporting it loses nothing; and failing
- * both, the log file the last run was writing is read to see whether it stops mid-sentence.
+ * on unchanged, so that restarting before getting round to reporting it loses nothing; a run that
+ * said goodbye ([LastRunRecord.isLogClosed]) was put away, and being killed after that is ordinary;
+ * and failing all three, the log file the last run was writing is read to see whether it stops
+ * mid-sentence.
  */
 fun lastRunEnd(record: LastRunRecord?, logFiles: LogTailReader?): LastRunEnd? {
     record ?: return null
     record.crash?.let { return LastRunEnd.Crashed(it) }
     record.vanish?.let { return LastRunEnd.Vanished(it) }
+    if (record.isLogClosed) return null
     val logFile = logTailFileName(record.runningLogFile) ?: return null
     val ending = runCatching { logFiles?.readLogTail(logFile, LOG_ENDING_CHARS) }.getOrNull()
     // A log that cannot be read is not evidence of anything; it is pruned, or it was never written.
@@ -94,10 +102,12 @@ fun lastRunEnd(record: LastRunRecord?, logFiles: LogTailReader?): LastRunEnd? {
 
 /**
  * Whether a log ending in [tail] belongs to a run that said goodbye - the [LOG_CLOSED_MARKER] its
- * last line, put there by the platform's [eu.heha.conifer.LogClosingInitializer].
+ * last line, put there by the platform's [eu.heha.conifer.AppPresenceInitializer].
  *
- * The marker has to be *last*: it is written whenever being killed becomes ordinary (a phone app
- * going to the background), and a run that came back and carried on has log lines after it.
+ * Only the fallback for a record written before [LastRunRecord.isLogClosed] existed, and only ever
+ * forgiving: a phone app that has been put away is not stopped, and anything it does in the
+ * background afterwards writes lines after the marker, which is why this question is no longer the
+ * one that decides.
  */
 fun lastRunEndedQuietly(tail: String): Boolean =
     tail.trimEnd().lines().lastOrNull()?.endsWith(LOG_CLOSED_MARKER) == true
@@ -118,4 +128,20 @@ fun readLastRun(store: LastRunStore?): LastRunRecord? {
 fun writeLastRun(store: LastRunStore?, record: LastRunRecord) {
     store ?: return
     runCatching { store.write(AppJson.encodeToString(record)) }
+}
+
+/**
+ * Notes in [store] that this run has said goodbye ([isClosed]) or taken it back, leaving the rest of
+ * the record - this run's log file, an ending nobody has dismissed yet - as it was.
+ *
+ * Here rather than only at the end of the log because a phone app that is put away is not stopped:
+ * it keeps its process, and whatever it goes on doing there - a sync round every few minutes, a
+ * draft saving itself - writes lines after the marker. Reading the log's last line then said
+ * "vanished" about the most ordinary ending there is. The marker still goes into the log for
+ * whoever reads it; this is what the next start decides on.
+ */
+fun writeLogClosed(store: LastRunStore?, isClosed: Boolean) {
+    store ?: return
+    val record = readLastRun(store) ?: return
+    writeLastRun(store, record.copy(isLogClosed = isClosed))
 }

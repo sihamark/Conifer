@@ -68,7 +68,7 @@ class FileAntilog(
 
     /**
      * Ends the log with [LOG_CLOSED_MARKER]: the run is at a point where being killed is ordinary
-     * (see [eu.heha.conifer.LogClosingInitializer]), and this is what the next start reads to tell
+     * (see [eu.heha.conifer.AppPresenceInitializer]), and this is what the next start reads to tell
      * an ordinary ending from a run that simply stopped ([lastRunEndedQuietly]).
      *
      * Blocking, for the same reason the crash line is: on a desktop this runs in a shutdown hook,

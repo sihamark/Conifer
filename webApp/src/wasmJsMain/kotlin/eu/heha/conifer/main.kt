@@ -19,7 +19,7 @@ fun main() {
         // WasmLogFileInitializer for what that costs and why a tab is worth it anyway.
         logFileInitializer = WasmLogFileInitializer,
         uncaughtErrorInitializer = WasmUncaughtErrorInitializer,
-        logClosingInitializer = WasmLogClosingInitializer
+        appPresenceInitializer = WasmAppPresenceInitializer
     )
     ComposeViewport(document.body!!) {
         ConiferApp.AppContent()

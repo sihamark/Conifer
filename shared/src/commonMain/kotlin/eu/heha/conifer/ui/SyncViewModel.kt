@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import eu.heha.conifer.AppPresence
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.sync.SyncConnectionState
@@ -13,23 +14,31 @@ import eu.heha.conifer.sync.SyncTrigger
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
  * Thin Compose-facing wrapper around [SyncCoordinator]: owns the sync surface's visibility and the
  * server-url input the coordinator itself has no opinion about, plus the background triggers
- * spec §5 calls for (debounced-after-edit, periodic) - the coordinator only ever runs when told
- * to, so sync stays fully opt-in regardless of what this class schedules.
+ * spec §5 calls for (debounced-after-edit, and [runSyncTriggers] for the other two) - the
+ * coordinator only ever runs when told to, so sync stays fully opt-in regardless of what this class
+ * schedules.
  */
 @OptIn(FlowPreview::class)
 class SyncViewModel(
     private val coordinator: SyncCoordinator,
     private val bitsRepository: BitsRepository,
+    /** Whether anybody is looking - see [runSyncTriggers], which is all this is used for. */
+    appPresence: AppPresence = AppPresence(),
     /** Absent on platforms without a clipboard; the copy affordance is then simply not offered. */
     private val clipboardController: ClipboardController? = null,
 ) : ViewModel() {
@@ -59,13 +68,12 @@ class SyncViewModel(
             }
         }
         viewModelScope.launch {
-            // spec §5 trigger: "optionally periodic" - this single-screen app has no separate
-            // foreground/background lifecycle signal to hook a real "app foreground" trigger
-            // into instead, so a periodic loop stands in for it while the app is running.
-            while (isActive) {
-                delay(SYNC_INTERVAL)
-                coordinator.syncNow(SyncTrigger.Periodic)
-            }
+            // spec §5 triggers: "after the app comes to the front" and "optionally periodic".
+            runSyncTriggers(
+                isOnScreen = appPresence.isOnScreen,
+                connection = coordinator.state,
+                interval = SYNC_INTERVAL
+            ) { trigger -> coordinator.syncNow(trigger) }
         }
     }
 
@@ -204,5 +212,45 @@ class SyncViewModel(
     private companion object {
         val SYNC_INTERVAL = 5.minutes
     }
+}
+
+/**
+ * The sync triggers that nobody asks for: one round when the app comes to the front, and one every
+ * [interval] for as long as it stays there and stays connected. Runs until cancelled; [sync] is
+ * [SyncCoordinator.syncNow].
+ *
+ * Neither runs off screen. A phone app that has been put away is not stopped - it keeps its process
+ * for as long as the system lets it - so the old loop went on syncing with nobody watching, which
+ * costs battery for bits nobody is reading and buried the app's own goodbye in the log under the
+ * lines it wrote afterwards (see [eu.heha.conifer.AppPresenceInitializer]). Neither runs while
+ * disconnected either, where every round was only ever a "skipped - not connected" line.
+ *
+ * Coming to the front is not on its own a reason to sync: a rotation puts the app away and brings it
+ * straight back, and so does a glance at another app. So a round that has just run - less than
+ * [interval] ago, as the connection itself reports - is left to stand, and the loop below is what
+ * catches up eventually.
+ */
+internal suspend fun runSyncTriggers(
+    isOnScreen: Flow<Boolean>,
+    connection: Flow<SyncConnectionState>,
+    interval: Duration,
+    clock: Clock = Clock.System,
+    sync: suspend (SyncTrigger) -> Unit,
+) {
+    combine(isOnScreen, connection) { onScreen, connectionState ->
+        (connectionState as? SyncConnectionState.Connected)?.takeIf { onScreen }
+    }
+        // Only the difference between being able to sync and not: a connection that reports a round
+        // starting, finishing or being logged in as somebody else is not a reason to start over.
+        .distinctUntilChangedBy { it != null }
+        .collectLatest { connected ->
+            connected ?: return@collectLatest
+            val sinceLastSync = connected.lastSyncAt?.let { clock.now() - it }
+            if (sinceLastSync == null || sinceLastSync >= interval) sync(SyncTrigger.AppForeground)
+            while (true) {
+                delay(interval)
+                sync(SyncTrigger.Periodic)
+            }
+        }
 }
 

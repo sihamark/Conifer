@@ -16,7 +16,7 @@ object IosConiferApp {
             reportShareController = IosReportShareController,
             logFileInitializer = IosLogFileInitializer,
             uncaughtErrorInitializer = IosUncaughtErrorInitializer,
-            logClosingInitializer = IosLogClosingInitializer
+            appPresenceInitializer = IosAppPresenceInitializer
         )
     }
 }

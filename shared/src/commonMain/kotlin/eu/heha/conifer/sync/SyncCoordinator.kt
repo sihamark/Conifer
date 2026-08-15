@@ -222,6 +222,7 @@ class SyncCoordinator(
 enum class SyncTrigger(val label: String) {
     Manual("manual"),
     AfterEdit("after edit"),
+    AppForeground("app to the front"),
     Periodic("periodic"),
     AfterConnect("after connect"),
     AfterAppRootChange("app folder changed"),
