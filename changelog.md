@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.5
+## Version 1.2.5 (16.08.2026)
 
 - sync now follows the app rather than the clock. It used to run every five minutes for as long as
   the app had a process — which on a phone is long after you have put it away, so it kept syncing,
