@@ -219,7 +219,16 @@ internal fun handleShortcut(
  * lets it swallow the keys that would otherwise land in the text field behind this.
  */
 @Composable
-internal fun ShortcutsOverlay(chord: ShortcutChord, onDismiss: () -> Unit) {
+internal fun ShortcutsOverlay(
+    chord: ShortcutChord,
+    onDismiss: () -> Unit,
+    /**
+     * Whether this is a build being worked on (`ConiferApp.isDebug`, which `BitsRoute` reads). The
+     * card is where the tools for breaking the app on purpose live, and they are for whoever is
+     * building it - defaulted to false, so a preview or a test shows the card as a user sees it.
+     */
+    isDebug: Boolean = false
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -257,12 +266,20 @@ internal fun ShortcutsOverlay(chord: ShortcutChord, onDismiss: () -> Unit) {
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    FilledTonalButton(
-                        {
-                            error("this is a debug crash, build to test the log test")
+                    // Only ever in a build somebody is working on: it exists to end the run on
+                    // purpose, which is how the crash notice and the report it offers are tried out
+                    // (see `RunEndPrompt`), and a button that crashes the app is the last thing a
+                    // release should hand anybody.
+                    if (isDebug) {
+                        FilledTonalButton(
+                            onClick = {
+                                val errorText = (0..1)
+                                    .joinToString { "this is a debug crash, build to test the log test\n" }
+                                error(errorText)
+                            }
+                        ) {
+                            Text("debug crash")
                         }
-                    ) {
-                        Text("debug crash")
                     }
                     shortcutGroups(chord).forEachIndexed { index, group ->
                         if (index > 0) Spacer(Modifier.height(16.dp))

@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import eu.heha.conifer.ConiferApp.initialize
 import eu.heha.conifer.ConiferApp.installUncaughtErrorHandler
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.di.coreModule
@@ -36,6 +37,19 @@ import kotlin.time.Clock
 
 object ConiferApp {
 
+    /**
+     * Whether this is a build someone is working on rather than one someone is using - what every
+     * entry point already knows and hands to [initialize] (`BuildConfig.DEBUG` on Android, the
+     * property the Gradle `run` task sets on the desktop, and so on).
+     *
+     * Kept because the screen asks it too: the tools that are only there to break the app on purpose
+     * are shown to whoever is building it and to nobody else (see `ShortcutsOverlay`). False until
+     * [initialize] says otherwise, so anything that runs without it - a preview, a test - gets the
+     * quiet answer.
+     */
+    var isDebug: Boolean = false
+        private set
+
     fun initialize(
         isDebug: Boolean,
         platform: Platform,
@@ -50,6 +64,7 @@ object ConiferApp {
         uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
         appPresenceInitializer: AppPresenceInitializer? = null,
     ) {
+        this.isDebug = isDebug
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
         // R8/ProGuard optimization in release builds — so only install it for debug builds.
         if (isDebug) {
@@ -188,8 +203,9 @@ object ConiferApp {
      * run is the last thing the log of that run says. Without this the run just stops mid-sentence,
      * and a log shared afterwards has no answer for why.
      *
-     * The same error also goes into [breadcrumbs] in short form, which is what the next run reads to
-     * offer the crash for sharing - the log file alone waits for somebody to think of looking.
+     * The same error also goes into [eu.heha.conifer.log.CrashBreadcrumb] in short form, which is
+     * what the next run reads to offer the crash for sharing - the log file alone waits for
+     * somebody to think of looking.
      *
      * Installed here rather than lazily, and right after the log file, so that the window in which a
      * crash goes unrecorded is as small as the app can make it: everything after this line - Koin,

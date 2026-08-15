@@ -1,9 +1,14 @@
 package eu.heha.conifer.ui.bits
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import eu.heha.conifer.log.CrashBreadcrumb
 import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.ui.theme.ConiferTheme
@@ -110,6 +115,37 @@ class RunEndPromptTest {
         onNodeWithText("Dismiss").assertExists()
     }
 
+    /**
+     * The banner floats over the bits with nothing under it to stop at, so an error long enough to
+     * make it taller than the window would push its own buttons off the bottom - leaving a notice
+     * covering the app with no way to dismiss it. That is what `summaryMaxLines` is for, and this
+     * hands it the worst case: the most lines any window grants, and a message with no end to it.
+     */
+    @Test
+    fun keepsItsButtonsReachableWhenTheErrorIsEnormous() = runComposeUiTest {
+        setContent {
+            ConiferTheme {
+                Box(Modifier.size(400.dp, 600.dp)) {
+                    RunEndPromptItem(
+                        state = BitsPaneState(
+                            lastRunEnd = LastRunEnd.Crashed(LAST_CRASH.copy(message = STACKMAP_DUMP))
+                        ),
+                        actions = BitsPaneActions(),
+                        // What the tallest windows give it; see `currentRunEndMaxLines`.
+                        summaryMaxLines = 8
+                    )
+                }
+            }
+        }
+        waitForIdle()
+
+        // Displayed, not merely present: off the bottom of the window it would still exist.
+        onNodeWithText("Dismiss").assertIsDisplayed()
+        onNodeWithText("Copy details").assertIsDisplayed()
+        // And the sentence saying what it is survives the error rather than being crowded out by it.
+        onNodeWithText("The last run ended in an error.", substring = true).assertIsDisplayed()
+    }
+
     @Test
     fun staysAwayWhenTheLastRunEndedNormally() = runComposeUiTest {
         setContent {
@@ -134,5 +170,15 @@ class RunEndPromptTest {
             frames = listOf("at eu.heha.conifer.sync.SyncEngine.push(SyncEngine.kt:214)"),
             logFile = "/logs/conifer-2026-07-28_143201.log",
         )
+
+        /**
+         * The shape of the message that started this: a `VerifyError` listing every local in the
+         * frame. Built here rather than read off a breadcrumb, because `crashBreadcrumb` cuts a
+         * message to [eu.heha.conifer.log.MAX_CRASH_MESSAGE_CHARS] on the way in - and the banner
+         * has to hold its shape whatever it is handed, including a record an older version wrote.
+         */
+        val STACKMAP_DUMP = "Inconsistent stackmap frames at branch target 2596. locals: { " +
+                "'androidx/compose/ui/Modifier', 'androidx/compose/runtime/Composer', ".repeat(60) +
+                "}"
     }
 }
