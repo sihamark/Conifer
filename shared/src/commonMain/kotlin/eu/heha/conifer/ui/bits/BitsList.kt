@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -25,8 +26,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
@@ -61,6 +64,11 @@ internal fun BitsList(
     // The DAO delivers bits newest-first; presenting everything reversed puts the newest bits at
     // the bottom next to the input while sticky day headers still pin to the top.
     val listState = rememberLazyListState()
+    // How much of the list's top the floating top bar covers. A bit underneath it is no more in
+    // view than one below the bottom edge, so the jump below counts that height as out of view.
+    val topBarInset = with(LocalDensity.current) {
+        if (isTopBarVisible) TopAppBarDefaults.TopAppBarExpandedHeight.roundToPx() else 0
+    }
     // Jump to a bit that was just added or edited. Keyed on the list: scrollToBitId is already in
     // the state by the time the bit is saved, but only becomes scrollable once the database flow
     // has delivered it. Clearing the id afterwards must not rerun this.
@@ -68,9 +76,12 @@ internal fun BitsList(
         val targetId = state.scrollToBitId ?: return@LaunchedEffect
         val targetIndex = visibleBitsByDate.indexOfBit(targetId)
         if (targetIndex != null) {
-            val isAlreadyVisible = listState.layoutInfo.visibleItemsInfo
-                .any { it.key == targetId }
-            if (!isAlreadyVisible) {
+            // This effect runs with the composition that brought the bit in, and whether the
+            // measure pass that first places it has already happened by then is not something to
+            // rely on — it is a matter of how the platform dispatches the frame. Letting one pass
+            // makes the layout the question below is put to describe a list that holds the bit.
+            withFrameNanos { }
+            if (!listState.isFullyVisible(targetId, topBarInset)) {
                 // A negative offset lands the bit a third down the viewport, clear of the floating
                 // top bar and the pinned sticky day header.
                 listState.animateScrollToItem(
@@ -91,7 +102,7 @@ internal fun BitsList(
     // (ETags, dirty flags, modification stamps), which makes the list unequal to the previous one
     // without changing a thing the reader can see; re-anchoring on that yanked the list to the
     // bottom mid-sync, out from under someone reading further up.
-    LaunchedEffect(state.selectedDate, visibleBitsByDate.isEmpty()) {
+    LaunchedEffect(state.filterDate, visibleBitsByDate.isEmpty()) {
         if (visibleBitsByDate.isEmpty() || state.scrollToBitId != null) return@LaunchedEffect
         listState.scrollToItem(visibleBitsByDate.lastListIndex())
     }
@@ -108,7 +119,7 @@ internal fun BitsList(
             }
             PermissionPromptItem(permissionRationale, actions)
             EmptyState(
-                isFilteredByDate = state.selectedDate != null &&
+                isFilteredByDate = state.filterDate != null &&
                         state.bitsByDate.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -158,6 +169,21 @@ internal fun BitsList(
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
+}
+
+/**
+ * Whether the item keyed [key] is in view *in full* — not merely laid out somewhere in the viewport,
+ * but clear of the bottom edge and of the [topInset] the floating top bar covers.
+ *
+ * Partial visibility is not enough for the one bit this is asked about, the one just written: added
+ * directly below the last item in view it ends up peeking over the bottom edge by a few pixels,
+ * which the list's own notion of visible counts as visible — and then it is left half-hidden under
+ * the composer, in the one case the jump exists for.
+ */
+private fun LazyListState.isFullyVisible(key: Any, topInset: Int): Boolean {
+    val item = layoutInfo.visibleItemsInfo.firstOrNull { it.key == key } ?: return false
+    return item.offset >= layoutInfo.viewportStartOffset + topInset &&
+            item.offset + item.size <= layoutInfo.viewportEndOffset
 }
 
 // Items preceding the first day header: top-bar spacer, permission prompt, beginning note.

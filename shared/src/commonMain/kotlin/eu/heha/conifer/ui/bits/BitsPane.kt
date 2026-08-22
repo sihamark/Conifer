@@ -110,7 +110,7 @@ fun BitsPane(
                 Row {
                     DaySidebar(
                         bitsByDate = state.bitsByDate,
-                        selectedDate = state.selectedDate,
+                        selectedDate = state.filterDate,
                         currentDate = state.today,
                         isTopBarVisible = isTopBarVisible,
                         onClickDate = actions.onClickDate,
@@ -176,9 +176,9 @@ private fun MainPane(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    // The state always holds all days; a selected date only filters what the list (and
-    // the counter) shows, so the day chips keep their indicators while filtering.
-    val visibleBitsByDate = state.selectedDate?.let { selected ->
+    // The state always holds all days; the day filter only decides what the list (and the counter)
+    // shows, so the day chips keep their indicators while filtering.
+    val visibleBitsByDate = state.filterDate?.let { selected ->
         state.bitsByDate.filter { it.date == selected }
     } ?: state.bitsByDate
     // From the mockup: once the pane shares the window with something else, the bits and the
@@ -367,8 +367,9 @@ private fun Composer(
         ) {
             DateTimeSelector(
                 bitsByDate = state.bitsByDate,
-                selectedDate = state.selectedDate,
-                selectedTime = state.selectedTime,
+                composerDate = state.composerDate,
+                composerTime = state.composerTime,
+                filterDate = state.filterDate,
                 currentDate = state.today,
                 currentTime = state.currentTime,
                 isEditing = state.editingBitId != null,

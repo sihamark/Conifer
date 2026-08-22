@@ -2,6 +2,24 @@
 
 ## Version 1.2.3
 
+- saving an edited bit no longer throws the list around. The day filter and the date the composer
+  writes with used to be one and the same, so starting an edit filtered the list to that bit's day
+  and saving it lifted the filter again — the list was rebuilt twice around every edit, and the
+  scroll position had nothing left to hold on to. They are two things now: the day lists (the day
+  strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
+  the list stays exactly where it was, and a day you picked stays picked
+- a new bit that lands right below the last one in view is scrolled to properly. A few pixels of it
+  peeking over the bottom edge counted as visible, so the list left it there, half under the input —
+  the one place a bit just written must not be. It now has to be in view in full, clear of the
+  bottom edge and of the top bar floating over the list, before the jump is considered unnecessary
+- the date chip goes back to what it showed before an edit when the edit is saved or cancelled,
+  instead of falling back to "now" — a day picked for the bits you are writing survives editing an
+  older one in passing
+- a bit written for a day other than the one the list is filtered to now pulls the filter to that
+  day, so it can't be saved into thin air
+- **back to now** next to the date chip no longer lifts the day filter as well; it clears the chip,
+  which is what it sits next to. Use the selected day again (or *All days* in the sidebar) to see
+  every day
 - a long bit now wraps into several lines instead of scrolling sideways through a single one. How
   many depends on the room actually left — the window minus the keyboard, so a phone counts what it
   has while typing, not what it has with the keyboard away: two lines on a phone held upright or a

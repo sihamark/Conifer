@@ -13,9 +13,6 @@ import eu.heha.conifer.ui.bits.BitsPaneState
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
@@ -33,13 +30,16 @@ class BitsViewModel(
     /** Collection of the currently bound handler, see [bindPermissionHandler]. */
     private var permissionJob: Job? = null
 
-    private val selectedDate = MutableStateFlow<LocalDate?>(null)
-
-    // null means "use the current time when the bit is added"
-    private val selectedTime = MutableStateFlow<LocalTime?>(null)
-
     // The bit currently being edited inline, if any. Retained so its id/createdAt survive a save.
     private var editingBit: Bit? = null
+
+    /**
+     * What the composer was set to before the current edit started, put back when the edit ends.
+     *
+     * Editing loads the edited bit's date and time into the composer, so without remembering them
+     * a selection the user had made for the bits they are writing would be lost to a passing edit.
+     */
+    private var composerSelectionBeforeEdit: ComposerSelection? = null
 
     var state by mutableStateOf(
         BitsPaneState(
@@ -51,12 +51,7 @@ class BitsViewModel(
     init {
         viewModelScope.launch {
             launch {
-                combine(
-                    repository.getBits(),
-                    selectedDate
-                ) { bits, selectedDate ->
-                    bits to selectedDate
-                }.collect { (bits, selectedDate) ->
+                repository.getBits().collect { bits ->
                     Napier.d { "has found ${bits.size} bits" }
                     var datedBits: List<DatedBits> = listOf()
 
@@ -75,17 +70,9 @@ class BitsViewModel(
                         }
                     }
 
-                    // All days stay in the state; the selected date only filters what the list
-                    // shows, so the day chips keep their indicators while filtering.
-                    state = state.copy(
-                        selectedDate = selectedDate,
-                        bitsByDate = datedBits
-                    )
-                }
-            }
-            launch {
-                selectedTime.collect { time ->
-                    state = state.copy(selectedTime = time)
+                    // All days stay in the state; the day filter only decides what the list shows,
+                    // so the day chips keep their indicators while filtering.
+                    state = state.copy(bitsByDate = datedBits)
                 }
             }
             launch { trackCurrentDateTime() }
@@ -151,33 +138,44 @@ class BitsViewModel(
             if (edited != null) {
                 repository.update(edited.copy(text = newBitText, date = date))
                 submittedBitId = edited.id
-                // The selection was loaded from the edited bit; drop it so it doesn't leak into
-                // the next new bit. A manually chosen selection is kept when adding, so several
-                // bits can be entered for the same date/time in a row.
                 editingBit = null
-                selectedDate.update { null }
-                selectedTime.update { null }
             } else {
                 val newBit = Bit(text = newBitText, date = date)
                 repository.add(newBit)
                 submittedBitId = newBit.id
             }
+            // A selection the user made by hand for new bits is kept, so several bits can be
+            // entered for the same date and time in a row. An edit's selection was loaded from the
+            // bit, so it gives way to whatever the composer was set to before the edit.
+            val composerSelection = if (edited != null) {
+                composerSelectionBeforeEdit ?: ComposerSelection()
+            } else {
+                ComposerSelection(state.composerDate, state.composerTime)
+            }
+            composerSelectionBeforeEdit = null
             state = state.copy(
                 newBitText = "",
                 editingBitId = null,
+                composerDate = composerSelection.date,
+                composerTime = composerSelection.time,
+                // A filtered list follows the bit that was just written when it lands on another
+                // day, so it stays in view (and can be scrolled to) instead of disappearing behind
+                // the filter. Filtered to the day it landed on anyway — the common case — this
+                // changes nothing, which is the point: the list keeps its scroll position.
+                filterDate = if (state.filterDate != null) date.date else null,
                 scrollToBitId = submittedBitId
             )
         }
     }
 
     /**
-     * Combines the (optionally) selected date and time. When neither is selected the current
-     * date and time are used; a selected date keeps the current time-of-day and vice versa.
+     * Combines the composer's (optionally) chosen date and time. When neither is chosen the current
+     * date and time are used; a chosen date keeps the current time-of-day and vice versa.
      */
     private fun newBitDateTime(): LocalDateTime {
         val current = now()
-        return (selectedDate.value ?: current.date)
-            .atTime(selectedTime.value ?: current.time)
+        return (state.composerDate ?: current.date)
+            .atTime(state.composerTime ?: current.time)
     }
 
     fun onNewBitTextChange(newBit: String) {
@@ -187,20 +185,39 @@ class BitsViewModel(
     /**
      * Starts editing [bit] by loading its text into the shared new-bit text field and its date and
      * time into the date/time selector, so the existing input controls are reused for editing.
+     *
+     * The day filter is deliberately left alone: it says which day the user chose to look at, and
+     * editing one of the bits in front of them is no such choice. Filtering along would rebuild the
+     * list under the bit being edited — and rebuild it again on saving — which is exactly what the
+     * scroll position cannot survive.
      */
     fun startEditing(bit: Bit) {
+        // Switching straight from one bit to another keeps what was remembered for the first, so
+        // the date the earlier edit loaded doesn't become what the composer is restored to.
+        if (editingBit == null) {
+            composerSelectionBeforeEdit =
+                ComposerSelection(state.composerDate, state.composerTime)
+        }
         editingBit = bit
-        selectedDate.update { bit.date.date }
-        selectedTime.update { bit.date.time }
-        state = state.copy(newBitText = bit.text, editingBitId = bit.id)
+        state = state.copy(
+            newBitText = bit.text,
+            editingBitId = bit.id,
+            composerDate = bit.date.date,
+            composerTime = bit.date.time
+        )
     }
 
-    /** Leaves edit mode without saving, clearing the shared input controls. */
+    /** Leaves edit mode without saving, putting the composer back the way the edit found it. */
     fun cancelEdit() {
         editingBit = null
-        selectedDate.update { null }
-        selectedTime.update { null }
-        state = state.copy(newBitText = "", editingBitId = null)
+        val restored = composerSelectionBeforeEdit ?: ComposerSelection()
+        composerSelectionBeforeEdit = null
+        state = state.copy(
+            newBitText = "",
+            editingBitId = null,
+            composerDate = restored.date,
+            composerTime = restored.time
+        )
     }
 
     /** Called by the UI once it has scrolled to (or verified visibility of) the submitted bit. */
@@ -214,29 +231,40 @@ class BitsViewModel(
         }
     }
 
+    /**
+     * Picks the day, which the day strip and the sidebar both advertise as filtering the list *and*
+     * dating what is written next — so it sets both. Picking the day that is already selected
+     * deselects it, back to all days and the current date.
+     */
     fun selectDate(newDate: LocalDate) {
-        selectedDate.update { oldDate ->
-            // if the same date is selected again, deselect it
-            if (oldDate == newDate) null else newDate
-        }
+        // Keyed on the filter, because that is the selection both day lists highlight.
+        val isDeselecting = state.filterDate == newDate
+        state = state.copy(
+            filterDate = if (isDeselecting) null else newDate,
+            composerDate = if (isDeselecting) null else newDate
+        )
     }
 
     /**
-     * Lifts the day filter (the two-pane sidebar's "All days") without touching a chosen time, so
-     * the next bit keeps that time on the current day.
+     * Shows every day again — the two-pane sidebar's "All days", which is where that layout puts
+     * what the day strip does by tapping the selected day again, so it does the same thing: the
+     * date goes back to the current one, a chosen time is kept.
      */
     fun selectAllDays() {
-        selectedDate.update { null }
+        state = state.copy(filterDate = null, composerDate = null)
     }
 
     fun selectTime(newTime: LocalTime) {
-        selectedTime.update { newTime }
+        state = state.copy(composerTime = newTime)
     }
 
-    /** Drops any custom date/time so the current date and time are used when a bit is added. */
+    /**
+     * Drops the composer's custom date/time so the current date and time are used when a bit is
+     * added. The day filter stays as it is: it belongs to the day lists, not to the date chip this
+     * sits next to — and a bit written for another day pulls the filter along by itself.
+     */
     fun resetToNow() {
-        selectedDate.update { null }
-        selectedTime.update { null }
+        state = state.copy(composerDate = null, composerTime = null)
     }
 
     fun copyBitsOfDateToClipboard(date: LocalDate) {
@@ -255,6 +283,16 @@ class BitsViewModel(
         }
     }
 }
+
+/**
+ * What the composer is set to date a bit with — null in either field meaning "whatever the clock
+ * says when it is written". Kept together so an edit can put both back at once, see
+ * [BitsViewModel.composerSelectionBeforeEdit].
+ */
+private data class ComposerSelection(
+    val date: LocalDate? = null,
+    val time: LocalTime? = null
+)
 
 /** The bits of one day, as the list and both day pickers consume them. */
 data class DatedBits(

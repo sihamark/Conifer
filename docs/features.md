@@ -12,13 +12,18 @@ launchers.
 - **Edit a Bit** — double-click a bit card or use its "⋮" menu → Edit. The text loads into the
   input field (label switches to "Edit Bit"), date/time load into the selector; save updates in
   place, cancel discards. Id and `createdAt` are kept
-  (`BitsViewModel.startEditing`/`cancelEdit`, `BitsRepository.update`).
+  (`BitsViewModel.startEditing`/`cancelEdit`, `BitsRepository.update`). Editing never touches the
+  day filter, and ending it puts back whatever date/time the selector held before, so the list is
+  not rebuilt (and its scroll position not lost) around an edit.
 - **Delete a Bit** — "⋮" menu → Delete, with a confirmation dialog before permanent deletion.
 - **Grouping by day with sticky headers** — bits are grouped per calendar day, newest first
   (`ORDER BY date DESC, created_at DESC`); each card shows only its time of day.
 - **Date picker** — expandable selector with a horizontal row of the last 30 days, showing
   3-letter weekday + day.month, today highlighted. Selecting a day filters the list and dates
-  new/edited bits; re-tapping deselects. Each day shows 1–3 dots: one for any bit that day, two
+  new/edited bits; re-tapping deselects. The two are separate state
+  (`BitsPaneState.filterDate`/`composerDate`): the day lists highlight the filtered day, the chip
+  shows the day being written to, and a bit written for another day pulls the filter along with it.
+  Each day shows 1–3 dots: one for any bit that day, two
   once both morning (before 12:00) and afternoon have at least one, three past that once the day
   holds more than 3 bits (`DatedBits.dots`).
 - **Time picker** — slider in 15-minute steps (00:00–23:45) for the bit's time of day.
