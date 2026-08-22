@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,7 +53,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -71,11 +72,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -83,7 +90,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -111,6 +119,7 @@ import conifer.shared.generated.resources.bits_message_delete_bit
 import conifer.shared.generated.resources.bits_message_empty
 import conifer.shared.generated.resources.bits_message_empty_filtered
 import conifer.shared.generated.resources.bits_title_delete_bit
+import eu.heha.conifer.PermissionRationale
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
@@ -149,9 +158,6 @@ fun BitsPane(
                 state.bitsByDate.filter { it.date == selected }
             } ?: state.bitsByDate
             val permissionRationale = state.permissionRationale
-            AnimatedVisibility(permissionRationale != null) {
-                PermissionPrompt(permissionRationale ?: "", actions)
-            }
             // The list and the top bar share a Box so the bar floats above the list instead of
             // pushing it down (and the bottom bits under the input) when it reappears. The list
             // may start underneath the bar, but its first item is the BeginningNote whose top
@@ -162,18 +168,24 @@ fun BitsPane(
                 // to the top.
                 val listState = rememberLazyListState()
                 LaunchedEffect(visibleBitsByDate) {
-                    // Leading top-bar spacer + encouragement note + one header per day + bits +
-                    // trailing spacer.
-                    val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 2
+                    // Leading top-bar spacer + permission prompt + encouragement note + one
+                    // header per day + bits + trailing spacer.
+                    val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 3
                     if (visibleBitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
                 }
                 val listModifier = Modifier.fillMaxSize()
                 if (visibleBitsByDate.isEmpty()) {
-                    EmptyState(
-                        isFilteredByDate = state.selectedDate != null &&
-                                state.bitsByDate.isNotEmpty(),
-                        modifier = listModifier
-                    )
+                    Column(listModifier) {
+                        Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+                        PermissionPromptItem(permissionRationale, actions)
+                        EmptyState(
+                            isFilteredByDate = state.selectedDate != null &&
+                                    state.bitsByDate.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                    }
                 } else {
                     LazyColumn(
                         state = listState,
@@ -186,9 +198,14 @@ fun BitsPane(
                         // Makes up for the height of the floating top bar so the top of the
                         // list can scroll fully out from underneath it.
                         item(key = "top-bar-spacer") {
-                            Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+                            Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight + 16.dp))
                         }
-                        item(key = "beginning") { BeginningNote() }
+                        item(key = "permission-prompt") {
+                            PermissionPromptItem(permissionRationale, actions)
+                        }
+                        item(key = "beginning") {
+                            BeginningNote()
+                        }
                         visibleBitsByDate.asReversed().forEach { datedBits ->
                             stickyHeader(key = datedBits.date.toEpochDays()) {
                                 DateHeader(
@@ -545,7 +562,7 @@ private fun BeginningNote(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(horizontal = 32.dp, vertical = 24.dp)
     ) {
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(4.dp))
         Text(text = "🌱", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
         Text(
@@ -617,30 +634,69 @@ private fun DateHeader(
     }
 }
 
-// todo: refactor to look like in mockup
+/** [PermissionPrompt] with its show/hide animation; nothing is shown without a rationale. */
 @Composable
-private fun PermissionPrompt(
-    permissionRationale: String,
+private fun PermissionPromptItem(
+    permissionRationale: PermissionRationale?,
     actions: BitsPaneActions
 ) {
-    Card(
-        Modifier
+    AnimatedVisibility(permissionRationale != null) {
+        if (permissionRationale != null) PermissionPrompt(permissionRationale, actions)
+    }
+}
+
+/**
+ * Compact banner asking for the notification permission, as in the mockup: a bell, the rationale
+ * with its first sentence highlighted, and a filled pill button, framed by a dashed border.
+ */
+@Composable
+private fun PermissionPrompt(
+    permissionRationale: PermissionRationale,
+    actions: BitsPaneActions
+) {
+    val shape = RoundedCornerShape(12.dp)
+    val borderColor = MaterialTheme.colorScheme.tertiary
+    val leadColor = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = permissionRationale,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(actions.onClickRequestPermission) {
-                Text(stringResource(Res.string.bits_action_grant_permission))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .drawBehind {
+                drawRoundRect(
+                    color = borderColor,
+                    cornerRadius = CornerRadius(12.dp.toPx()),
+                    style = Stroke(
+                        width = 1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(6.dp.toPx(), 6.dp.toPx())
+                        )
+                    )
+                )
             }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Text(text = "🔔", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = leadColor)) {
+                    append(permissionRationale.lead)
+                }
+                appendLine()
+                append(permissionRationale.text)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+        )
+        Button(onClick = actions.onClickRequestPermission) {
+            Text(stringResource(Res.string.bits_action_grant_permission))
         }
     }
 }
@@ -860,7 +916,7 @@ private fun DeleteConfirmationDialog(
 
 
 data class BitsPaneState(
-    val permissionRationale: String? = null,
+    val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
     val newBitText: String = "",
     val selectedDate: LocalDate? = null,
@@ -903,13 +959,17 @@ class BitsPaneActions(
     val onDeleteBit: (Bit) -> Unit = {}
 )
 
-@Preview
+@PreviewLightDark
 @Composable
 private fun BitsPanePreview() {
     ConiferTheme {
         BitsPane(
             state = BitsPaneState(
                 newBitText = "This is a new bit",
+                permissionRationale = PermissionRationale(
+                    "Add Bits from anywhere.",
+                    "Allow notifications and reply to the Conifer conversation to capture a bit without opening the app."
+                ),
                 editingBitId = "1",
                 selectedTime = LocalTime(1, 0, 0),
                 bitsByDate = listOf(
