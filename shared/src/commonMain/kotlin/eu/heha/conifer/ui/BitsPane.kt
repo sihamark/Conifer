@@ -48,6 +48,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -59,6 +60,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +72,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
@@ -81,6 +82,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
@@ -142,10 +144,15 @@ fun BitsPane(
                 // bar only animates the bar's own height and nothing else jumps.
                 .statusBarsPadding()
         ) {
+            // The state always holds all days; a selected date only filters what the list (and
+            // the counter) shows, so the day chips keep their indicators while filtering.
+            val visibleBitsByDate = state.selectedDate?.let { selected ->
+                state.bitsByDate.filter { it.date == selected }
+            } ?: state.bitsByDate
             // The top bar lives in the content column instead of the Scaffold's topBar slot, so
             // hiding it while the IME is open animates smoothly with the rest of the layout.
             AnimatedVisibility(!isImeVisible) {
-                val bitsCount = state.bitsByDate.sumOf { it.bits.size }
+                val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
                 Topbar(bitsCount)
             }
             val permissionRationale = state.permissionRationale
@@ -155,15 +162,15 @@ fun BitsPane(
             // The DAO delivers bits newest-first; presenting everything reversed puts the newest
             // bits at the bottom next to the input while sticky day headers still pin to the top.
             val listState = rememberLazyListState()
-            LaunchedEffect(state.bitsByDate) {
+            LaunchedEffect(visibleBitsByDate) {
                 // Leading encouragement note + one header per day + bits + trailing spacer.
-                val lastIndex = state.bitsByDate.sumOf { it.bits.size + 1 } + 1
-                if (state.bitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
+                val lastIndex = visibleBitsByDate.sumOf { it.bits.size + 1 } + 1
+                if (visibleBitsByDate.isNotEmpty()) listState.scrollToItem(lastIndex)
             }
             val listModifier = Modifier.weight(1f)
-            if (state.bitsByDate.isEmpty()) {
+            if (visibleBitsByDate.isEmpty()) {
                 EmptyState(
-                    isFilteredByDate = state.selectedDate != null && state.dates.isNotEmpty(),
+                    isFilteredByDate = state.selectedDate != null && state.bitsByDate.isNotEmpty(),
                     modifier = listModifier.fillMaxWidth()
                 )
             } else {
@@ -175,7 +182,7 @@ fun BitsPane(
                     modifier = listModifier
                 ) {
                     item(key = "beginning") { BeginningNote() }
-                    state.bitsByDate.asReversed().forEach { datedBits ->
+                    visibleBitsByDate.asReversed().forEach { datedBits ->
                         stickyHeader(key = datedBits.date.toEpochDays()) {
                             DateHeader(
                                 date = datedBits.date,
@@ -208,7 +215,7 @@ fun BitsPane(
                     .imePadding()
             ) {
                 DateTimeSelector(
-                    dates = state.dates,
+                    bitsByDate = state.bitsByDate,
                     selectedDate = state.selectedDate,
                     selectedTime = state.selectedTime,
                     currentDate = state.today,
@@ -259,7 +266,7 @@ private fun Topbar(bitsCount: Int) {
  */
 @Composable
 private fun DateTimeSelector(
-    dates: List<LocalDate>,
+    bitsByDate: List<DatedBits>,
     selectedDate: LocalDate?,
     selectedTime: LocalTime?,
     currentDate: LocalDate,
@@ -359,7 +366,7 @@ private fun DateTimeSelector(
         AnimatedVisibility(isExpanded) {
             Column {
                 DaySelection(
-                    dates = dates,
+                    bitsByDate = bitsByDate,
                     selectedDate = selectedDate,
                     currentDate = currentDate,
                     onClickDate = onClickDate
@@ -437,77 +444,78 @@ private fun LocalDate.label(today: LocalDate): String =
 
 @Composable
 fun DaySelection(
-    dates: List<LocalDate>,
+    bitsByDate: List<DatedBits>,
     selectedDate: LocalDate?,
     currentDate: LocalDate,
     onClickDate: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyRow(
-        reverseLayout = true,
-        modifier = modifier
-    ) {
-        item { Spacer(Modifier.width(14.dp)) }
-        items(30, key = { it }) { dayIndex ->
-            val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
-            val isSelected = date == selectedDate
-            val isCurrent = date == currentDate
-            val hasEntries = date in dates
-            Surface(
-                onClick = { onClickDate(date) },
-                shape = MaterialTheme.shapes.medium,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-                contentColor = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                border = BorderStroke(
-                    1.dp,
-                    if (isCurrent) {
+    // The clickable Surface would otherwise enforce the 48.dp minimum touch target height on
+    // every chip; lifting the enforcement lets the chips stay as flat as their content.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        LazyRow(
+            reverseLayout = true,
+            modifier = modifier
+        ) {
+            item { Spacer(Modifier.width(14.dp)) }
+            items(30, key = { it }) { dayIndex ->
+                val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
+                val isSelected = date == selectedDate
+                val isCurrent = date == currentDate
+                val dots = bitsByDate.firstOrNull { it.date == date }?.dots ?: 0
+                Surface(
+                    onClick = { onClickDate(date) },
+                    shape = MaterialTheme.shapes.medium,
+                    color = if (isSelected) {
                         MaterialTheme.colorScheme.primary
                     } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    }
-                ).takeIf { !isSelected },
-                modifier = Modifier
-                    .width(52.dp)
-                    .padding(2.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.padding(vertical = 6.dp)
+                        MaterialTheme.colorScheme.surface
+                    },
+                    contentColor = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (isCurrent) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        }
+                    ).takeIf { !isSelected },
+                    modifier = Modifier.padding(2.dp)
                 ) {
-                    Text(
-                        text = date.dayOfWeek.name.take(3),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Text(
-                        text = "${date.day}.${date.month.number}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Box(
-                        Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (hasEntries) {
-                                    MaterialTheme.colorScheme.tertiary
-                                } else {
-                                    Color.Transparent
-                                }
-                            )
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = date.dayOfWeek.name.take(3),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        Text(
+                            text = "${date.day}.${date.month.number}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // dots indicate how much has been written in a day
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            repeat(dots) {
+                                Box(
+                                    Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.tertiary)
+                                )
+                            }
+                        }
+                    }
                 }
             }
+            item { Spacer(Modifier.width(14.dp)) }
         }
-        item { Spacer(Modifier.width(14.dp)) }
     }
 }
 
@@ -842,7 +850,6 @@ data class BitsPaneState(
     val selectedTime: LocalTime? = null,
     val today: LocalDate = now().date,
     val currentTime: LocalTime = now().time,
-    val dates: List<LocalDate> = emptyList(),
     val bitsByDate: List<DatedBits> = emptyList(),
     val editingBitId: String? = null
 )
@@ -850,7 +857,21 @@ data class BitsPaneState(
 data class DatedBits(
     val date: LocalDate,
     val bits: List<Bit>
-)
+) {
+    /**
+     * Dots shown on the day chip: one for any bit, two when both the morning (before 12:00) and
+     * the afternoon have one, three when on top of that the day holds more than three bits.
+     */
+    val dots: Int = run {
+        val hasMorningBit = bits.any { it.date.dateTimeInDefaultTz().hour < 12 }
+        val hasAfternoonBit = bits.any { it.date.dateTimeInDefaultTz().hour >= 12 }
+        when {
+            hasMorningBit && hasAfternoonBit && bits.size > 3 -> 3
+            hasMorningBit && hasAfternoonBit -> 2
+            else -> 1
+        }
+    }
+}
 
 class BitsPaneActions(
     val onClickAdd: () -> Unit = {},
