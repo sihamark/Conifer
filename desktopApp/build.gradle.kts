@@ -54,6 +54,10 @@ compose.desktop {
             vendor = "HeHa Foundation"
             copyright = "2025-2026 HeHa Foundation"
 
+            // All three are generated from the SVGs in desktopIcons/ by the make_icons.sh
+            // beside them. None of these desktops masks an app icon, so the rounded body is
+            // part of the artwork; macOS renders from a source of its own because the margin
+            // and the shadow Apple's icons wear would look out of place on the other two.
             windows {
                 iconFile = project.file("desktopIcons/app_icon.ico")
             }

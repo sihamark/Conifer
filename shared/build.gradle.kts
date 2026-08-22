@@ -67,6 +67,7 @@ kotlin {
             implementation(libs.jetbrains.compose.runtime)
             implementation(libs.jetbrains.compose.foundation)
             implementation(libs.jetbrains.compose.material3)
+            implementation(libs.jetbrains.compose.material3.adaptive)
             implementation(libs.jetbrains.compose.ui)
             implementation(libs.jetbrains.compose.material.icons)
             implementation(libs.jetbrains.compose.resources)
@@ -88,6 +89,7 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.auth)
+            implementation(libs.ktor.client.logging)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksafe)
         }

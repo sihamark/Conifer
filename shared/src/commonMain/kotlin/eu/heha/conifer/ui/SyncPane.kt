@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -39,8 +42,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +63,7 @@ import conifer.shared.generated.resources.sync_action_continue_anyway
 import conifer.shared.generated.resources.sync_action_disconnect
 import conifer.shared.generated.resources.sync_action_save_app_root
 import conifer.shared.generated.resources.sync_action_sync_now
+import conifer.shared.generated.resources.sync_content_close
 import conifer.shared.generated.resources.sync_content_status_icon
 import conifer.shared.generated.resources.sync_content_syncing
 import conifer.shared.generated.resources.sync_debug_action_hide_details
@@ -96,6 +103,7 @@ import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
 import eu.heha.conifer.sync.SyncStats
 import eu.heha.conifer.ui.theme.ConiferTheme
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
@@ -104,14 +112,35 @@ private fun Instant.printDateTime() =
     dateTimeInDefaultTz().let { "${it.date.print()} ${it.time.print()}" }
 
 /**
+ * How the sync surface is shown. [SyncUiState.isSyncOpen] only says that the user asked to see
+ * sync at all; which surface that turns into is the layout's call — see `BitsPane`, which picks
+ * from the window size classes.
+ */
+enum class SyncPresentation {
+    /**
+     * Over the bits: [SyncDebugPopover]'s glance once connected, the full [SyncSettingsSheet]
+     * otherwise or on request. Anything but the widest windows.
+     */
+    Sheet,
+
+    /** Beside the bits, as a third pane the bits make room for — see [SyncPane]. */
+    Pane
+}
+
+/**
  * App bar entry point: a cloud icon, muted while disconnected, tinted [MaterialTheme.colorScheme]
- * `primary` once connected and spinning while a sync round is in flight. Pressing it once
- * connected opens [SyncDebugPopover] (a debug glance); otherwise it opens the full [SyncSettingsSheet].
+ * `primary` once connected and spinning while a sync round is in flight. Pressing it opens the sync
+ * surface, and pressing it again closes it.
+ *
+ * In [SyncPresentation.Sheet] that surface is hosted here — [SyncDebugPopover] anchored on the
+ * icon, or [SyncSettingsSheet] over the whole window. In [SyncPresentation.Pane] the surface is a
+ * pane beside the bits that `BitsPane` hosts instead, so the icon is only its toggle.
  */
 @Composable
 fun SyncStatusIcon(
     state: SyncUiState,
     actions: SyncPaneActions = SyncPaneActions(),
+    presentation: SyncPresentation = SyncPresentation.Sheet,
     modifier: Modifier = Modifier
 ) {
     val connection = state.connection
@@ -146,17 +175,25 @@ fun SyncStatusIcon(
                 )
             }
         }
-        SyncDebugPopover(state, actions)
+        if (presentation == SyncPresentation.Sheet) {
+            SyncDebugPopover(state, actions)
+        }
     }
-    if (state.isSheetOpen) {
+    if (presentation == SyncPresentation.Sheet && state.isSyncOpen && state.areSettingsOpen) {
         SyncSettingsSheet(state, actions)
     }
 }
 
-/** Quick-glance troubleshooting details, anchored on the app bar's status icon. */
+/**
+ * Quick-glance troubleshooting details, anchored on the app bar's status icon. Skipped while
+ * [SyncUiState.areSettingsOpen], where the sheet shows the same status in full instead.
+ */
 @Composable
 private fun SyncDebugPopover(state: SyncUiState, actions: SyncPaneActions) {
-    DropdownMenu(expanded = state.isDebugOpen, onDismissRequest = actions.onCloseDebug) {
+    DropdownMenu(
+        expanded = state.isSyncOpen && !state.areSettingsOpen,
+        onDismissRequest = actions.onCloseSync
+    ) {
         SyncDebugContent(state, actions)
     }
 }
@@ -213,7 +250,7 @@ private fun SyncDebugContent(state: SyncUiState, actions: SyncPaneActions) {
                 }
             }
             TextButton(
-                onClick = actions.onOpenSettingsFromDebug,
+                onClick = actions.onOpenSettings,
                 modifier = Modifier.weight(1f)
             ) {
                 Text(stringResource(Res.string.sync_debug_action_settings))
@@ -347,6 +384,83 @@ private fun SyncStatusRow(isSyncing: Boolean, lastSyncAt: Instant?) {
 }
 
 /**
+ * The sync surface as a pane of its own, for windows wide enough that `BitsPane` can put a third
+ * pane beside the bits (see [SyncPresentation]). It shows in one place what
+ * [SyncPresentation.Sheet] splits between the glance and the sheet - status, the actions and the
+ * settings fields - since a pane that is already on screen has nothing to gain from keeping half of
+ * itself behind a "Sync settings…" button. The troubleshooting fields do stay behind the header's
+ * toggle, exactly as they are in the popover.
+ */
+@Composable
+fun SyncPane(
+    state: SyncUiState,
+    actions: SyncPaneActions = SyncPaneActions(),
+    // Follows the main pane's top bar, so the pane's title lines up with the bits beside it; see
+    // the spacer below.
+    isTopBarVisible: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val connected = state.connection as? SyncConnectionState.Connected
+    Column(
+        modifier
+            .width(SYNC_PANE_WIDTH)
+            .padding(horizontal = 16.dp)
+            // Connected the pane is short, but the connect form - and the troubleshooting fields
+            // above all - can outgrow even a large window's height.
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Lines the pane's content up with the list's, below the top bar floating over the main
+        // pane, and follows the bar out of the way while the IME is open - as the day sidebar on
+        // the other side of the bits does.
+        AnimatedVisibility(isTopBarVisible) {
+            Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(Res.string.sync_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
+            )
+            if (state.debugInfo != null) {
+                DetailsToggle(
+                    isOpen = state.areDebugDetailsOpen,
+                    onClick = actions.onToggleDebugDetails
+                )
+            }
+            IconButton(onClick = actions.onCloseSync) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(Res.string.sync_content_close)
+                )
+            }
+        }
+        // Only worth the room while sync is still something the user might switch on: once
+        // connected, "nothing leaves this device until you connect an account" is behind them.
+        if (connected == null) {
+            Text(
+                stringResource(Res.string.sync_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        SyncBody(
+            state = state,
+            actions = actions,
+            // The hint points at the app bar's icon for a status glance, which is what this pane
+            // already is.
+            isDebugHintVisible = false
+        )
+        if (state.debugInfo != null) {
+            AnimatedVisibility(state.areDebugDetailsOpen) {
+                SyncDebugDetails(debugInfo = state.debugInfo, server = connected?.server)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
  * The full sync settings sheet: connect/disconnect and a manual "sync now", one of three bodies
  * depending on [SyncUiState.connection] - mirrors the mockup's disconnected/connecting/connected
  * sections of the same sheet.
@@ -354,8 +468,39 @@ private fun SyncStatusRow(isSyncing: Boolean, lastSyncAt: Instant?) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions = SyncPaneActions()) {
-    ModalBottomSheet(onDismissRequest = actions.onCloseSheet) {
-        SyncSettingsSheetContent(state, actions)
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    // Buttons inside the sheet have to animate it away themselves. A drag, the scrim and the back
+    // gesture all run the sheet's own hide animation and only report `onDismissRequest` afterwards,
+    // but an action that flips `isSheetOpen` right away takes the sheet out of the composition
+    // while it is still on screen, leaving nothing to animate. `onHidden` runs only once the sheet
+    // really is hidden, so a hide the user interrupts (by dragging the sheet back up) keeps it open.
+    fun hideThen(onHidden: () -> Unit) {
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) onHidden()
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = actions.onCloseSync,
+        sheetState = sheetState
+    ) {
+        SyncSettingsSheetContent(
+            state = state,
+            actions = actions,
+            onClickClose = { hideThen(actions.onCloseSync) },
+            // Disconnecting leaves this sheet with nothing but the connect form, so here it closes
+            // the sheet too - with the same animated exit. (The pane keeps the form instead: it is
+            // not in the way of anything.) Which is why the closing is done here rather than in
+            // SyncViewModel.onClickDisconnect, where the pane would inherit it.
+            onClickDisconnect = {
+                hideThen {
+                    actions.onClickDisconnect()
+                    actions.onCloseSync()
+                }
+            }
+        )
     }
 }
 
@@ -367,7 +512,11 @@ fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions = SyncPaneAct
 @Composable
 private fun SyncSettingsSheetContent(
     state: SyncUiState,
-    actions: SyncPaneActions = SyncPaneActions()
+    actions: SyncPaneActions = SyncPaneActions(),
+    // The sheet-closing actions come in separately so [SyncSettingsSheet] can animate the sheet out
+    // first; previews render this content on its own, where the plain actions are what's wanted.
+    onClickClose: () -> Unit = actions.onCloseSync,
+    onClickDisconnect: () -> Unit = actions.onClickDisconnect
 ) {
     Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
         Text(
@@ -381,19 +530,43 @@ private fun SyncSettingsSheetContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(16.dp))
-        AppRootField(state, actions)
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(16.dp))
-        when (val connection = state.connection) {
-            is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
-            is SyncConnectionState.Connecting -> ConnectingContent(actions)
-            is SyncConnectionState.Connected -> ConnectedContent(connection, actions)
-        }
+        SyncBody(
+            state = state,
+            actions = actions,
+            onClickDisconnect = onClickDisconnect
+        )
         Spacer(Modifier.height(14.dp))
-        TextButton(onClick = actions.onCloseSheet, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onClickClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.sync_action_close))
         }
+    }
+}
+
+/**
+ * What the sheet and [SyncPane] both show: where the bits go, and one of three sections for the
+ * current [SyncUiState.connection] - mirroring the mockup's disconnected/connecting/connected
+ * sections.
+ */
+@Composable
+private fun SyncBody(
+    state: SyncUiState,
+    actions: SyncPaneActions,
+    onClickDisconnect: () -> Unit = actions.onClickDisconnect,
+    isDebugHintVisible: Boolean = true
+) {
+    AppRootField(state, actions)
+    Spacer(Modifier.height(16.dp))
+    HorizontalDivider()
+    Spacer(Modifier.height(16.dp))
+    when (val connection = state.connection) {
+        is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
+        is SyncConnectionState.Connecting -> ConnectingContent(actions)
+        is SyncConnectionState.Connected -> ConnectedContent(
+            connection = connection,
+            actions = actions,
+            onClickDisconnect = onClickDisconnect,
+            isDebugHintVisible = isDebugHintVisible
+        )
     }
 }
 
@@ -537,7 +710,13 @@ private fun ConnectingContent(actions: SyncPaneActions) {
 }
 
 @Composable
-private fun ConnectedContent(connection: SyncConnectionState.Connected, actions: SyncPaneActions) {
+private fun ConnectedContent(
+    connection: SyncConnectionState.Connected,
+    actions: SyncPaneActions,
+    onClickDisconnect: () -> Unit = actions.onClickDisconnect,
+    /** Off where the status glance the hint points at is already on screen - see [SyncPane]. */
+    isDebugHintVisible: Boolean = true
+) {
     Column {
         AccountChip(connection.username)
         Spacer(Modifier.height(8.dp))
@@ -555,7 +734,7 @@ private fun ConnectedContent(connection: SyncConnectionState.Connected, actions:
                 Text(stringResource(Res.string.sync_action_sync_now))
             }
             TextButton(
-                onClick = actions.onClickDisconnect,
+                onClick = onClickDisconnect,
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 ),
@@ -564,23 +743,34 @@ private fun ConnectedContent(connection: SyncConnectionState.Connected, actions:
                 Text(stringResource(Res.string.sync_action_disconnect))
             }
         }
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(8.dp))
-        Text(
-            stringResource(Res.string.sync_note_debug_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Start
-        )
+        if (isDebugHintVisible) {
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(Res.string.sync_note_debug_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start
+            )
+        }
     }
 }
 
 data class SyncUiState(
     val connection: SyncConnectionState = SyncConnectionState.Disconnected,
-    val isSheetOpen: Boolean = false,
-    val isDebugOpen: Boolean = false,
-    /** Whether the debug popover currently shows [debugInfo] or just the status glance. */
+    /**
+     * Whether the user asked to see sync at all. What that turns into is up to
+     * [SyncPresentation]: the popover glance, the settings sheet, or the third pane.
+     */
+    val isSyncOpen: Boolean = false,
+    /**
+     * [SyncPresentation.Sheet] only: the glance has been traded for the full settings sheet - which
+     * is also where it starts while there is no connection to glance at. The pane shows both at
+     * once and ignores this.
+     */
+    val areSettingsOpen: Boolean = false,
+    /** Whether the surface currently shows [debugInfo] as well as the status. */
     val areDebugDetailsOpen: Boolean = false,
     val serverUrlInput: String = "",
     val debugInfo: SyncDebugInfo? = null,
@@ -593,15 +783,14 @@ data class SyncUiState(
 
 /**
  * Everything the sync feature needs from the UI layer beyond [SyncUiState]: the app bar's status
- * icon (idle/connected/syncing), its debug popover, and the full settings sheet - mirroring
- * `docs/conifer-mockup.html`'s sync entry point.
+ * icon (idle/connected/syncing) and whichever surface it opens - popover, settings sheet or
+ * [SyncPane] - mirroring `docs/conifer-mockup.html`'s sync entry point.
  */
 class SyncPaneActions(
     val onClickSyncIcon: () -> Unit = {},
-    val onCloseSheet: () -> Unit = {},
-    val onCloseDebug: () -> Unit = {},
+    val onCloseSync: () -> Unit = {},
     val onToggleDebugDetails: () -> Unit = {},
-    val onOpenSettingsFromDebug: () -> Unit = {},
+    val onOpenSettings: () -> Unit = {},
     val onServerUrlChange: (String) -> Unit = {},
     val onClickConnect: () -> Unit = {},
     val onClickConnectAnyway: () -> Unit = {},
@@ -612,6 +801,12 @@ class SyncPaneActions(
     val onClickSyncNow: () -> Unit = {},
     val onClickDisconnect: () -> Unit = {},
 )
+
+/**
+ * Width of [SyncPane]. Wide enough for the troubleshooting rows' label-and-value pairs (a device id
+ * is 36 characters) without leaving the bits beside it less room than the day sidebar has.
+ */
+private val SYNC_PANE_WIDTH = 360.dp
 
 //region Previews
 
@@ -628,7 +823,7 @@ private val previewConnection = SyncConnectionState.Connected(
 
 private val previewSyncState = SyncUiState(
     connection = previewConnection,
-    isDebugOpen = true,
+    isSyncOpen = true,
     debugInfo = SyncDebugInfo(
         deviceId = "a1b2c3d4-e5f6-7890-aaaa-bbbbccccdddd",
         appRoot = "Conifer",
@@ -756,6 +951,44 @@ private fun SyncDebugPopoverDetailsPreview() {
 private fun SyncStatusIconDisconnectedPreview() {
     ConiferTheme {
         SyncStatusIcon(state = SyncUiState())
+    }
+}
+
+/**
+ * The third pane on its own, connected: the glance's status and actions and the sheet's settings
+ * fields in one column, troubleshooting fields still behind the header's toggle.
+ */
+@PreviewLightDark
+@Composable
+private fun SyncPaneConnectedPreview() {
+    ConiferTheme {
+        Surface {
+            SyncPane(state = previewSyncState)
+        }
+    }
+}
+
+/** The same pane while disconnected, where it carries the connect form and the "optional" note. */
+@PreviewLightDark
+@Composable
+private fun SyncPaneDisconnectedPreview() {
+    ConiferTheme {
+        Surface {
+            SyncPane(
+                state = previewSyncState.copy(connection = SyncConnectionState.Disconnected)
+            )
+        }
+    }
+}
+
+/** The pane with its troubleshooting fields expanded - the tallest it gets. */
+@PreviewLightDark
+@Composable
+private fun SyncPaneDetailsPreview() {
+    ConiferTheme {
+        Surface {
+            SyncPane(state = previewSyncState.copy(areDebugDetailsOpen = true))
+        }
     }
 }
 //endregion

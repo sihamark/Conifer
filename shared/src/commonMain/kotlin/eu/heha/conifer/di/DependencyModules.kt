@@ -34,13 +34,10 @@ val coreModule = module {
     // omitting it here is what lets Kotlin's own default apply (with the platform-specific
     // user agent it derives its LoginFlowV2 from).
     single { SyncCoordinator(get(), get(), get(), get(), coniferUserAgent(get())) }
-    viewModel {
-        BitsViewModel(
-            repository = get(),
-            clipboardController = getOrNull(),
-            permissionHandler = it.getOrNull()
-        )
-    }
+    // Not viewModelOf(::BitsViewModel): the clipboard controller is optional and has to resolve to
+    // null where no platform supplied one. The permission handler is not injected at all — the
+    // screen binds the current one, see BitsViewModel.bindPermissionHandler.
+    viewModel { BitsViewModel(repository = get(), clipboardController = getOrNull()) }
     viewModelOf(::SyncViewModel)
 }
 

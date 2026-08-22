@@ -7,6 +7,7 @@
     </plurals>
 
     <string name="bits_action_add_bit">Add Bit</string>
+    <string name="bits_action_all_days">All days</string>
     <string name="bits_action_back_to_now">back to now</string>
     <string name="bits_action_bit_options">Bit options</string>
     <string name="bits_action_cancel">Cancel</string>
@@ -21,6 +22,7 @@
     <string name="bits_action_show_date_picker">Show date picker</string>
 
     <string name="bits_label_date_time_now">Now</string>
+    <string name="bits_label_days">Days</string>
     <string name="bits_content_edit_bit">Edit Bit</string>
     <string name="bits_label_new_bit">New Bit</string>
     <string name="bits_label_today">Today</string>
@@ -34,6 +36,7 @@
 
     <string name="sync_content_status_icon">Sync status</string>
     <string name="sync_content_syncing">Syncing</string>
+    <string name="sync_content_close">Close sync</string>
 
     <string name="sync_title">Sync</string>
     <string name="sync_subtitle">Optional — Conifer works fully offline, on this device only, unless you connect an account below. Nothing is sent anywhere until you do.</string>

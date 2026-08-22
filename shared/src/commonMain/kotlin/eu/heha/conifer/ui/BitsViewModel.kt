@@ -9,7 +9,9 @@ import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
+import eu.heha.conifer.ui.bits.BitsPaneState
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,9 +27,11 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class BitsViewModel(
     private val repository: BitsRepository,
-    private val clipboardController: ClipboardController? = null,
-    private val permissionHandler: PermissionHandler? = null
+    private val clipboardController: ClipboardController? = null
 ) : ViewModel() {
+
+    /** Collection of the currently bound handler, see [bindPermissionHandler]. */
+    private var permissionJob: Job? = null
 
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
 
@@ -85,16 +89,31 @@ class BitsViewModel(
                 }
             }
             launch { trackCurrentDateTime() }
-            launch {
-                permissionHandler?.let { handler ->
-                    handler.isPermissionGranted.collect { isGranted ->
-                        Napier.e { "notification permission granted: $isGranted" }
-                        state = state.copy(
-                            permissionRationale = handler.permissionRationale
-                                .takeUnless { isGranted }
-                        )
-                    }
-                }
+        }
+    }
+
+    /**
+     * Binds the permission prompt to [handler], replacing whatever was bound before.
+     *
+     * Called from the screen rather than taken as a constructor parameter: asking for a permission
+     * needs whatever the platform's current screen is (an Activity on Android), so the handler is a
+     * new instance after every recreation while this ViewModel is not. A handler kept from
+     * construction would go stale on the first rotation — the state would follow one nobody checks
+     * any more, leaving the prompt up however often the permission is granted — and would hold the
+     * screen it belongs to alive along with it.
+     */
+    fun bindPermissionHandler(handler: PermissionHandler?) {
+        permissionJob?.cancel()
+        if (handler == null) {
+            state = state.copy(permissionRationale = null)
+            return
+        }
+        permissionJob = viewModelScope.launch {
+            handler.isPermissionGranted.collect { isGranted ->
+                Napier.d { "notification permission granted: $isGranted" }
+                state = state.copy(
+                    permissionRationale = handler.permissionRationale.takeUnless { isGranted }
+                )
             }
         }
     }
@@ -202,6 +221,14 @@ class BitsViewModel(
         }
     }
 
+    /**
+     * Lifts the day filter (the two-pane sidebar's "All days") without touching a chosen time, so
+     * the next bit keeps that time on the current day.
+     */
+    fun selectAllDays() {
+        selectedDate.update { null }
+    }
+
     fun selectTime(newTime: LocalTime) {
         selectedTime.update { newTime }
     }
@@ -225,6 +252,26 @@ class BitsViewModel(
             }.let { textToCopy ->
                 clipboardController.copyToClipboard(textToCopy)
             }
+        }
+    }
+}
+
+/** The bits of one day, as the list and both day pickers consume them. */
+data class DatedBits(
+    val date: LocalDate,
+    val bits: List<Bit>
+) {
+    /**
+     * Dots shown on the day chip: one for any bit, two when both the morning (before 12:00) and
+     * the afternoon have one, three when on top of that the day holds more than three bits.
+     */
+    val dots: Int = run {
+        val hasMorningBit = bits.any { it.date.hour < 12 }
+        val hasAfternoonBit = bits.any { it.date.hour >= 12 }
+        when {
+            hasMorningBit && hasAfternoonBit && bits.size > 3 -> 3
+            hasMorningBit && hasAfternoonBit -> 2
+            else -> 1
         }
     }
 }
