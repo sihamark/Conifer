@@ -51,6 +51,7 @@ import conifer.shared.generated.resources.shortcuts_help
 import conifer.shared.generated.resources.shortcuts_line_break
 import conifer.shared.generated.resources.shortcuts_note
 import conifer.shared.generated.resources.shortcuts_note_mac
+import conifer.shared.generated.resources.shortcuts_now
 import conifer.shared.generated.resources.shortcuts_save
 import conifer.shared.generated.resources.shortcuts_time
 import conifer.shared.generated.resources.shortcuts_title
@@ -176,10 +177,20 @@ internal fun handleShortcut(
             return true
         }
 
+        // The time's way back to the clock, the pair of the day's way back to today: the two ends of
+        // the stamp, on the two keys that sit next to each other, and on N for "now" beside T for
+        // "today" — see the letters below. Only the time; the day it goes with is the other key's to
+        // change, so someone writing yesterday's bits at the right time can fix the time without
+        // being sent back to today.
+        Key.MoveEnd, Key.N -> {
+            actions.onResetTime()
+            return true
+        }
+
         Key.DirectionLeft, Key.PageUp -> -1
         Key.DirectionRight, Key.PageDown -> 1
         // MoveHome, not Home: the latter is Android's system home key, which never reaches an app.
-        Key.MoveHome -> {
+        Key.MoveHome, Key.T -> {
             actions.onSelectToday()
             return true
         }
@@ -190,9 +201,12 @@ internal fun handleShortcut(
             return true
         }
 
-        // H for help, and a letter because it has to be reachable on any layout — a chord with /
-        // would need Shift+7 as well on a German keyboard. Closing again is handled above, where the
-        // list has the keyboard to itself.
+        // H for help, and a letter for the same reason T and N are letters: it has to be reachable
+        // on every keyboard, whatever it has and whatever is printed on it. A chord with / would
+        // need Shift+7 as well on a German layout, and Home/End are missing altogether from every
+        // laptop Apple makes — there they are fn+←/→, which with the chord on top is no shortcut at
+        // all. So each of those three keys has a letter, and the letter is the one that is always
+        // there. Closing the list again is handled above, where it has the keyboard to itself.
         Key.H -> {
             onShortcutsOverlayChange(true)
             return true
@@ -390,7 +404,8 @@ private fun shortcutGroups(chord: ShortcutChord): List<ShortcutGroup> {
             rows = listOf(
                 ShortcutRow("Enter", Res.string.shortcuts_save),
                 ShortcutRow("Shift+Enter", Res.string.shortcuts_line_break),
-                ShortcutRow("$held+↑/↓", Res.string.shortcuts_time)
+                ShortcutRow("$held+↑/↓", Res.string.shortcuts_time),
+                ShortcutRow(listOf("$held+N", "$held+End"), Res.string.shortcuts_now)
             )
         ),
         ShortcutGroup(
@@ -398,7 +413,7 @@ private fun shortcutGroups(chord: ShortcutChord): List<ShortcutGroup> {
             rows = listOf(
                 ShortcutRow(listOf("$held+←/→", "$held+PgUp/PgDn"), Res.string.shortcuts_day),
                 ShortcutRow("Shift+$held+←/→", Res.string.shortcuts_day_with_bits),
-                ShortcutRow("$held+Home", Res.string.shortcuts_today),
+                ShortcutRow(listOf("$held+T", "$held+Home"), Res.string.shortcuts_today),
                 ShortcutRow("$held+0", Res.string.shortcuts_all_days)
             )
         ),

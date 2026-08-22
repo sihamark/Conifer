@@ -32,6 +32,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onSelectToday = model::selectToday,
             onResetSelection = model::resetSelection,
             onSelectTime = model::selectTime,
+            onResetTime = model::resetTime,
             onResetToNow = model::resetToNow,
             onClickCopyBitsOfDateToClipboard = model::copyBitsOfDateToClipboard,
             onClickCopyRunEndReport = model::copyRunEndReportToClipboard,

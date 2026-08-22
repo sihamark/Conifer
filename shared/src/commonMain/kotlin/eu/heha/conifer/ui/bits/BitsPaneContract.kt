@@ -144,11 +144,16 @@ class BitsPaneActions(
     val onSelectToday: () -> Unit = {},
     /**
      * Back to every day and now: the day filter, the composer's date and its time all dropped at
-     * once. What Esc does, and the one thing that clears the time as well — [onClickAllDays] is the
-     * day lists' "All days" and leaves a chosen time alone, since picking days is not picking times.
+     * once. What Esc does — [onClickAllDays] is the day lists' "All days" and leaves a chosen time
+     * alone, since picking days is not picking times, and [onResetTime] is the other way round.
      */
     val onResetSelection: () -> Unit = {},
     val onSelectTime: (LocalTime) -> Unit = {},
+    /**
+     * Hands the time back to the clock, leaving both days as they are — the time's counterpart of
+     * [onSelectToday]. [onResetToNow] is the chip's and does this and the date together.
+     */
+    val onResetTime: () -> Unit = {},
     val onResetToNow: () -> Unit = {},
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},
     /** Copies the previous run's crash report to the clipboard, and leaves the banner up. */

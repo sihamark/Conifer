@@ -393,9 +393,10 @@ class BitsViewModel(
 
     /**
      * Everything the user had pointed the screen at, dropped in one go: all days again, and the
-     * clock back in charge of both the date and the time. [selectAllDays] and [resetToNow] each undo
-     * half of that, one because the day lists ask for it and one because the chip's reset does; this
-     * is the whole of it, and belongs to Esc — the key for being done with whatever you were in.
+     * clock back in charge of both the date and the time. [selectAllDays], [resetToNow] and
+     * [resetTime] each undo part of that, because the day lists, the chip's reset and the time's
+     * hotkey each ask for their own part; this is the whole of it, and belongs to Esc — the key for
+     * being done with whatever you were in.
      */
     fun resetSelection() {
         state = state.copy(filterDate = null, composerDate = null, composerTime = null)
@@ -403,6 +404,16 @@ class BitsViewModel(
 
     fun selectTime(newTime: LocalTime) {
         state = state.copy(composerTime = newTime)
+    }
+
+    /**
+     * Hands the time back to the clock — the counterpart of [selectToday] for the other half of the
+     * stamp, and what Alt+End does. Only the time: the day being written to and the day being looked
+     * at are both left alone, since a time is not a day. Nulls rather than stamping the current
+     * time, so the time goes on following the clock the way it did before it was ever nudged.
+     */
+    fun resetTime() {
+        state = state.copy(composerTime = null)
     }
 
     /**
