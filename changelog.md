@@ -3,17 +3,14 @@
 ## Version 1.2.7
 
 - the desktop app keeps the key to your sync password in the macOS Keychain again, as it always
-  meant
-  to. The step that trims the release build for packaging had taken out the parts of the library
-  that
-  talks to the system's own secret store — those calls come from the *native* side, so nothing in
-  the
-  app appeared to be using them — and the app was then told this computer has no such store. It did
-  what it does on a machine that truly hasn't one: kept the key in a file of its own, readable by
-  anything that can read your files as you. Only packaged builds were affected, never a build run
-  from the sources, and only the key — the password itself was encrypted the whole time. The log now
-  also says *why* the key ended up where it did, which is the line that would have shown this months
-  ago
+  meant to. The step that trims the release build for packaging had taken out the parts of the
+  library that talks to the system's own secret store — those calls come from the *native* side, so
+  nothing in the app appeared to be using them — and the app was then told this computer has no such
+  store. It did what it does on a machine that truly hasn't one: kept the key in a file of its own,
+  readable by anything that can read your files as you. Only packaged builds were affected, never a
+  build run from the sources, and only the key — the password itself was encrypted the whole time.
+  The log now also says *why* the key ended up where it did, which is the line that would have shown
+  this months ago
 
 ## Version 1.2.6 (22.08.2026)
 
@@ -363,7 +360,8 @@
 
 ## Version 1.0.0 (XX.XX.XXXX)
 
-- refactored default kmp project layout added initializer functions and renamed default functions and classes
+- refactored default kmp project layout added initializer functions and renamed default functions
+  and classes
 - added room database
 - remove web target which are incompatible with room
 - remove most expect actual declarations in favor for initializers
