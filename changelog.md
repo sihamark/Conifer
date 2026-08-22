@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 1.1.2 (XX.07.2026)
+
+- changed exported display of exported bits (show complete date dd.MM.yyyy)
+- when editing a bits, the cursor in the text field is now always at the end of the text
+
+## Version 1.1.1 (07.07.2026)
+
+- reduced size of time slider thumb
+- time of a bit is now in a column in front of the actual text
+- adjusted padding of a card
+
 ## Version 1.1.0 (03.07.2026)
 
 - major styling improvement

@@ -6,8 +6,8 @@ object AppConfig {
     const val appName = "Conifer"
     const val minSdk = 30
     const val targetSdk = 37
-    const val versionCode = 3
-    const val versionName = "1.1.1"
+    const val versionCode = 4
+    const val versionName = "1.1.2"
     const val javaVersion = 21
     const val namespace = "eu.heha.conifer"
 }
