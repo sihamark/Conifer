@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.1.2 (XX.07.2026)
+## Version 1.1.2 (17.07.2026)
 
 - changed exported display of exported bits (show complete date dd.MM.yyyy)
 - when editing a bits, the cursor in the text field is now always at the end of the text
@@ -15,6 +15,8 @@
   highlighted lead sentence, dashed border and an "Allow" button
 - the date/time of a bit is now stored as a zone-less local date-time (database schema v3), so
   bits keep the day and time they were entered with even when the device's time zone changes
+- after adding or editing a bit, the list now scrolls to that bit (unless it is already visible),
+  so a bit saved with a custom date/time doesn't disappear off-screen
 
 ## Version 1.1.1 (07.07.2026)
 
