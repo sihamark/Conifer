@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.X.X (XX.08.2026)
+## Version 1.2.2 (03.08.2026)
 
 - while typing a bit, ↑/↓ move its time by 15 minutes (one time slider step); ←/→ still move the
   cursor. Times off the quarter hour snap in the direction pressed (from 12:07, ↑ 12:15, ↓ 12:00),
@@ -10,6 +10,12 @@
   longer leaves it jumping on every update either
 - on a wide window the bit list also scrolls when the drag starts in the empty margins beside the
   bits, not just on the bits themselves
+- signing in to Nextcloud no longer stalls silently when the browser doesn't open (no AWT `BROWSE`
+  support on Linux, a blocked popup on the web, a device with no browser). The sync panel shows the
+  login URL with *Copy link* and *Try again*, and keeps polling, so the sign-in completes as soon as
+  the URL is reached by any route
+- fixed the weaker-credential-protection warning showed a literal backslash in "won\'t" — Compose
+  resources don't unescape Android's `\'`
 
 ## Version 1.2.1 (01.08.2026)
 

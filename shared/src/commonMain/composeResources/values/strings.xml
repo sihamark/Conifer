@@ -49,6 +49,9 @@
     <string name="sync_action_save_app_root">Save</string>
     <string name="sync_note_login_flow">Opens your browser to sign in (Login Flow v2) — Conifer never sees your password, only an app-scoped token.</string>
     <string name="sync_message_connecting">Waiting for you to finish signing in your browser…</string>
+    <string name="sync_message_browser_not_opened">Conifer couldn't open your browser. Open this link yourself to finish signing in — Conifer keeps waiting in the meantime.</string>
+    <string name="sync_action_copy_login_url">Copy link</string>
+    <string name="sync_action_retry_open_browser">Try again</string>
     <string name="sync_action_cancel_connect">Cancel</string>
     <string name="sync_status_syncing">Syncing…</string>
     <string name="sync_status_last_synced">Last synced %1$s</string>
@@ -77,6 +80,6 @@
     <string name="sync_debug_never">never</string>
 
     <string name="sync_title_insecure_key">Weaker credential protection</string>
-    <string name="sync_message_insecure_key">Your Nextcloud credentials will still be encrypted, but the encryption key won\'t be stored in this device\'s secure hardware store: %1$s</string>
+    <string name="sync_message_insecure_key">Your Nextcloud credentials will still be encrypted, but the encryption key won't be stored in this device's secure hardware store: %1$s</string>
     <string name="sync_action_continue_anyway">Connect anyway</string>
 </resources>

@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncCoordinator
@@ -29,6 +30,8 @@ import kotlin.time.Duration.Companion.seconds
 class SyncViewModel(
     private val coordinator: SyncCoordinator,
     private val bitsRepository: BitsRepository,
+    /** Absent on platforms without a clipboard; the copy affordance is then simply not offered. */
+    private val clipboardController: ClipboardController? = null,
 ) : ViewModel() {
 
     var state by mutableStateOf(SyncUiState())
@@ -158,6 +161,19 @@ class SyncViewModel(
 
     fun onClickCancelConnect() {
         connectJob?.cancel()
+    }
+
+    /**
+     * Only reachable while a login is waiting on a browser that never opened. The URL is a
+     * single-use credential for this login, so it goes to the clipboard and nowhere else - never
+     * to the log.
+     */
+    fun onClickCopyLoginUrl(loginUrl: String) {
+        clipboardController?.copyToClipboard(loginUrl)
+    }
+
+    fun onClickOpenLoginUrl() {
+        coordinator.retryOpenLoginUrl()
     }
 
     /**
