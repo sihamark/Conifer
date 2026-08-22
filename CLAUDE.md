@@ -131,4 +131,11 @@ committed.
   `ReportShareController` — share sheet on Android/iOS, a folder in the file manager on desktop, a
   download on web. All four targets have the whole chain; web keeps its logs and record in
   `localStorage` (`WasmLogFileInitializer`, fewer and smaller — see its KDoc).
+- **Where the desktop app keeps its data** (`shared/src/jvmMain/.../JvmDataFolder.kt`): one per-user
+  folder outside the installed program — `~/Library/Application Support/Conifer`,
+  `%LOCALAPPDATA%\Conifer`, `$XDG_DATA_HOME/conifer` — holding the database, the preferences,
+  `logs/`
+  and `reports/`. Never derive it from the jar's location again: that put it inside `Conifer.app`,
+  where an update deleted it. A Gradle `run` gets a `-dev` folder of its own, and
+  `-Dconifer.dataFolder=` points it anywhere.
 - Gradle configuration cache and build cache are enabled.

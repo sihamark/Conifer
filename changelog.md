@@ -1,7 +1,16 @@
 # Changelog
 
-## Version 1.2.6
+## Version 1.2.6 (22.08.2026)
 
+- updating the desktop app no longer takes your bits with it. It kept its database, its settings and
+  its logs in a folder inside the installed program — inside `Conifer.app` itself on a Mac — and
+  installing a new version replaces the program wholesale, so every update started from an empty
+  screen. All of it now lives in the folder the system keeps for exactly this, per user and outside
+  the app: `~/Library/Application Support/Conifer` on macOS, `%LOCALAPPDATA%\Conifer` on Windows,
+  `~/.local/share/conifer` elsewhere. An installation that still has data beside it is moved across
+  the first time the new version starts. The old place was also, on Windows and Linux, a folder the
+  program had no business writing to at all — where an install belongs to the machine, the notes
+  belong to whoever wrote them
 - a nudged time can be handed back to the clock with a key of its own. Alt+N does for the time what
   Alt+T does for the day, so a time moved up or down while writing goes back to following the clock
   without giving up the day you were writing to (Ctrl+Alt+N on a Mac, like the rest of them)

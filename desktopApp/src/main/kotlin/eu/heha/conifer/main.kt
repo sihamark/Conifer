@@ -13,10 +13,6 @@ import org.jetbrains.compose.resources.stringResource
 import java.awt.Dimension
 import kotlin.math.roundToInt
 
-// Set to true by the Gradle `run` task; absent (false) for packaged release distributables.
-private val isDebug: Boolean
-    get() = System.getProperty("conifer.debug")?.toBoolean() == true
-
 // Smallest window the UI still works in: narrower than the mockup's 390 dp phone, but the
 // single-pane layout takes it, and the height still holds the top bar, a day header with a bit or
 // two, and the composer. Deliberately below the 600 dp two-pane breakpoint, so the single-pane
@@ -33,7 +29,7 @@ private fun DpSize.toAwtDimension() =
 
 fun main() = application {
     ConiferApp.initialize(
-        isDebug = isDebug,
+        isDebug = isJvmDebugLaunch,
         platform = JvmPlatform,
         dateTimeFormats = JvmDateTimeFormats(),
         databaseInitializer = JvmDatabaseInitializer,

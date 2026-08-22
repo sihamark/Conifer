@@ -21,7 +21,7 @@ object JvmReportShareController : ReportShareController {
         return revealInFileManager(file)
     }
 
-    private fun reportsFolder(): File = File(jvmDataFolder(), "reports")
+    private fun reportsFolder(): File = File(jvmDataFolder, "reports")
 }
 
 /** The report as a file in [folder], replacing an earlier share of the same crash; null on failure. */

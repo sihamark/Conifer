@@ -1,5 +1,14 @@
 package eu.heha.conifer
 
+/**
+ * Whether this run is a `./gradlew :desktopApp:run` rather than something somebody installed: the
+ * `run` task sets this property and a packaged distributable never does. What the entry point hands
+ * to [ConiferApp.initialize] as its `isDebug`, and what gives a build being worked on a data folder
+ * of its own ([jvmDataFolder]).
+ */
+val isJvmDebugLaunch: Boolean
+    get() = System.getProperty("conifer.debug")?.toBoolean() == true
+
 data object JvmPlatform : Platform {
     /**
      * The OS comes first because that is what distinguishes one desktop from another in
