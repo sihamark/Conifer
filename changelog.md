@@ -37,6 +37,10 @@
   through the same per-platform initializer pattern as the rest of sync; a startup check logs a
   warning if the encryption key ever falls back to software-only storage instead of the platform's
   secure enclave/keystore
+- sync requests now identify themselves as e.g. `Conifer (Android 36)` instead of Ktor's default
+  `ktor-client`, so the app password shows up under a recognizable name in Nextcloud's
+  Settings → Security device list (Nextcloud names the token after the `User-Agent` of the
+  login-flow request)
 - a full review pass over the sync stack (see `sync_review.md`) found and fixed: pull now
   downloads a bucket's files with parallelism ≤ 6 instead of one at a time; a brand-new server now
   gets the `.sync/meta/manifest.json` marker the spec calls for; re-pushing a bit now preserves any
@@ -48,7 +52,10 @@
   (muted/tinted/spinning for disconnected/connected/syncing) opens a sheet to connect through
   Login Flow v2 in the system browser, change the destination folder ("app root") independently of
   reconnecting, trigger a manual sync, or disconnect; once connected, tapping the icon instead
-  opens a debug popover with device id, last sync/GC time, root ETag and last error
+  opens a short status glance - account, whether/when the last sync happened, "Sync now" and a way
+  into the sync settings - with the troubleshooting fields (device id, app root, last sync/GC time,
+  root ETag, last error, last tally) tucked behind an expand button in its header instead of
+  always on screen
 - before connecting, warns and requires an explicit "connect anyway" confirmation if the resulting
   credentials would land in a weaker key custody than usual (e.g. no OS keyring reachable), instead
   of silently storing them less securely

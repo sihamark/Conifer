@@ -8,6 +8,7 @@ import eu.heha.conifer.Platform
 import eu.heha.conifer.SyncPrefsInitializer
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
+import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncCoordinator
 import eu.heha.conifer.ui.BitsViewModel
@@ -30,8 +31,9 @@ val coreModule = module {
     // Not singleOf(::SyncCoordinator): its trailing `loginFlow` parameter has a default value
     // (LoginFlowV2()), but singleOf resolves every constructor parameter via get() regardless of
     // defaults, so it would demand a LoginFlowV2 binding that doesn't exist and never should -
-    // omitting it here is what lets Kotlin's own default apply.
-    single { SyncCoordinator(get(), get(), get(), get()) }
+    // omitting it here is what lets Kotlin's own default apply (with the platform-specific
+    // user agent it derives its LoginFlowV2 from).
+    single { SyncCoordinator(get(), get(), get(), get(), coniferUserAgent(get())) }
     viewModel {
         BitsViewModel(
             repository = get(),

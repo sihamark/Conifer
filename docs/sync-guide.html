@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport"/>
+    <title>How Conifer Syncs Your Notes</title>
+    <style>
+        :root {
+          --bg: #f4f5f1;
+          --bg-elevated: #ffffff;
+          --ink: #1b211d;
+          --ink-muted: #55625a;
+          --ink-faint: #7c887f;
+          --rule: #dadfd7;
+          --rule-strong: #c3cabf;
+          --accent: #2f5d46;
+          --accent-strong: #204436;
+          --accent-soft: #e4eee7;
+          --warn: #a85a2a;
+          --warn-soft: #f5e7da;
+          --code-bg: #ececE6;
+          --code-ink: #2a3a2f;
+          --shadow: 0 1px 2px rgba(27, 33, 29, 0.06), 0 6px 20px rgba(27, 33, 29, 0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #11150f;
+            --bg-elevated: #1a201a;
+            --ink: #e8ece4;
+            --ink-muted: #a2ae9e;
+            --ink-faint: #7c887f;
+            --rule: #2b332a;
+            --rule-strong: #3a453a;
+            --accent: #7fc7a0;
+            --accent-strong: #a4dabd;
+            --accent-soft: #1e2e24;
+            --warn: #e0a268;
+            --warn-soft: #33241a;
+            --code-bg: #171d17;
+            --code-ink: #cddbcf;
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 24px rgba(0, 0, 0, 0.35);
+          }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--ink);
+          font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          font-size: 16px;
+          line-height: 1.65;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3 {
+          font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+          color: var(--ink);
+          text-wrap: balance;
+          line-height: 1.2;
+        }
+
+        code, .mono, .tree, table.paths td {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        a { color: var(--accent-strong); }
+
+        .page {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 0 24px 96px;
+        }
+
+        @media (min-width: 1080px) {
+          .page {
+            grid-template-columns: 220px minmax(0, 800px);
+            gap: 56px;
+            padding: 0 40px 120px;
+          }
+        }
+
+        /* ---- Header ---- */
+        header.hero {
+          grid-column: 1 / -1;
+          max-width: 800px;
+          margin: 72px auto 8px;
+          padding: 0 0 28px;
+          border-bottom: 1px solid var(--rule);
+        }
+        @media (min-width: 1080px) {
+          header.hero { margin-left: 276px; }
+        }
+        .eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12.5px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--accent-strong);
+          font-weight: 600;
+          margin-bottom: 14px;
+        }
+        .eyebrow::before {
+          content: "";
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: var(--accent);
+          display: inline-block;
+        }
+        h1.title {
+          font-size: clamp(30px, 4vw, 42px);
+          margin: 0 0 12px;
+          font-weight: 600;
+        }
+        p.dek {
+          font-size: 18px;
+          color: var(--ink-muted);
+          max-width: 62ch;
+          margin: 0;
+        }
+
+        /* ---- TOC ---- */
+        nav.toc {
+          display: none;
+        }
+        @media (min-width: 1080px) {
+          nav.toc {
+            display: block;
+            position: sticky;
+            top: 40px;
+            align-self: start;
+            padding-top: 12px;
+            font-size: 13.5px;
+          }
+          nav.toc .toc-label {
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--ink-faint);
+            font-size: 11.5px;
+            font-weight: 600;
+            margin-bottom: 10px;
+          }
+          nav.toc ol {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border-left: 1px solid var(--rule);
+          }
+          nav.toc li a {
+            display: block;
+            padding: 5px 0 5px 14px;
+            color: var(--ink-muted);
+            text-decoration: none;
+            border-left: 2px solid transparent;
+            margin-left: -1px;
+          }
+          nav.toc li a:hover { color: var(--ink); border-left-color: var(--rule-strong); }
+        }
+
+        main {
+          min-width: 0;
+          max-width: 800px;
+        }
+
+        section { margin: 56px 0; scroll-margin-top: 24px; }
+        section:first-of-type { margin-top: 40px; }
+
+        h2 {
+          font-size: 26px;
+          margin: 0 0 6px;
+          font-weight: 600;
+        }
+        .section-sub {
+          color: var(--ink-muted);
+          font-size: 15px;
+          margin: 0 0 22px;
+          max-width: 60ch;
+        }
+        h3 {
+          font-size: 19px;
+          margin: 28px 0 10px;
+          font-weight: 600;
+        }
+        p { margin: 0 0 14px; max-width: 68ch; }
+        ul, ol { max-width: 66ch; padding-left: 22px; margin: 0 0 14px; }
+        li { margin-bottom: 6px; }
+
+        /* ---- Summary / callout cards ---- */
+        .summary-card {
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 10px;
+          padding: 22px 26px;
+          box-shadow: var(--shadow);
+        }
+        .summary-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 14px;
+          margin-top: 4px;
+        }
+        @media (min-width: 640px) {
+          .summary-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .summary-item {
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+          font-size: 14.5px;
+          color: var(--ink);
+        }
+        .summary-item .mark {
+          color: var(--accent);
+          font-size: 15px;
+          line-height: 1.5;
+          flex-shrink: 0;
+        }
+        .summary-item span.label { display: block; font-weight: 600; margin-bottom: 2px; }
+        .summary-item span.body { color: var(--ink-muted); font-size: 13.5px; }
+
+        .callout {
+          border-radius: 10px;
+          padding: 16px 20px;
+          font-size: 14.5px;
+          margin: 18px 0;
+          border: 1px solid var(--rule);
+        }
+        .callout.info {
+          background: var(--accent-soft);
+          border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
+        }
+        .callout.warn {
+          background: var(--warn-soft);
+          border-color: color-mix(in srgb, var(--warn) 35%, var(--rule));
+        }
+        .callout p:last-child { margin-bottom: 0; }
+        .callout .callout-label {
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 11px;
+          letter-spacing: 0.06em;
+          display: block;
+          margin-bottom: 6px;
+        }
+        .callout.info .callout-label { color: var(--accent-strong); }
+        .callout.warn .callout-label { color: var(--warn); }
+
+        /* ---- Term chips (quick glossary) ---- */
+        .term-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+        @media (min-width: 640px) {
+          .term-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .term-card {
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 10px;
+          padding: 16px 18px;
+        }
+        .term-card .term-name {
+          font-family: Charter, Georgia, serif;
+          font-weight: 700;
+          font-size: 16px;
+          color: var(--accent-strong);
+          margin-bottom: 4px;
+        }
+        .term-card .term-def {
+          font-size: 14px;
+          color: var(--ink-muted);
+          margin: 0;
+        }
+
+        /* ---- Diagram frame ---- */
+        .diagram {
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 10px;
+          padding: 18px 20px 14px;
+          margin: 18px 0 22px;
+          overflow-x: auto;
+          box-shadow: var(--shadow);
+        }
+        .diagram .caption {
+          font-size: 13px;
+          color: var(--ink-faint);
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px dashed var(--rule);
+        }
+        .diagram .mermaid { display: flex; justify-content: center; }
+        .diagram .mermaid svg { max-width: 100%; height: auto; }
+
+        /* ---- Folder tree ---- */
+        .tree {
+          background: var(--code-bg);
+          color: var(--code-ink);
+          border-radius: 10px;
+          padding: 20px 24px;
+          font-size: 13.5px;
+          line-height: 1.75;
+          overflow-x: auto;
+          white-space: pre;
+          border: 1px solid var(--rule);
+        }
+        .tree .comment { color: var(--ink-faint); font-style: italic; }
+        .tree .readable { color: var(--accent-strong); font-weight: 600; }
+        .tree .hidden { color: var(--warn); font-weight: 600; }
+
+        /* ---- Steps list ---- */
+        .steps {
+          counter-reset: step;
+          list-style: none;
+          padding: 0;
+          margin: 20px 0;
+        }
+        .steps li {
+          counter-increment: step;
+          position: relative;
+          padding: 4px 0 22px 44px;
+          border-left: 1px solid var(--rule);
+          margin-left: 15px;
+        }
+        .steps li:last-child { border-left-color: transparent; padding-bottom: 2px; }
+        .steps li::before {
+          content: counter(step);
+          position: absolute;
+          left: -15px;
+          top: 0;
+          width: 30px; height: 30px;
+          border-radius: 50%;
+          background: var(--accent);
+          color: var(--bg-elevated);
+          font-weight: 700;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-variant-numeric: tabular-nums;
+        }
+        .steps .step-title { font-weight: 700; display: block; margin-bottom: 3px; }
+        .steps .step-body { color: var(--ink-muted); font-size: 14.5px; margin: 0; }
+        .steps .step-body code { font-size: 13px; }
+
+        /* ---- Tables ---- */
+        .table-wrap { overflow-x: auto; margin: 18px 0; }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          font-size: 14px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 10px;
+          overflow: hidden;
+        }
+        th, td {
+          text-align: left;
+          padding: 10px 14px;
+          border-bottom: 1px solid var(--rule);
+          vertical-align: top;
+        }
+        th {
+          background: var(--accent-soft);
+          color: var(--accent-strong);
+          font-size: 12.5px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          font-weight: 700;
+        }
+        tr:last-child td { border-bottom: none; }
+        td code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+
+        code.inline {
+          background: var(--code-bg);
+          color: var(--code-ink);
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 0.88em;
+        }
+
+        /* ---- Glossary ---- */
+        dl.glossary { margin: 0; }
+        dl.glossary > div {
+          padding: 16px 0;
+          border-bottom: 1px solid var(--rule);
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+        @media (min-width: 700px) {
+          dl.glossary > div { grid-template-columns: 200px 1fr; gap: 20px; }
+        }
+        dl.glossary > div:last-child { border-bottom: none; }
+        dl.glossary dt {
+          font-weight: 700;
+          font-family: Charter, Georgia, serif;
+          font-size: 15.5px;
+          color: var(--ink);
+        }
+        dl.glossary dd { margin: 0; color: var(--ink-muted); font-size: 14.5px; }
+
+        footer {
+          grid-column: 1 / -1;
+          max-width: 800px;
+          margin: 40px auto 0;
+        }
+        @media (min-width: 1080px) { footer { margin-left: 276px; } }
+        footer p {
+          font-size: 13px;
+          color: var(--ink-faint);
+          border-top: 1px solid var(--rule);
+          padding-top: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+    <nav class="toc">
+        <div class="toc-label">Contents</div>
+        <ol>
+            <li><a href="#overview">In short</a></li>
+            <li><a href="#terms">Key terms</a></li>
+            <li><a href="#folders">Where notes live</a></li>
+            <li><a href="#cycle">One sync round</a></li>
+            <li><a href="#etags">How ETags work</a></li>
+            <li><a href="#pull">Pulling changes</a></li>
+            <li><a href="#push">Pushing changes</a></li>
+            <li><a href="#conflicts">Resolving conflicts</a></li>
+            <li><a href="#readable">The readable files</a></li>
+            <li><a href="#deletion">Deleting notes</a></li>
+            <li><a href="#connecting">Connecting a device</a></li>
+            <li><a href="#edge-cases">Edge cases</a></li>
+            <li><a href="#glossary">Full glossary</a></li>
+        </ol>
+    </nav>
+
+    <header class="hero">
+        <span class="eyebrow">Engineering &amp; product reference</span>
+        <h1 class="title">How Conifer Syncs Your Notes</h1>
+        <p class="dek">
+            A walkthrough of what actually happens, in what order, and which server files are
+            touched, whenever Conifer synchronizes across devices — written for engineers who'll
+            work on it and for anyone who needs to understand what it does without reading Kotlin.
+        </p>
+    </header>
+
+    <main>
+
+        <section id="overview">
+            <h2>In short</h2>
+            <p class="section-sub">The five-sentence version, for anyone who won't read the rest of
+                this page.</p>
+            <div class="summary-card">
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">Your own storage, no vendor lock-in</span>
+                            <span class="body">Notes sync to any Nextcloud account the user already has, as plain files. There is no Conifer server in the loop.</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">Offline-first</span>
+                            <span class="body">The app is fully usable with no network. Sync is an optional background job that reconciles the device with the server.</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">No conflict pop-ups</span>
+                            <span class="body">If the same note is edited on two devices while offline, sync resolves it automatically — no dialog, no manual merging.</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">Cheap when nothing changed</span>
+                            <span class="body">An idle sync round costs exactly one network request, regardless of how many notes exist in total.</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">Human-readable backups, for free</span>
+                            <span class="body">Alongside the machine data, Conifer writes plain Markdown files a person can open directly in Nextcloud's file browser.</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="mark">●</span>
+                        <div><span class="label">Deletions are reversible for 90 days</span>
+                            <span class="body">Deleting a note doesn't erase its file immediately — it's a safety window in case another device hasn't seen the deletion yet.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="terms">
+            <h2>Key terms, at a glance</h2>
+            <p class="section-sub">The handful of words that come up constantly below. A complete
+                alphabetical glossary is <a href="#glossary">at the end</a>.</p>
+            <div class="term-grid">
+                <div class="term-card">
+                    <div class="term-name">WebDAV</div>
+                    <p class="term-def">A standard way for apps to read, write, and list files on a
+                        remote server over HTTP — the same protocol Nextcloud's own desktop and
+                        mobile clients use. Conifer speaks it directly; no Conifer-specific server
+                        component is required.</p>
+                </div>
+                <div class="term-card">
+                    <div class="term-name">ETag</div>
+                    <p class="term-def">A short fingerprint the server hands back for a file or
+                        folder, which changes whenever its contents change. Comparing ETags lets
+                        Conifer tell "nothing changed" from "something changed" without downloading
+                        anything.</p>
+                </div>
+                <div class="term-card">
+                    <div class="term-name">Bucket</div>
+                    <p class="term-def">A monthly folder (e.g. <code class="inline">2026-07</code>)
+                        that notes created in that month are filed into. Buckets let sync check "did
+                        anything in July change?" as a single question instead of one per note.</p>
+                </div>
+                <div class="term-card">
+                    <div class="term-name">Tombstone</div>
+                    <p class="term-def">What a deleted note becomes: its file stays on the server,
+                        marked <code class="inline">"deleted": true</code>, instead of being removed
+                        immediately. This gives every device time to notice the deletion before the
+                        file is ever actually erased.</p>
+                </div>
+                <div class="term-card">
+                    <div class="term-name">Last-write-wins</div>
+                    <p class="term-def">The rule that decides which version of a note survives when
+                        it was edited on two devices independently: whichever edit has the later
+                        timestamp wins, with a fixed tiebreaker if they're identical.</p>
+                </div>
+                <div class="term-card">
+                    <div class="term-name">Readable file</div>
+                    <p class="term-def">A plain <code class="inline">.md</code> Markdown file, one
+                        per day, generated purely for humans to browse. It's a by-product of sync,
+                        never an input to it — editing it directly has no effect and will be
+                        silently overwritten.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="folders">
+            <h2>Where your notes live</h2>
+            <p class="section-sub">Everything sits under one configurable root folder in the user's
+                Nextcloud storage — <code class="inline">Conifer</code> by default, changeable per
+                device in Sync Settings.</p>
+            <div class="tree">Conifer/ <span class="comment">← "appRoot", user-configurable</span>
+                ├── 2026-06/ <span class="readable">← readable, for humans</span>
+                │ ├── 2026-06-01.md
+                │ └── 2026-06-17.md
+                ├── 2026-07/
+                │ └── 2026-07-26.md
+                └── .sync/ <span class="hidden">← machine data, hidden by the dot-prefix</span>
+                ├── bits/ <span class="hidden">← the actual source of truth</span>
+                │ ├── 2026-06/
+                │ │ ├── 3f7a1c2e-....json
+                │ │ └── 91bd44aa-....json
+                │ └── 2026-07/
+                │ └── 550e8400-....json
+                └── meta/
+                └── manifest.json <span class="comment">← written once, marks the folder as Conifer's</span>
+            </div>
+            <p>
+                The split is deliberate. Opening the <code class="inline">Conifer</code> folder in
+                the
+                Nextcloud web UI or a file manager shows only the month folders full of readable
+                Markdown — that's the layout meant to be browsed by a person. Everything sync
+                actually
+                reads and writes for its own bookkeeping lives under <code
+                    class="inline">.sync/</code>,
+                which most file browsers and the Nextcloud desktop client hide or skip by default
+                because
+                of the leading dot.
+            </p>
+            <div class="callout warn">
+                <span class="callout-label">Not a security boundary</span>
+                <p>The dot-prefix only hides <code class="inline">.sync/</code> from casual
+                    browsing. A user
+                    with "show hidden files" turned on can see it, and Conifer always addresses it
+                    explicitly.
+                    It exists to keep the human-facing folder clean, not to restrict access.</p>
+            </div>
+            <p>
+                A note's monthly bucket is fixed forever at creation time and never changes, even if
+                the
+                user later edits the note or moves its display date — so a note is never physically
+                moved
+                between folders, only its content is updated in place.
+            </p>
+        </section>
+
+        <section id="cycle">
+            <h2>One sync round, end to end</h2>
+            <p class="section-sub">Every time sync runs, it works through the same six stages in
+                order. Only one sync round can run at a time per device.</p>
+
+            <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+    A["① Fast-path check"] -->|"nothing changed"| Z(["Done — 1 request"])
+    A -->|"something changed"| B["② Pull"]
+    B --> C["③ Push"]
+    C --> D["④ Render readable files"]
+    D --> E{"⑤ GC due?\n(weekly)"}
+    E -->|"yes"| F["Remove old tombstones"]
+    E -->|"no"| G["⑥ Finalize"]
+    F --> G
+        </pre>
+                <div class="caption">The full round used by every sync trigger below — a busy round
+                    runs all six stages; a quiet one exits after stage ①.
+                </div>
+            </div>
+
+            <ol class="steps">
+                <li>
+                    <span class="step-title">Fast-path check</span>
+                    <p class="step-body">Ask the server for the current <a href="#etags">ETag</a> of
+                        the <code class="inline">.sync/bits</code> folder. If it's identical to the
+                        one recorded after the last sync, and there's nothing locally waiting to be
+                        pushed, stop here — the whole round cost one request.</p>
+                </li>
+                <li>
+                    <span class="step-title">Pull</span>
+                    <p class="step-body">List the monthly bucket folders and their ETags. For every
+                        bucket whose ETag has changed since last time, list its files and download
+                        only the ones whose individual ETag is new, merging each into the local
+                        database.</p>
+                </li>
+                <li>
+                    <span class="step-title">Push</span>
+                    <p class="step-body">Upload every note created or edited locally since the last
+                        sync. Brand-new notes go up as a batch; edits to existing notes are written
+                        conditionally so a concurrent edit elsewhere is never silently
+                        overwritten.</p>
+                </li>
+                <li>
+                    <span class="step-title">Render readable files</span>
+                    <p class="step-body">Regenerate the Markdown file for every day touched by this
+                        round's pulls and pushes, and upload the ones that actually changed.</p>
+                </li>
+                <li>
+                    <span class="step-title">Garbage-collect tombstones</span>
+                    <p class="step-body">Once a week, permanently remove notes that were deleted
+                        more than 90 days ago and whose deletion has already reached the server.</p>
+                </li>
+                <li>
+                    <span class="step-title">Finalize</span>
+                    <p class="step-body">Re-read the bits folder's ETag (this round's own pushes
+                        changed it) and store it, along with the current time, so the next round's
+                        fast-path check has something to compare against.</p>
+                </li>
+            </ol>
+
+            <h3>What starts a sync round</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Trigger</th>
+                        <th>Behavior</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>Manual</td>
+                        <td>The "Sync now" button in Sync Settings.</td>
+                    </tr>
+                    <tr>
+                        <td>Just connected</td>
+                        <td>Immediately after a device links to a Nextcloud account for the first
+                            time.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>After an edit</td>
+                        <td>10 seconds after the local notes change, so a burst of edits triggers
+                            one round, not many.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Periodic</td>
+                        <td>Every 5 minutes while the app is open, standing in for an "app came to
+                            the foreground" signal.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>Sync itself is entirely opt-in — until a device is connected to a Nextcloud account,
+                none of this runs and the app behaves exactly as it does without the feature.</p>
+        </section>
+
+        <section id="etags">
+            <h2>How ETags are actually used</h2>
+            <p class="section-sub">ETags are the mechanism that lets Conifer avoid re-downloading
+                data that hasn't changed, at three different levels of granularity.</p>
+            <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    participant App as Device
+    participant NC as Nextcloud (WebDAV)
+    App->>NC: PROPFIND .sync/bits (Depth 0)
+    NC-->>App: ETag "a1b2c3"
+    alt ETag same as last sync AND nothing waiting to push
+        App->>App: Stop — nothing to do
+    else ETag differs, or local edits are pending
+        App->>App: Continue to Pull (step 2)
+    end
+        </pre>
+                <div class="caption">Level 1 — the root fast-path check, one request per sync round
+                    when nothing has changed anywhere.
+                </div>
+            </div>
+            <p>
+                The same idea repeats at two finer levels once the fast path doesn't apply:
+            </p>
+            <ul>
+                <li><strong>Per bucket:</strong> each monthly folder has its own ETag. Comparing it
+                    against
+                    the one recorded at the last sync tells Conifer whether it needs to look inside
+                    that
+                    month at all — a year of untouched history costs nothing beyond listing its
+                    folder names.
+                </li>
+                <li><strong>Per file:</strong> each note's own ETag is compared against the value
+                    stored
+                    alongside it locally. Only files whose ETag actually differs get downloaded.
+                </li>
+            </ul>
+            <div class="callout info">
+                <span class="callout-label">Why not just compare timestamps?</span>
+                <p>An ETag captures the server's own notion of "this content changed," independent
+                    of clock
+                    skew between devices or of exactly what changed. It also doubles as a safe write
+                    guard (see
+                    <a href="#push">Pushing changes</a>): the server can be told "only save this if
+                    the ETag is
+                    still X," which is how Conifer avoids ever silently overwriting someone else's
+                    edit.</p>
+            </div>
+            <p>
+                One rule keeps this whole scheme honest: ETag comparison only ever applies to
+                <code class="inline">.sync/bits</code>. The human-readable Markdown files are never
+                consulted for change detection — writing them (step 4) must never make the fast-path
+                check
+                in the next round think something changed when it didn't.
+            </p>
+        </section>
+
+        <section id="pull">
+            <h2>Pulling changes from the server</h2>
+            <p class="section-sub">Step 2 of the sync round — bringing remote changes onto the
+                device.</p>
+            <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    participant App as Device
+    participant NC as Server
+    App->>NC: List .sync/bits/ (folders + ETags)
+    NC-->>App: 2026-06 (etag X), 2026-07 (etag Y changed!)
+    loop only buckets whose ETag changed
+        App->>NC: List .sync/bits/2026-07/ (files + ETags)
+        NC-->>App: 3 files, 1 with an unseen ETag
+        App->>NC: Download that one file
+        NC-->>App: note content
+        App->>App: Merge into local database
+        App->>App: Remember 2026-07's new ETag
+    end
+        </pre>
+                <div class="caption">Up to 6 files download at once when several have changed, to
+                    keep a bulk pull fast without overwhelming the server.
+                </div>
+            </div>
+            <p>
+                Every downloaded note runs through the same <a href="#conflicts">merge rule</a>
+                before it's
+                stored, whether or not the local device had its own unsynced edit to that note. Once
+                a
+                bucket's files have all been checked, its folder ETag is recorded — that's what lets
+                the
+                <em>next</em> sync round skip the whole month with a single comparison.
+            </p>
+        </section>
+
+        <section id="push">
+            <h2>Pushing local changes</h2>
+            <p class="section-sub">Step 3 — sending what changed on this device, without ever
+                clobbering someone else's edit.</p>
+            <p>
+                Brand-new notes (never before synced) are uploaded together in one batch request
+                where
+                possible, since their file names are unique by construction and can't collide with
+                anything already on the server. Edits to existing notes are written one at a time,
+                each
+                conditioned on the file's last known ETag:
+            </p>
+            <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    participant App as Device
+    participant NC as Server
+    App->>NC: Save file, but only if its ETag is still "a1b2c3"
+    alt Still matches — no one else touched it
+        NC-->>App: Saved. New ETag: "d4e5f6"
+        App->>App: Mark this note clean
+    else Someone else saved it first
+        NC-->>App: Rejected (412 Precondition Failed)
+        App->>NC: Download the current version
+        NC-->>App: current content + its ETag
+        App->>App: Resolve via last-write-wins
+        Note over App: If the local edit still wins,<br/>retry the save (up to 3 times)
+    end
+        </pre>
+                <div class="caption">The "only if the ETag still matches" condition is what makes
+                    concurrent edits from two devices safe by construction.
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Write condition</th>
+                        <th>Meaning</th>
+                        <th>Used for</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>If-None-Match: *</code></td>
+                        <td>Save only if the file doesn't exist yet</td>
+                        <td>Uploading a brand-new note</td>
+                    </tr>
+                    <tr>
+                        <td><code>If-Match: &lt;etag&gt;</code></td>
+                        <td>Save only if the file's ETag is still this exact value</td>
+                        <td>Uploading an edit to an existing note</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>
+                A note that keeps losing this race (three failed attempts) is left marked for the
+                next sync
+                round rather than forced through — nothing is ever lost, it just waits.
+            </p>
+        </section>
+
+        <section id="conflicts">
+            <h2>Resolving conflicts: last-write-wins</h2>
+            <p class="section-sub">What decides the winner when the same note was genuinely edited
+                on two devices before they could sync.</p>
+            <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    Q1{"Does this device know\nthis note at all?"}
+    Q1 -->|"No"| R1["Take the server's version"]
+    Q1 -->|"Yes"| Q2{"Does this device have\nan unsynced edit to it?"}
+    Q2 -->|"No"| R2["Take the server's version\n— it's simply newer"]
+    Q2 -->|"Yes — real conflict"| Q3{"Compare edit times"}
+    Q3 -->|"Server's edit is later"| R3["Server's version wins"]
+    Q3 -->|"This device's edit is later"| R4["This device's version wins"]
+    Q3 -->|"Identical to the second"| Q4["Tiebreaker: compare device IDs"]
+    Q4 --> R5["Higher device ID wins\n(same result on every device)"]
+        </pre>
+                <div class="caption">Applied per note, never field-by-field — the whole note is
+                    either kept or replaced, and unknown fields from a newer app version are always
+                    preserved either way.
+                </div>
+            </div>
+            <p>
+                Deleting a note is just another kind of edit for this purpose: a later deletion
+                beats an
+                earlier text edit, and a later text edit un-deletes a note that was deleted earlier
+                — there
+                is no special case for tombstones in the merge rule itself.
+            </p>
+            <div class="callout info">
+                <span class="callout-label">Why this needs no user prompt</span>
+                <p>The rule is fully deterministic: given the same two versions of a note, every
+                    device
+                    computes the same winner independently, with no coordination and no "which one
+                    do you want
+                    to keep?" dialog. The trade-off, accepted deliberately for now, is that the
+                    loser's specific
+                    wording is discarded rather than offered for manual reconciliation.</p>
+            </div>
+        </section>
+
+        <section id="readable">
+            <h2>The readable Markdown files</h2>
+            <p class="section-sub">Step 4 of the sync round — a pure by-product with no influence on
+                sync itself.</p>
+            <p>
+                For every day that had a note pulled, pushed, or deleted this round, Conifer
+                regenerates
+                that day's Markdown file from scratch and compares its hash against what was
+                uploaded last
+                time. Identical content is skipped without a request; only days that actually
+                changed get
+                re-uploaded.
+            </p>
+            <div class="diagram">
+                <div class="tree" style="margin:0;">&lt;!-- Automatically generated by Conifer.
+                    Manual changes will be overwritten. --&gt;
+
+                    # 2026-07-26
+
+                    ## 09:14 — Morning thought
+
+                    Coffee first, emails second.
+
+                    ---
+
+                    ## 13:40 — Meeting notes
+
+                    Discussed the Q3 roadmap with the team.
+                </div>
+                <div class="caption">2026-07/2026-07-26.md — always sorted the same way, always
+                    rendered the same way, on every device.
+                </div>
+            </div>
+            <p>
+                Because rendering is fully deterministic — same notes always produce byte-identical
+                Markdown — two devices regenerating the same day never disagree about what it should
+                contain. That's what makes it safe to write this file unconditionally, with no ETag
+                check
+                and no conflict handling: whichever device's write lands last, the bytes are the
+                same
+                either way.
+            </p>
+            <div class="callout warn">
+                <span class="callout-label">Not an editing channel</span>
+                <p>These files are generated, never read back and never merged. Editing one directly
+                    in
+                    Nextcloud has no effect on the actual notes — it will simply be overwritten the
+                    next time
+                    that day is re-rendered.</p>
+            </div>
+        </section>
+
+        <section id="deletion">
+            <h2>Deleting notes &amp; garbage collection</h2>
+            <p class="section-sub">Why a deleted note doesn't disappear from the server right
+                away.</p>
+            <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+    A["Note deleted\non Device A"] --> B["File stays put,\nmarked deleted"]
+    B -->|"synced"| C["Every connected device\nnow sees it as gone"]
+    C -->|"90 days pass"| D["Weekly cleanup job\nremoves the file for good"]
+        </pre>
+                <div class="caption">The 90-day window is the safety margin: it's how long a device
+                    could plausibly stay offline and still get an honest chance to see the deletion
+                    before the file is gone for good.
+                </div>
+            </div>
+            <p>
+                This two-phase approach — mark, then later remove — exists because a device that's
+                offline
+                when a note is deleted has no way to be told "this file used to exist." If the file
+                were
+                removed immediately, that device would eventually reconnect, still see the note
+                locally,
+                and re-upload it as if it were new: an unintended "resurrection" of something the
+                user
+                deliberately deleted.
+            </p>
+            <p>
+                The cleanup pass itself runs at most once a week, and only physically removes a
+                deletion
+                that has already reached the server — never one that's only recorded locally.
+            </p>
+            <div class="callout warn">
+                <span class="callout-label">Known limitation</span>
+                <p>A device that stays offline for longer than the 90-day window can still, in
+                    principle,
+                    run into a stale local edit whose file was already cleaned up elsewhere. Today's
+                    mitigation
+                    is conservative: such an edit is simply left pending rather than risking a
+                    resurrection. A
+                    proper resolution surface (flagging it for the user to confirm) is planned but
+                    not yet
+                    built.</p>
+            </div>
+        </section>
+
+        <section id="connecting">
+            <h2>Connecting a device</h2>
+            <p class="section-sub">How a device first links to a Nextcloud account — no password is
+                ever typed into Conifer itself.</p>
+            <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant App as Conifer
+    participant NC as Nextcloud
+    App->>NC: Start a login session
+    NC-->>App: One-time login link
+    App->>U: Open that link in the system browser
+    U->>NC: Log in and approve Conifer
+    App->>NC: "Is the login finished yet?"
+    NC-->>App: Yes — here's a device-specific app password
+    App->>App: Store it in the OS-secured credential store
+    App->>App: Run the first sync round
+        </pre>
+                <div class="caption">Nextcloud's own "Login Flow v2" — the same mechanism its
+                    official desktop and mobile clients use.
+                </div>
+            </div>
+            <p>
+                The credential Conifer ends up storing is a Nextcloud <strong>app password</strong>:
+                a
+                credential scoped to this one login, which the user can revoke from their Nextcloud
+                account
+                at any time without changing their real password. It's kept in the platform's own
+                secure
+                storage — Android Keystore, Apple Keychain, or the desktop OS's credential manager —
+                never
+                in the same database as note content.
+            </p>
+            <div class="callout warn">
+                <span class="callout-label">When that secure storage isn't available</span>
+                <p>On some desktop environments (for instance, a Linux machine with no reachable OS
+                    keyring),
+                    Conifer falls back to a weaker, software-only store and warns the user before
+                    connecting, so
+                    the trade-off is a deliberate, visible choice rather than a silent
+                    downgrade.</p>
+            </div>
+        </section>
+
+        <section id="edge-cases">
+            <h2>Edge cases worth knowing about</h2>
+            <p class="section-sub">Situations that come up in practice and how sync is designed to
+                behave in each.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Situation</th>
+                        <th>Behavior</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>First device ever, empty Nextcloud folder</td>
+                        <td>Creates the folder structure and a one-time <code>manifest.json</code>
+                            marker; tolerates another device winning the race to create it first.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>New device joining an existing account</td>
+                        <td>Downloads every existing note across all monthly buckets (in parallel,
+                            up to 6 at a time) before it has anything of its own to push.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Clocks slightly out of sync between devices</td>
+                        <td>Only shifts the winner of rare, close-timed conflicts; the deterministic
+                            tiebreaker keeps the outcome consistent across devices either way.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Someone edits a note's file directly in Nextcloud</td>
+                        <td>Treated exactly like an edit from another device. If the edited file
+                            can't be parsed, it's skipped and logged — never overwritten blindly.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Someone edits a readable Markdown file directly</td>
+                        <td>Silently overwritten the next time that day is re-rendered — the file's
+                            own header says as much.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>A note's format is newer than this app version understands</td>
+                        <td>Left completely untouched, locally and remotely, rather than risk
+                            corrupting data this version can't fully interpret.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Server unreachable</td>
+                        <td>The sync round aborts cleanly and the app keeps working entirely on
+                            local data; nothing is left half-written.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Sync interrupted mid-round (app killed, network drop)</td>
+                        <td>Every stage is safe to redo — the next round simply starts over and
+                            converges, with no duplicates and no lost edits.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="glossary">
+            <h2>Full glossary</h2>
+            <p class="section-sub">Every sync-specific term used on this page, alphabetically.</p>
+            <dl class="glossary">
+                <div>
+                    <dt>App password</dt>
+                    <dd>A Nextcloud credential scoped to one connected app or device, generated
+                        during login, that the user can revoke independently of their main account
+                        password.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Bucket</dt>
+                    <dd>A monthly folder (<code class="inline">yyyy-MM</code>) that a note is filed
+                        into based on its creation date, fixed forever at creation and never changed
+                        afterward. Lets sync check a whole month for changes in one request.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Conditional write (If-Match / If-None-Match)</dt>
+                    <dd>An instruction attached to a save request telling the server to only go
+                        through with it if a stated condition still holds — e.g. "only if the file's
+                        ETag is still X," or "only if this file doesn't exist yet." The mechanism
+                        that makes concurrent writes from two devices safe.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Dirty</dt>
+                    <dd>The internal flag on a note meaning "changed on this device but not yet
+                        successfully uploaded." Cleared only once the server has confirmed the
+                        write.
+                    </dd>
+                </div>
+                <div>
+                    <dt>ETag (entity tag)</dt>
+                    <dd>A short, opaque fingerprint the server assigns to a file or folder, which
+                        changes whenever its content changes. Comparing ETags is far cheaper than
+                        comparing file contents directly, since it needs no download.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Fast-path check</dt>
+                    <dd>The very first thing a sync round does: compare the current root ETag
+                        against the one recorded last time. If it matches and nothing local is
+                        waiting to be pushed, the round ends immediately.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Garbage collection (GC)</dt>
+                    <dd>The periodic pass (at most weekly) that permanently deletes tombstoned notes
+                        once they've been retained long enough that every device has had a fair
+                        chance to see the deletion.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Last-write-wins (LWW)</dt>
+                    <dd>The conflict-resolution rule: when the same note was edited independently on
+                        two devices, the edit with the later timestamp wins, with a fixed tiebreaker
+                        (comparing device IDs) if the timestamps are identical.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Login Flow v2</dt>
+                    <dd>Nextcloud's standard browser-based login handshake for third-party apps: the
+                        app opens a one-time link in the system browser, the user signs in there,
+                        and the app receives an app password once approved — the user's real
+                        password is never typed into the app.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Manifest</dt>
+                    <dd>A small <code class="inline">manifest.json</code> file, written once when a
+                        Nextcloud folder is first used for sync, recording the data format version
+                        in use.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Merge</dt>
+                    <dd>The act of reconciling a note just downloaded from the server with whatever
+                        this device already has for it, applying the last-write-wins rule when both
+                        sides changed.
+                    </dd>
+                </div>
+                <div>
+                    <dt>PROPFIND</dt>
+                    <dd>The WebDAV request used to ask the server for information about a file or
+                        folder — its ETag, whether it's a folder, and its immediate contents —
+                        without downloading the file itself.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Readable module</dt>
+                    <dd>The part of sync that generates the human-facing Markdown files, one per
+                        day, as a derived by-product. Never read back, never merged, purely
+                        generated.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Root folder (appRoot)</dt>
+                    <dd>The single top-level folder in the user's Nextcloud storage that all of
+                        Conifer's data — readable and machine — lives under. <code class="inline">Conifer</code>
+                        by default; configurable per device.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Tombstone</dt>
+                    <dd>A deleted note's file, kept on the server with a <code class="inline">deleted:
+                        true</code> marker instead of being removed right away, so every device gets
+                        a chance to see the deletion before garbage collection erases it for good.
+                    </dd>
+                </div>
+                <div>
+                    <dt>WebDAV</dt>
+                    <dd>The standard HTTP-based protocol Conifer uses to read, write, and list files
+                        on a Nextcloud (or any WebDAV-compatible) server — the same protocol
+                        Nextcloud's own official clients use.
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>
+            Reflects the sync engine as implemented. The full engineering specification this
+            implementation follows lives at <code class="inline">docs/nexcloud_sync_spec.md</code>
+            in the
+            repository, for anyone who needs the exact algorithms and data formats.
+        </p>
+    </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+    (function () {
+      function isDark() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      function themeVars() {
+        var dark = isDark();
+        return dark ? {
+          background: '#1a201a',
+          primaryColor: '#1e2e24',
+          primaryTextColor: '#e8ece4',
+          primaryBorderColor: '#7fc7a0',
+          lineColor: '#a2ae9e',
+          secondaryColor: '#171d17',
+          tertiaryColor: '#171d17',
+          actorBkg: '#1e2e24',
+          actorBorder: '#7fc7a0',
+          actorTextColor: '#e8ece4',
+          actorLineColor: '#a2ae9e',
+          signalColor: '#a2ae9e',
+          signalTextColor: '#e8ece4',
+          labelBoxBkgColor: '#1e2e24',
+          labelBoxBorderColor: '#7fc7a0',
+          labelTextColor: '#e8ece4',
+          loopTextColor: '#e8ece4',
+          noteBkgColor: '#33241a',
+          noteTextColor: '#e8ece4',
+          noteBorderColor: '#e0a268',
+          activationBorderColor: '#7fc7a0',
+          activationBkgColor: '#1e2e24',
+          sequenceNumberColor: '#11150f',
+          altBackground: '#171d17',
+          fontFamily: '-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif'
+        } : {
+          background: '#ffffff',
+          primaryColor: '#e4eee7',
+          primaryTextColor: '#1b211d',
+          primaryBorderColor: '#2f5d46',
+          lineColor: '#55625a',
+          secondaryColor: '#ececE6',
+          tertiaryColor: '#ececE6',
+          actorBkg: '#e4eee7',
+          actorBorder: '#2f5d46',
+          actorTextColor: '#1b211d',
+          actorLineColor: '#55625a',
+          signalColor: '#55625a',
+          signalTextColor: '#1b211d',
+          labelBoxBkgColor: '#e4eee7',
+          labelBoxBorderColor: '#2f5d46',
+          labelTextColor: '#1b211d',
+          loopTextColor: '#1b211d',
+          noteBkgColor: '#f5e7da',
+          noteTextColor: '#1b211d',
+          noteBorderColor: '#a85a2a',
+          activationBorderColor: '#2f5d46',
+          activationBkgColor: '#e4eee7',
+          sequenceNumberColor: '#ffffff',
+          altBackground: '#f4f5f1',
+          fontFamily: '-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif'
+        };
+      }
+
+      function render() {
+        if (!window.mermaid) return;
+        document.querySelectorAll('pre.mermaid').forEach(function (node) {
+          if (!node.dataset.src) node.dataset.src = node.textContent;
+          node.removeAttribute('data-processed');
+          node.innerHTML = node.dataset.src;
+        });
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: 'base',
+          themeVariables: themeVars(),
+          flowchart: { curve: 'basis' },
+          securityLevel: 'strict'
+        });
+        window.mermaid.run({ querySelector: 'pre.mermaid' });
+      }
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        render();
+      } else {
+        window.addEventListener('DOMContentLoaded', render);
+      }
+
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+      }
+    })();
+</script>
+
+</body>
+</html>

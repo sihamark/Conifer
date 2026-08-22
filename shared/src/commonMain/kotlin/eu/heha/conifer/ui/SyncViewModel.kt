@@ -69,7 +69,7 @@ class SyncViewModel(
     fun onClickSyncIcon() {
         if (state.connection is SyncConnectionState.Connected) {
             if (state.isDebugOpen) {
-                state = state.copy(isDebugOpen = false)
+                state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false)
             } else {
                 viewModelScope.launch {
                     val info = coordinator.debugInfo()
@@ -85,12 +85,17 @@ class SyncViewModel(
         state = state.copy(isSheetOpen = false)
     }
 
+    /** Closing the popover also collapses its details, so the next glance is a glance again. */
     fun onCloseDebug() {
-        state = state.copy(isDebugOpen = false)
+        state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false)
+    }
+
+    fun onToggleDebugDetails() {
+        state = state.copy(areDebugDetailsOpen = !state.areDebugDetailsOpen)
     }
 
     fun onOpenSettingsFromDebug() {
-        state = state.copy(isDebugOpen = false, isSheetOpen = true)
+        state = state.copy(isDebugOpen = false, areDebugDetailsOpen = false, isSheetOpen = true)
     }
 
     fun onServerUrlChange(url: String) {
@@ -148,8 +153,19 @@ class SyncViewModel(
         connectJob?.cancel()
     }
 
+    /**
+     * Also reachable from the debug popover, which stays open across the round - so refresh its
+     * snapshot afterwards, otherwise the details it shows (last sync, root ETag, tally, error)
+     * would still describe the *previous* round while sitting right under a "Sync now" the user
+     * just pressed.
+     */
     fun onClickSyncNow() {
-        viewModelScope.launch { coordinator.syncNow() }
+        viewModelScope.launch {
+            coordinator.syncNow()
+            if (state.isDebugOpen) {
+                state = state.copy(debugInfo = coordinator.debugInfo())
+            }
+        }
     }
 
     fun onClickDisconnect() {

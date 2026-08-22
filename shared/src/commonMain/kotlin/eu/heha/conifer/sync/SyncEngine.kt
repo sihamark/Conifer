@@ -7,8 +7,9 @@ import eu.heha.conifer.model.database.ReadablePending
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncEngine.Companion.PULL_PARALLELISM
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -44,27 +45,30 @@ class SyncEngine(
 
     // Whether this instance has already confirmed/created dataRoot/meta/manifest.json this
     // session (spec §9 "First device / empty server"). Purely a request-saving cache: once
-    // postsRoot exists remotely (from anyone's first push), pull() never hits the branch that
+    // bitsRoot exists remotely (from anyone's first push), pull() never hits the branch that
     // checks this again anyway, since manifest.json is written once and never touched afterwards.
     private var manifestConfirmed = false
 
     private fun dao() = databaseController.syncDao()
 
-    suspend fun sync() = mutex.withLock {
+    /** Runs one full sync round, returning tallies of what actually moved (for the debug UI). */
+    suspend fun sync(): SyncStats = mutex.withLock {
+        val counters = SyncCounters()
         val appRoot = syncPrefs.appRoot()
-        val postsRoot = "$appRoot/.sync/posts"
+        val bitsRoot = "$appRoot/.sync/bits"
 
-        if (fastPathApplies(postsRoot)) return@withLock
+        if (fastPathApplies(bitsRoot)) return@withLock SyncStats()
 
-        pull(appRoot, postsRoot)
-        push(postsRoot)
+        pull(appRoot, bitsRoot, counters)
+        push(bitsRoot, counters)
         readableModule.render(appRoot)
-        collectGarbageIfDue(postsRoot)
-        finalize(postsRoot)
+        collectGarbageIfDue(bitsRoot)
+        finalize(bitsRoot)
+        counters.snapshot()
     }
 
-    private suspend fun fastPathApplies(postsRoot: String): Boolean {
-        val remoteRootEtag = remoteStore.etag(postsRoot) ?: return false
+    private suspend fun fastPathApplies(bitsRoot: String): Boolean {
+        val remoteRootEtag = remoteStore.etag(bitsRoot) ?: return false
         return remoteRootEtag == syncPrefs.rootEtag() &&
                 !dao().hasDirtyBits() &&
                 !dao().hasPendingReadableDays() &&
@@ -73,9 +77,9 @@ class SyncEngine(
 
     // --- tombstone GC (spec §8) -------------------------------------------------------------
 
-    private suspend fun collectGarbageIfDue(postsRoot: String) {
+    private suspend fun collectGarbageIfDue(bitsRoot: String) {
         if (!garbageCollectionIsDue()) return
-        garbageCollector.collect(postsRoot)
+        garbageCollector.collect(bitsRoot)
         syncPrefs.setLastGcAt(Clock.System.now())
     }
 
@@ -98,44 +102,45 @@ class SyncEngine(
 
     // --- pull (spec §5 step 2) ---------------------------------------------------------------
 
-    private suspend fun pull(appRoot: String, postsRoot: String) {
+    private suspend fun pull(appRoot: String, bitsRoot: String, counters: SyncCounters) {
         val buckets = try {
-            remoteStore.list(postsRoot)
+            remoteStore.list(bitsRoot)
         } catch (_: WebDavNotFoundException) {
-            ensureManifestExists(appRoot, postsRoot) // spec §9 "First device / empty server"
+            ensureManifestExists(appRoot, bitsRoot) // spec §9 "First device / empty server"
             emptyList()
         }
         for (bucketEntry in buckets.filter { it.isDirectory }) {
             val bucket = bucketEntry.name
             if (bucketEntry.etag == dao().bucketEtag(bucket)) continue // unchanged since last sync
 
-            val entries = remoteStore.list("$postsRoot/$bucket")
+            val entries = remoteStore.list("$bitsRoot/$bucket")
                 .filter { !it.isDirectory && it.name.endsWith(".json") }
-            pullEntries(postsRoot, bucket, entries)
+            pullEntries(bitsRoot, bucket, entries, counters)
             dao().upsertBucketState(BucketState(bucket, bucketEntry.etag))
         }
     }
 
     /** Downloads and merges [entries] with parallelism ≤ [PULL_PARALLELISM] (spec §4/§9). */
     private suspend fun pullEntries(
-        postsRoot: String,
+        bitsRoot: String,
         bucket: String,
         entries: List<RemoteStore.Entry>,
+        counters: SyncCounters,
     ) = coroutineScope {
         val permits = Semaphore(PULL_PARALLELISM)
-        for (entry in entries) {
-            launch { permits.withPermit { pullEntry(postsRoot, bucket, entry) } }
-        }
+        entries.map { entry ->
+            async { permits.withPermit { pullEntry(bitsRoot, bucket, entry, counters) } }
+        }.awaitAll()
     }
 
     /**
-     * Marks a brand-new collection as Conifer's: `dataRoot/posts/`, `dataRoot/meta/`, and
+     * Marks a brand-new collection as Conifer's: `dataRoot/bits/`, `dataRoot/meta/`, and
      * `dataRoot/meta/manifest.json` with `{"schema":1}` (spec §9 "First device / empty server").
      * Tolerates another device winning the race to create the manifest first.
      */
-    private suspend fun ensureManifestExists(appRoot: String, postsRoot: String) {
+    private suspend fun ensureManifestExists(appRoot: String, bitsRoot: String) {
         if (manifestConfirmed) return
-        mkdirsRecursive(postsRoot)
+        mkdirsRecursive(bitsRoot)
         val metaDir = "$appRoot/.sync/meta"
         mkdirsRecursive(metaDir)
         try {
@@ -150,21 +155,32 @@ class SyncEngine(
         manifestConfirmed = true
     }
 
-    private suspend fun pullEntry(postsRoot: String, bucket: String, entry: RemoteStore.Entry) {
+    private suspend fun pullEntry(
+        bitsRoot: String,
+        bucket: String,
+        entry: RemoteStore.Entry,
+        counters: SyncCounters,
+    ) {
         val id = entry.name.removeSuffix(".json")
         val local = dao().bit(id)
         if (local != null && local.remoteEtag == entry.etag) return // already up to date
 
-        val rawJson = remoteStore.get("$postsRoot/$bucket/${entry.name}").decodeToString()
+        val rawJson = remoteStore.get("$bitsRoot/$bucket/${entry.name}").decodeToString()
         val remote = parse(rawJson) ?: return
-        mergeRemote(remote, entry.etag)
+        mergeRemote(remote, entry.etag, counters)
     }
 
-    /** Merges [remote] into the local row and queues both its old and new day for re-rendering. */
-    private suspend fun mergeRemote(remote: Bit, remoteEtag: String): Bit {
-        val previousDay = dao().bit(remote.id)?.date?.date
+    /**
+     * Merges [remote] into the local row and queues both its old and new day for re-rendering.
+     * Counts as "merged" (on top of "pulled") only when the local row had its own unpushed edit
+     * to reconcile against - a clean/nonexistent local row is just an ordinary incoming update,
+     * not a real conflict resolution (see [MergePolicy.winner]'s early-out branches).
+     */
+    private suspend fun mergeRemote(remote: Bit, remoteEtag: String, counters: SyncCounters): Bit {
+        val local = dao().bit(remote.id)
         val merged = dao().mergeAndStore(remote, remoteEtag, MergePolicy::merged)
-        markReadablePendingForDayChange(merged.date.date, previousDay)
+        markReadablePendingForDayChange(merged.date.date, local?.date?.date)
+        counters.incrementPulled(wasMerge = local?.dirty == true)
         return merged
     }
 
@@ -205,23 +221,23 @@ class SyncEngine(
 
     // --- push (spec §5 step 3) --------------------------------------------------------------
 
-    private suspend fun push(postsRoot: String) {
+    private suspend fun push(bitsRoot: String, counters: SyncCounters) {
         val new = dao().dirtyNew()
         val modified = dao().dirtyModified()
         if (new.isEmpty() && modified.isEmpty()) return
 
         ensureBucketsExist(
-            postsRoot,
+            bitsRoot,
             (new.asSequence() + modified.asSequence()).mapTo(mutableSetOf()) { it.bucket })
 
-        if (new.isNotEmpty()) pushNew(postsRoot, new)
-        for (bit in modified) pushModified(postsRoot, bit)
+        if (new.isNotEmpty()) pushNew(bitsRoot, new, counters)
+        for (bit in modified) pushModified(bitsRoot, bit, counters)
     }
 
-    private suspend fun ensureBucketsExist(postsRoot: String, buckets: Set<String>) {
+    private suspend fun ensureBucketsExist(bitsRoot: String, buckets: Set<String>) {
         for (bucket in buckets) {
             if (bucket in knownBuckets) continue
-            mkdirsRecursive("$postsRoot/$bucket")
+            mkdirsRecursive("$bitsRoot/$bucket")
             // Only recorded once mkdirs has actually succeeded - if it throws (e.g. a transient
             // network failure), the bucket must not be silently treated as ready on a later
             // retry within this same process.
@@ -237,11 +253,11 @@ class SyncEngine(
         }
     }
 
-    private suspend fun pushNew(postsRoot: String, new: List<Bit>) {
+    private suspend fun pushNew(bitsRoot: String, new: List<Bit>, counters: SyncCounters) {
         val bulkResult = runCatching {
             val files = new.map { bit ->
                 RemoteStore.BulkFile(
-                    path(postsRoot, bit),
+                    path(bitsRoot, bit),
                     encode(bit).encodeToByteArray(),
                     bit.modifiedAt.epochSeconds
                 )
@@ -252,39 +268,47 @@ class SyncEngine(
             for ((bit, etag) in pushed) {
                 dao().setClean(bit.id, etag, encode(bit))
                 markReadablePendingForPush(bit)
+                counters.incrementPushed()
             }
         }.onFailure {
             // The batch (or KtorWebDavStore's own per-file fallback inside bulkPut) failed
             // partway; some files may already be on the server from this or an earlier attempt.
             // Retry item by item instead of losing that progress or leaving them dirty forever.
-            for (bit in new) pushNewSingle(postsRoot, bit)
+            for (bit in new) pushNewSingle(bitsRoot, bit, counters)
         }
     }
 
-    private suspend fun pushNewSingle(postsRoot: String, bit: Bit) {
-        val path = path(postsRoot, bit)
+    private suspend fun pushNewSingle(bitsRoot: String, bit: Bit, counters: SyncCounters) {
+        val path = path(bitsRoot, bit)
         try {
             val payload = encode(bit)
             val etag = remoteStore.put(path, payload.encodeToByteArray(), ifNoneMatchAll = true)
             dao().setClean(bit.id, etag, payload)
             markReadablePendingForPush(bit)
+            counters.incrementPushed()
         } catch (e: WebDavConflictException) {
             // Already on the server (a previous attempt's PUT went through but was never
             // recorded locally) - reconcile through the normal merge path instead of assuming
             // our copy is identical.
             val etag = remoteStore.etag(path) ?: throw e
             val remote = parse(remoteStore.get(path).decodeToString()) ?: return
-            mergeRemote(remote, etag)
+            mergeRemote(remote, etag, counters)
         }
     }
 
-    private suspend fun pushModified(postsRoot: String, bit: Bit, attempt: Int = 1) {
-        val path = path(postsRoot, bit)
+    private suspend fun pushModified(
+        bitsRoot: String,
+        bit: Bit,
+        counters: SyncCounters,
+        attempt: Int = 1,
+    ) {
+        val path = path(bitsRoot, bit)
         try {
             val payload = encode(bit)
             val etag = remoteStore.put(path, payload.encodeToByteArray(), ifMatch = bit.remoteEtag)
             dao().setClean(bit.id, etag, payload)
             markReadablePendingForPush(bit)
+            counters.incrementPushed()
         } catch (_: WebDavConflictException) {
             if (attempt > MAX_PUSH_ATTEMPTS) {
                 Napier.w { "giving up pushing bit ${bit.id} after $attempt conflicting attempts; it stays dirty for the next sync" }
@@ -308,33 +332,33 @@ class SyncEngine(
                     return
                 }
                 // The file vanished between our failed PUT and this check - push it as new.
-                pushNewSingle(postsRoot, bit.copy(remoteEtag = null))
+                pushNewSingle(bitsRoot, bit.copy(remoteEtag = null), counters)
                 return
             }
             val remote = parse(remoteStore.get(path).decodeToString()) ?: return
-            val merged = mergeRemote(remote, currentEtag)
-            if (merged.dirty) pushModified(postsRoot, merged, attempt + 1)
+            val merged = mergeRemote(remote, currentEtag, counters)
+            if (merged.dirty) pushModified(bitsRoot, merged, counters, attempt + 1)
         } catch (e: WebDavNotFoundException) {
             // The bucket folder went missing (shouldn't normally happen - buckets are never
             // deleted); recreate it once and retry.
             if (attempt > MAX_PUSH_ATTEMPTS) throw e
-            mkdirsRecursive("$postsRoot/${bit.bucket}")
-            pushModified(postsRoot, bit, attempt + 1)
+            mkdirsRecursive("$bitsRoot/${bit.bucket}")
+            pushModified(bitsRoot, bit, counters, attempt + 1)
         }
     }
 
     // --- finalize (spec §5 step 5) ----------------------------------------------------------
 
-    private suspend fun finalize(postsRoot: String) {
+    private suspend fun finalize(bitsRoot: String) {
         // Only null if nothing has ever been created anywhere (no remote data, nothing local to
         // push either) - there is genuinely nothing to record yet; the next sync that pushes
-        // something will create postsRoot and finalize normally.
-        val rootEtag = remoteStore.etag(postsRoot) ?: return
+        // something will create bitsRoot and finalize normally.
+        val rootEtag = remoteStore.etag(bitsRoot) ?: return
         syncPrefs.setRootEtag(rootEtag)
         syncPrefs.setLastSyncAt(Clock.System.now())
     }
 
-    private fun path(postsRoot: String, bit: Bit) = "$postsRoot/${bit.bucket}/${bit.id}.json"
+    private fun path(bitsRoot: String, bit: Bit) = "$bitsRoot/${bit.bucket}/${bit.id}.json"
 
     /**
      * Serializes [bit] for the wire, merging our own fields into whatever [Bit.payload] already
@@ -359,4 +383,32 @@ class SyncEngine(
         const val MANIFEST_JSON = """{"schema":1}"""
         val GC_INTERVAL = 7.days
     }
+}
+
+/** Tallies from one [SyncEngine.sync] run, for the debug UI. */
+data class SyncStats(
+    val pushed: Int = 0,
+    val pulled: Int = 0,
+    val merged: Int = 0,
+)
+
+/**
+ * Mutable, concurrency-safe accumulator for [SyncStats] - guards plain [Int] fields with a
+ * [Mutex] rather than reaching for a platform-specific atomic, since [SyncEngine.pullEntries]
+ * increments it from several coroutines racing under [PULL_PARALLELISM].
+ */
+private class SyncCounters {
+    private val mutex = Mutex()
+    private var pushed = 0
+    private var pulled = 0
+    private var merged = 0
+
+    suspend fun incrementPushed() = mutex.withLock { pushed++ }
+
+    suspend fun incrementPulled(wasMerge: Boolean) = mutex.withLock {
+        pulled++
+        if (wasMerge) merged++
+    }
+
+    suspend fun snapshot() = mutex.withLock { SyncStats(pushed, pulled, merged) }
 }

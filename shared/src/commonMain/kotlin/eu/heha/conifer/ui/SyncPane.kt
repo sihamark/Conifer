@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,17 +59,22 @@ import conifer.shared.generated.resources.sync_action_save_app_root
 import conifer.shared.generated.resources.sync_action_sync_now
 import conifer.shared.generated.resources.sync_content_status_icon
 import conifer.shared.generated.resources.sync_content_syncing
+import conifer.shared.generated.resources.sync_debug_action_hide_details
 import conifer.shared.generated.resources.sync_debug_action_settings
+import conifer.shared.generated.resources.sync_debug_action_show_details
 import conifer.shared.generated.resources.sync_debug_app_root
 import conifer.shared.generated.resources.sync_debug_device_id
 import conifer.shared.generated.resources.sync_debug_last_error
 import conifer.shared.generated.resources.sync_debug_last_gc
+import conifer.shared.generated.resources.sync_debug_last_stats
+import conifer.shared.generated.resources.sync_debug_last_stats_value
 import conifer.shared.generated.resources.sync_debug_last_sync
 import conifer.shared.generated.resources.sync_debug_never
 import conifer.shared.generated.resources.sync_debug_none
 import conifer.shared.generated.resources.sync_debug_note
 import conifer.shared.generated.resources.sync_debug_root_etag
 import conifer.shared.generated.resources.sync_debug_server
+import conifer.shared.generated.resources.sync_debug_status_not_connected
 import conifer.shared.generated.resources.sync_debug_title
 import conifer.shared.generated.resources.sync_label_app_root
 import conifer.shared.generated.resources.sync_label_server_url
@@ -87,6 +94,7 @@ import conifer.shared.generated.resources.sync_title_insecure_key
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
+import eu.heha.conifer.sync.SyncStats
 import eu.heha.conifer.ui.theme.ConiferTheme
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
@@ -157,44 +165,129 @@ private fun SyncDebugPopover(state: SyncUiState, actions: SyncPaneActions) {
  * Split out from [SyncDebugPopover] so previews can render the popover's content directly - a
  * `DropdownMenu` draws into a separate `Popup` layer that the preview renderer never captures,
  * leaving previews of the live popover blank.
+ *
+ * Deliberately a *glance*, not a dump: who's connected, whether/when the last sync happened, and
+ * the two things one actually wants from here (sync now, open the settings). The troubleshooting
+ * fields are one tap away behind [SyncDebugDetails] rather than in the way every time.
  */
 @Composable
 private fun SyncDebugContent(state: SyncUiState, actions: SyncPaneActions) {
-    val debugInfo = state.debugInfo
-    Column(Modifier.widthIn(min = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            stringResource(Res.string.sync_debug_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(Modifier.height(8.dp))
-        val connected = state.connection as? SyncConnectionState.Connected
+    val connected = state.connection as? SyncConnectionState.Connected
+    Column(Modifier.widthIn(min = 240.dp).padding(start = 16.dp, end = 8.dp, bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(Res.string.sync_debug_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            if (state.debugInfo != null) {
+                DetailsToggle(
+                    isOpen = state.areDebugDetailsOpen,
+                    onClick = actions.onToggleDebugDetails
+                )
+            }
+        }
         if (connected != null) {
             AccountChip(connected.username)
             Spacer(Modifier.height(8.dp))
             SyncStatusRow(isSyncing = connected.isSyncing, lastSyncAt = connected.lastSyncAt)
-            Spacer(Modifier.height(8.dp))
-            DebugRow(stringResource(Res.string.sync_debug_server), connected.server)
+        } else {
+            Text(
+                stringResource(Res.string.sync_debug_status_not_connected),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        if (debugInfo != null) {
-            DebugRow(stringResource(Res.string.sync_debug_device_id), debugInfo.deviceId)
-            DebugRow(stringResource(Res.string.sync_debug_app_root), debugInfo.appRoot)
-            DebugRow(
-                stringResource(Res.string.sync_debug_last_sync),
-                debugInfo.lastSyncAt?.printDateTime()
-                    ?: stringResource(Res.string.sync_debug_never)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (connected != null) {
+                TextButton(
+                    onClick = actions.onClickSyncNow,
+                    enabled = !connected.isSyncing,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(Res.string.sync_action_sync_now))
+                }
+            }
+            TextButton(
+                onClick = actions.onOpenSettingsFromDebug,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(stringResource(Res.string.sync_debug_action_settings))
+            }
+        }
+        if (state.debugInfo != null) {
+            AnimatedVisibility(state.areDebugDetailsOpen) {
+                SyncDebugDetails(debugInfo = state.debugInfo, server = connected?.server)
+            }
+        }
+    }
+}
+
+/**
+ * The one control that turns [SyncDebugContent] from a glance into the full troubleshooting dump.
+ * An icon button in the header row rather than a labelled button in the body: the label would sit
+ * out of line with the popover's real actions ("Sync now", "Sync settings…") and read like a third
+ * one, when all it does is expand what's already on screen.
+ */
+@Composable
+private fun DetailsToggle(isOpen: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            if (isOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = stringResource(
+                if (isOpen) Res.string.sync_debug_action_hide_details
+                else Res.string.sync_debug_action_show_details
             )
+        )
+    }
+}
+
+/**
+ * Everything a bug report would want and nobody needs at a glance - see [SyncDebugInfo]. [server]
+ * comes from the connection rather than [SyncDebugInfo] (which doesn't carry it) and is simply
+ * omitted while disconnected.
+ */
+@Composable
+private fun SyncDebugDetails(debugInfo: SyncDebugInfo, server: String?) {
+    Column {
+        HorizontalDivider(Modifier.padding(bottom = 8.dp))
+        if (server != null) {
+            DebugRow(stringResource(Res.string.sync_debug_server), server)
+        }
+        DebugRow(stringResource(Res.string.sync_debug_device_id), debugInfo.deviceId)
+        DebugRow(stringResource(Res.string.sync_debug_app_root), debugInfo.appRoot)
+        DebugRow(
+            stringResource(Res.string.sync_debug_last_sync),
+            debugInfo.lastSyncAt?.printDateTime()
+                ?: stringResource(Res.string.sync_debug_never)
+        )
+        DebugRow(
+            stringResource(Res.string.sync_debug_root_etag),
+            debugInfo.rootEtag ?: stringResource(Res.string.sync_debug_none)
+        )
+        DebugRow(
+            stringResource(Res.string.sync_debug_last_gc),
+            debugInfo.lastGcAt?.printDateTime()
+                ?: stringResource(Res.string.sync_debug_never)
+        )
+        DebugRow(
+            stringResource(Res.string.sync_debug_last_error),
+            debugInfo.lastError ?: stringResource(Res.string.sync_debug_none)
+        )
+        val stats = debugInfo.lastStats
+        if (stats != null) {
             DebugRow(
-                stringResource(Res.string.sync_debug_root_etag),
-                debugInfo.rootEtag ?: stringResource(Res.string.sync_debug_none)
-            )
-            DebugRow(
-                stringResource(Res.string.sync_debug_last_gc),
-                debugInfo.lastGcAt?.printDateTime()
-                    ?: stringResource(Res.string.sync_debug_never)
-            )
-            DebugRow(
-                stringResource(Res.string.sync_debug_last_error),
-                debugInfo.lastError ?: stringResource(Res.string.sync_debug_none)
+                stringResource(Res.string.sync_debug_last_stats),
+                stringResource(
+                    Res.string.sync_debug_last_stats_value,
+                    stats.pushed,
+                    stats.pulled,
+                    stats.merged,
+                )
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -203,10 +296,6 @@ private fun SyncDebugContent(state: SyncUiState, actions: SyncPaneActions) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(4.dp))
-        TextButton(onClick = actions.onOpenSettingsFromDebug) {
-            Text(stringResource(Res.string.sync_debug_action_settings))
-        }
     }
 }
 
@@ -491,6 +580,8 @@ data class SyncUiState(
     val connection: SyncConnectionState = SyncConnectionState.Disconnected,
     val isSheetOpen: Boolean = false,
     val isDebugOpen: Boolean = false,
+    /** Whether the debug popover currently shows [debugInfo] or just the status glance. */
+    val areDebugDetailsOpen: Boolean = false,
     val serverUrlInput: String = "",
     val debugInfo: SyncDebugInfo? = null,
     /** Text field content; may differ from [savedAppRoot] while the user is still editing it. */
@@ -509,6 +600,7 @@ class SyncPaneActions(
     val onClickSyncIcon: () -> Unit = {},
     val onCloseSheet: () -> Unit = {},
     val onCloseDebug: () -> Unit = {},
+    val onToggleDebugDetails: () -> Unit = {},
     val onOpenSettingsFromDebug: () -> Unit = {},
     val onServerUrlChange: (String) -> Unit = {},
     val onClickConnect: () -> Unit = {},
@@ -543,7 +635,8 @@ private val previewSyncState = SyncUiState(
         lastSyncAt = PREVIEW_LAST_SYNC,
         rootEtag = "\"abcd1234ef56\"",
         lastGcAt = PREVIEW_LAST_GC,
-        lastError = null
+        lastError = null,
+        lastStats = SyncStats(pushed = 3, pulled = 5, merged = 1),
     )
 )
 
@@ -630,13 +723,28 @@ private fun SyncSettingsSheetSyncingPreview() {
     }
 }
 
-/** Pressing the status icon once connected opens this debug glance instead of the full sheet. */
+/**
+ * Pressing the status icon once connected opens this glance instead of the full sheet: status,
+ * last sync, and the two actions - the troubleshooting fields stay behind "Details".
+ */
 @PreviewLightDark
 @Composable
 private fun SyncDebugPopoverPreview() {
     SheetPreviewSurface {
         SyncDebugContent(
             state = previewSyncState,
+            actions = SyncPaneActions()
+        )
+    }
+}
+
+/** The same popover with "Details" expanded - everything a bug report would want. */
+@PreviewLightDark
+@Composable
+private fun SyncDebugPopoverDetailsPreview() {
+    SheetPreviewSurface {
+        SyncDebugContent(
+            state = previewSyncState.copy(areDebugDetailsOpen = true),
             actions = SyncPaneActions()
         )
     }

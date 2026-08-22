@@ -13,7 +13,7 @@ class WebDavMultistatusTest {
             <?xml version="1.0"?>
             <d:multistatus xmlns:d="DAV:">
               <d:response>
-                <d:href>/remote.php/dav/files/user/MyApp/.sync/posts/</d:href>
+                <d:href>/remote.php/dav/files/user/MyApp/.sync/bits/</d:href>
                 <d:propstat>
                   <d:prop>
                     <d:getetag>&quot;self-etag&quot;</d:getetag>
@@ -23,7 +23,7 @@ class WebDavMultistatusTest {
                 </d:propstat>
               </d:response>
               <d:response>
-                <d:href>/remote.php/dav/files/user/MyApp/.sync/posts/2026-07/</d:href>
+                <d:href>/remote.php/dav/files/user/MyApp/.sync/bits/2026-07/</d:href>
                 <d:propstat>
                   <d:prop>
                     <d:getetag>&quot;month-etag&quot;</d:getetag>
@@ -33,7 +33,7 @@ class WebDavMultistatusTest {
                 </d:propstat>
               </d:response>
               <d:response>
-                <d:href>/remote.php/dav/files/user/MyApp/.sync/posts/2026-07/some-post.json</d:href>
+                <d:href>/remote.php/dav/files/user/MyApp/.sync/bits/2026-07/some-post.json</d:href>
                 <d:propstat>
                   <d:prop>
                     <d:getetag>&quot;post-etag&quot;</d:getetag>

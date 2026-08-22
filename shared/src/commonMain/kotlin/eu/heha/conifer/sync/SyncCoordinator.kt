@@ -4,6 +4,7 @@ import eu.heha.conifer.BrowserOpener
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.auth.LoginFlowV2
 import eu.heha.conifer.model.database.DatabaseController
+import eu.heha.conifer.net.CONIFER_USER_AGENT
 import eu.heha.conifer.prefs.SyncPrefs
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CancellationException
@@ -25,12 +26,14 @@ class SyncCoordinator(
     private val credentials: Credentials,
     private val databaseController: DatabaseController,
     private val browserOpener: BrowserOpener,
-    private val loginFlow: LoginFlowV2 = LoginFlowV2(),
+    private val userAgent: String = CONIFER_USER_AGENT,
+    private val loginFlow: LoginFlowV2 = LoginFlowV2(userAgent = userAgent),
 ) {
     private val _state = MutableStateFlow<SyncConnectionState>(SyncConnectionState.Disconnected)
     val state: StateFlow<SyncConnectionState> = _state
 
     private var lastError: String? = null
+    private var lastStats: SyncStats? = null
 
     /**
      * Brings [state] in line with whatever [Credentials]/[SyncPrefs] already hold (e.g. from a
@@ -117,9 +120,13 @@ class SyncCoordinator(
         if (current.isSyncing) return
         _state.value = current.copy(isSyncing = true)
         try {
-            val remoteStore =
-                KtorWebDavStore(current.server, current.username, credentials.appPassword)
-            SyncEngine(remoteStore, databaseController, syncPrefs).sync()
+            val remoteStore = KtorWebDavStore(
+                serverUrl = current.server,
+                username = current.username,
+                password = credentials.appPassword,
+                userAgent = userAgent
+            )
+            lastStats = SyncEngine(remoteStore, databaseController, syncPrefs).sync()
             lastError = null
         } catch (e: CancellationException) {
             throw e
@@ -164,6 +171,7 @@ class SyncCoordinator(
         rootEtag = syncPrefs.rootEtag(),
         lastGcAt = syncPrefs.lastGcAt(),
         lastError = lastError,
+        lastStats = lastStats,
     )
 }
 
@@ -188,4 +196,5 @@ data class SyncDebugInfo(
     val rootEtag: String?,
     val lastGcAt: Instant?,
     val lastError: String?,
+    val lastStats: SyncStats?,
 )
