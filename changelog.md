@@ -1,6 +1,24 @@
 # Changelog
 
-## Version 1.2.0 (XX.XX.2026)
+## Version 1.X.X (XX.08.2026)
+
+- upcoming changes
+
+## Version 1.2.1 (01.08.2026)
+
+- the packaged desktop release shipped with **no database at all**, so adding a bit did nothing and
+  syncing had nothing to sync. Room 3 renamed its package to `androidx.room3` while the rule that
+  keeps Room's generated code still said `androidx.room`, so it matched nothing and the shrinker
+  deleted the database implementation, both DAOs and every migration. Room looks that generated
+  code up by name at runtime, so nothing references it statically to save it from being deleted.
+  Only the shrunk release build was ever affected - running from Gradle was always fine. Android
+  release builds were never affected either, because Room ships this rule inside its Android
+  artifact and a plain jar can't do that; the app's own copy of the rule carried the same outdated
+  package name and has been corrected too
+- dependency updates: Room 3.0.1, KSafe 3.0.0, Ktor 3.5.2, DataStore 1.3.0-alpha10 and Compose Hot
+  Reload 1.2.0
+
+## Version 1.2.0 (01.08.2026)
 
 - groundwork for Nextcloud sync (spec §10 point ①): bits now carry sync bookkeeping (modification
   time and device, tombstone flag, dirty marker, remote ETag, fixed month bucket) — database
@@ -78,6 +96,21 @@
   stack logs an app password, poll token or login URL, every line additionally passes through a
   redactor for URL credentials/tokens echoed back by exceptions, and a bit that fails to parse is
   now logged by size instead of by dumping its JSON
+- HTTP traffic now goes into that log file as well, tagged `[http]` so it can be read - or filtered
+  out - on its own: method, URL, status and headers for every sync and login request. Bodies are
+  deliberately left out (the Login Flow v2 poll response *is* the app password) and the
+  `Authorization` header is replaced before a line is ever written, so the file still holds no
+  credentials
+- the packaged desktop release starts and can reach the network again. All of the following only
+  ever went wrong in the shrunk release build and never when running from Gradle, so none of it
+  showed up until the distributable itself was used:
+  - every HTTP request failed on a missing Ktor engine, which is chosen at runtime through
+    `ServiceLoader`, so nothing referenced it statically and the shrinker deleted it
+  - the macOS app couldn't be started after unzipping the release zip, whose writer didn't record
+    Unix permissions and so dropped the launcher's executable bit
+  - the release build itself no longer fails outright on ProGuard warnings about OkHttp's
+    optional TLS providers (Conscrypt, BouncyCastle, OpenJSSE), none of which are on the
+    classpath
 
 ## Version 1.1.2 (17.07.2026)
 
