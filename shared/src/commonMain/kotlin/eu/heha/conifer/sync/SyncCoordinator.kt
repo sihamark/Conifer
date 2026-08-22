@@ -11,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 
 /**
  * Orchestrates the optional Nextcloud sync feature end to end for the UI: Login Flow v2,
@@ -79,6 +80,9 @@ class SyncCoordinator(
             if (it.startsWith("http://") || it.startsWith("https://")) it else "https://$it"
         }.trimEnd('/')
         try {
+            // Never logged beyond this point: session.loginUrl and its poll token are
+            // single-use credentials for this very login (see LoginFlowV2).
+            Napier.i { "login flow v2 started for $normalized" }
             val session = loginFlow.start(normalized)
             _state.value = SyncConnectionState.Connecting(session.loginUrl)
             browserOpener.open(session.loginUrl)
@@ -92,8 +96,10 @@ class SyncCoordinator(
                 isSyncing = false,
                 lastSyncAt = null,
             )
-            syncNow()
+            Napier.i { "connected as ${result.loginName} to ${result.server}" }
+            syncNow(SyncTrigger.AfterConnect)
         } catch (e: CancellationException) {
+            Napier.i { "login flow v2 for $normalized cancelled" }
             _state.value = SyncConnectionState.Disconnected
             throw e
         } catch (e: Exception) {
@@ -112,13 +118,26 @@ class SyncCoordinator(
         credentials.username = ""
         credentials.appPassword = ""
         _state.value = SyncConnectionState.Disconnected
+        Napier.i { "disconnected - credentials cleared, local sync state kept" }
     }
 
-    /** Runs one [SyncEngine.sync] round. A no-op unless [state] is currently [SyncConnectionState.Connected]. */
-    suspend fun syncNow() {
-        val current = _state.value as? SyncConnectionState.Connected ?: return
-        if (current.isSyncing) return
+    /**
+     * Runs one [SyncEngine.sync] round. A no-op unless [state] is currently
+     * [SyncConnectionState.Connected]. [trigger] exists purely for the log file: "it synced twice
+     * and then stopped" is only answerable if each round says what started it.
+     */
+    suspend fun syncNow(trigger: SyncTrigger = SyncTrigger.Manual) {
+        val current = _state.value as? SyncConnectionState.Connected ?: run {
+            Napier.d { "sync (${trigger.label}) skipped - not connected" }
+            return
+        }
+        if (current.isSyncing) {
+            Napier.d { "sync (${trigger.label}) skipped - one is already running" }
+            return
+        }
         _state.value = current.copy(isSyncing = true)
+        val startedAt = TimeSource.Monotonic.markNow()
+        Napier.i { "sync started (${trigger.label}) as ${current.username} on ${current.server}" }
         try {
             val remoteStore = KtorWebDavStore(
                 serverUrl = current.server,
@@ -126,12 +145,18 @@ class SyncCoordinator(
                 password = credentials.appPassword,
                 userAgent = userAgent
             )
-            lastStats = SyncEngine(remoteStore, databaseController, syncPrefs).sync()
+            val stats = SyncEngine(remoteStore, databaseController, syncPrefs).sync()
+            lastStats = stats
             lastError = null
+            Napier.i {
+                "sync finished in ${startedAt.elapsedNow()}: ${stats.pushed} pushed, " +
+                        "${stats.pulled} pulled, ${stats.merged} merged"
+            }
         } catch (e: CancellationException) {
+            Napier.i { "sync cancelled after ${startedAt.elapsedNow()}" }
             throw e
         } catch (e: Exception) {
-            Napier.e(e) { "sync failed" }
+            Napier.e(e) { "sync failed after ${startedAt.elapsedNow()}" }
             lastError = e.message ?: e::class.simpleName
         } finally {
             val latest = _state.value as? SyncConnectionState.Connected
@@ -157,10 +182,11 @@ class SyncCoordinator(
     suspend fun setAppRoot(path: String) {
         val normalized = path.trim().trim('/')
         if (normalized.isBlank() || normalized == syncPrefs.appRoot()) return
+        Napier.i { "app folder changed to '$normalized' - every bit marked dirty for a full re-push" }
         syncPrefs.setAppRoot(normalized)
         databaseController.syncDao().resetForNewAppRoot()
         syncPrefs.clearRootEtag()
-        syncNow()
+        syncNow(SyncTrigger.AfterAppRootChange)
     }
 
     /** Snapshot for the debug popover - troubleshooting details, never a bit's content. */
@@ -173,6 +199,18 @@ class SyncCoordinator(
         lastError = lastError,
         lastStats = lastStats,
     )
+}
+
+/**
+ * What started a [SyncCoordinator.syncNow] round. Log-only - the engine behaves identically
+ * either way; [label] is what shows up in the log file.
+ */
+enum class SyncTrigger(val label: String) {
+    Manual("manual"),
+    AfterEdit("after edit"),
+    Periodic("periodic"),
+    AfterConnect("after connect"),
+    AfterAppRootChange("app folder changed"),
 }
 
 sealed interface SyncConnectionState {

@@ -11,7 +11,8 @@ object IosConiferApp {
             syncPrefsInitializer = IosSyncPrefsInitializer,
             credentialsInitializer = IosCredentialsInitializer,
             browserOpener = IosBrowserOpener,
-            clipboardController = IosClipboardController
+            clipboardController = IosClipboardController,
+            logFileInitializer = IosLogFileInitializer
         )
     }
 }
