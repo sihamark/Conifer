@@ -237,8 +237,13 @@ object ConiferApp {
                 // Credentials.isKeySecurelyStored) - but a silent key-custody downgrade to a
                 // filesystem-permission-only fallback should never go unnoticed.
                 Napier.w {
+                    val notes = credentials.keyCustodyNotes
+                        .takeIf { it.isNotEmpty() }
+                        ?.joinToString(prefix = " [", postfix = "]")
+                        .orEmpty()
                     "credentials encryption key is not stored in an OS-backed secure store " +
-                            "(KSafe fell back to its software tier) - see KSafe.protectionInfo for details"
+                            "(KSafe fell back to its software tier): " +
+                            credentials.keyCustodyDescription + notes
                 }
             }
             credentialsReady = true

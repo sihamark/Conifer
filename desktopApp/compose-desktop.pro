@@ -21,6 +21,29 @@
 -keep class * implements io.ktor.client.HttpClientEngineContainer { *; }
 -keep class io.ktor.client.engine.okhttp.** { *; }
 
+# JNA is called from the other direction: its own native dispatch library looks methods up on
+# these classes by name through JNI, so nothing in the bytecode refers to them and the shrinker
+# takes them out. The packaged app then dies on the first native call with
+# "UnsatisfiedLinkError: Can't obtain static method fromNative(Class, Object) from class
+# com.sun.jna.Native" - which nobody sees, because the one thing reaching for JNA here is KSafe
+# asking the OS for somewhere safe to keep the sync password's encryption key. It catches the
+# error, warns, and keeps the key Base64-encoded in a file instead. So a release build quietly
+# stored its keys in the open while a `run` from Gradle used the macOS Keychain, and the only
+# sign of it was one line in the log.
+#
+# The interfaces mapping a native library (and the structures and callbacks crossing that
+# boundary) are looked up the same way, so they are kept by what they implement rather than by
+# name - that covers KSafe's Keychain, DPAPI and Secret Service bindings and anything else that
+# ever binds a native library this way.
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.Library { *; }
+-keep class * implements com.sun.jna.Callback { *; }
+-keep class * extends com.sun.jna.Structure { *; }
+-keepclassmembers class * extends com.sun.jna.Structure { public *; }
+# jna-platform maps a great deal of Windows and X11 that this app never calls; the references
+# are to classes ProGuard is right not to find on a Mac's classpath.
+-dontwarn com.sun.jna.**
+
 # Preserve native methods in BundledSQLiteDriverKt
 -keepclasseswithmembers class androidx.sqlite.driver.bundled.** {
     native <methods>;
