@@ -17,14 +17,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.number
-import kotlinx.datetime.toInstant
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 class BitsViewModel(
     private val repository: BitsRepository,
@@ -60,7 +57,7 @@ class BitsViewModel(
                     var datedBits: List<DatedBits> = listOf()
 
                     for (bit in bits) {
-                        val date = bit.date.dateTimeInDefaultTz().date
+                        val date = bit.date.date
                         datedBits = if (datedBits.none { it.date == date }) {
                             datedBits + DatedBits(date, listOf(bit))
                         } else {
@@ -130,7 +127,7 @@ class BitsViewModel(
         if (newBitText.isBlank()) return
         val edited = editingBit
         viewModelScope.launch {
-            val date = newBitInstant()
+            val date = newBitDateTime()
             if (edited != null) {
                 repository.update(edited.copy(text = newBitText, date = date))
                 // The selection was loaded from the edited bit; drop it so it doesn't leak into
@@ -147,17 +144,13 @@ class BitsViewModel(
     }
 
     /**
-     * Combines the (optionally) selected date and time. When neither is selected the exact
-     * current instant is used; a selected date keeps the current time-of-day and vice versa.
+     * Combines the (optionally) selected date and time. When neither is selected the current
+     * date and time are used; a selected date keeps the current time-of-day and vice versa.
      */
-    private fun newBitInstant(): Instant {
-        val date = selectedDate.value
-        val time = selectedTime.value
-        if (date == null && time == null) return Clock.System.now()
+    private fun newBitDateTime(): LocalDateTime {
         val current = now()
-        return (date ?: current.date)
-            .atTime(time ?: current.time)
-            .toInstant(TimeZone.currentSystemDefault())
+        return (selectedDate.value ?: current.date)
+            .atTime(selectedTime.value ?: current.time)
     }
 
     fun onNewBitTextChange(newBit: String) {
@@ -170,9 +163,8 @@ class BitsViewModel(
      */
     fun startEditing(bit: Bit) {
         editingBit = bit
-        val dateTime = bit.date.dateTimeInDefaultTz()
-        selectedDate.update { dateTime.date }
-        selectedTime.update { dateTime.time }
+        selectedDate.update { bit.date.date }
+        selectedTime.update { bit.date.time }
         state = state.copy(newBitText = bit.text, editingBitId = bit.id)
     }
 

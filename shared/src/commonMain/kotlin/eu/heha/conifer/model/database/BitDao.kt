@@ -5,7 +5,7 @@ import androidx.room3.Delete
 import androidx.room3.Query
 import androidx.room3.Upsert
 import kotlinx.coroutines.flow.Flow
-import kotlin.time.Instant
+import kotlinx.datetime.LocalDateTime
 
 @Dao
 interface BitDao {
@@ -14,7 +14,7 @@ interface BitDao {
     fun getAllBits(): Flow<List<Bit>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM bits WHERE date = :date)")
-    suspend fun hasBitAtDate(date: Instant): Boolean
+    suspend fun hasBitAtDate(date: LocalDateTime): Boolean
 
     @Upsert
     suspend fun upsert(bit: Bit)

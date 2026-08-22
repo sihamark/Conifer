@@ -13,6 +13,8 @@
   afternoon have one, three when the day additionally holds more than three bits
 - the notification permission prompt is now a compact banner matching the mockup: bell icon,
   highlighted lead sentence, dashed border and an "Allow" button
+- the date/time of a bit is now stored as a zone-less local date-time (database schema v3), so
+  bits keep the day and time they were entered with even when the device's time zone changes
 
 ## Version 1.1.1 (07.07.2026)
 
