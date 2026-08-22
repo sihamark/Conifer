@@ -27,7 +27,11 @@ val coreModule = module {
     single { SyncPrefs(get<SyncPrefsInitializer>().createSyncPrefsStore()) }
     single { get<CredentialsInitializer>().createCredentials() }
     singleOf(::BitsRepository)
-    singleOf(::SyncCoordinator)
+    // Not singleOf(::SyncCoordinator): its trailing `loginFlow` parameter has a default value
+    // (LoginFlowV2()), but singleOf resolves every constructor parameter via get() regardless of
+    // defaults, so it would demand a LoginFlowV2 binding that doesn't exist and never should -
+    // omitting it here is what lets Kotlin's own default apply.
+    single { SyncCoordinator(get(), get(), get(), get()) }
     viewModel {
         BitsViewModel(
             repository = get(),

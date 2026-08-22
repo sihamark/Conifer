@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Sync
@@ -33,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,11 +44,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
+import conifer.shared.generated.resources.bits_action_cancel
 import conifer.shared.generated.resources.sync_action_cancel_connect
 import conifer.shared.generated.resources.sync_action_close
 import conifer.shared.generated.resources.sync_action_connect
+import conifer.shared.generated.resources.sync_action_continue_anyway
 import conifer.shared.generated.resources.sync_action_disconnect
 import conifer.shared.generated.resources.sync_action_save_app_root
 import conifer.shared.generated.resources.sync_action_sync_now
@@ -67,6 +72,7 @@ import conifer.shared.generated.resources.sync_debug_title
 import conifer.shared.generated.resources.sync_label_app_root
 import conifer.shared.generated.resources.sync_label_server_url
 import conifer.shared.generated.resources.sync_message_connecting
+import conifer.shared.generated.resources.sync_message_insecure_key
 import conifer.shared.generated.resources.sync_note_app_root
 import conifer.shared.generated.resources.sync_note_debug_hint
 import conifer.shared.generated.resources.sync_note_login_flow
@@ -77,28 +83,14 @@ import conifer.shared.generated.resources.sync_status_never_synced
 import conifer.shared.generated.resources.sync_status_syncing
 import conifer.shared.generated.resources.sync_subtitle
 import conifer.shared.generated.resources.sync_title
+import conifer.shared.generated.resources.sync_title_insecure_key
+import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncConnectionState
+import eu.heha.conifer.sync.SyncDebugInfo
+import eu.heha.conifer.ui.theme.ConiferTheme
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
-/**
- * Everything the sync feature needs from the UI layer beyond [SyncUiState]: the app bar's status
- * icon (idle/connected/syncing), its debug popover, and the full settings sheet - mirroring
- * `docs/conifer-mockup.html`'s sync entry point.
- */
-class SyncPaneActions(
-    val onClickSyncIcon: () -> Unit = {},
-    val onCloseSheet: () -> Unit = {},
-    val onCloseDebug: () -> Unit = {},
-    val onOpenSettingsFromDebug: () -> Unit = {},
-    val onServerUrlChange: (String) -> Unit = {},
-    val onClickConnect: () -> Unit = {},
-    val onAppRootChange: (String) -> Unit = {},
-    val onClickSaveAppRoot: () -> Unit = {},
-    val onClickCancelConnect: () -> Unit = {},
-    val onClickSyncNow: () -> Unit = {},
-    val onClickDisconnect: () -> Unit = {},
-)
 
 private fun Instant.printDateTime() =
     dateTimeInDefaultTz().let { "${it.date.print()} ${it.time.print()}" }
@@ -109,7 +101,11 @@ private fun Instant.printDateTime() =
  * connected opens [SyncDebugPopover] (a debug glance); otherwise it opens the full [SyncSettingsSheet].
  */
 @Composable
-fun SyncStatusIcon(state: SyncUiState, actions: SyncPaneActions, modifier: Modifier = Modifier) {
+fun SyncStatusIcon(
+    state: SyncUiState,
+    actions: SyncPaneActions = SyncPaneActions(),
+    modifier: Modifier = Modifier
+) {
     val connection = state.connection
     val isSyncing = (connection as? SyncConnectionState.Connected)?.isSyncing == true
     Box(modifier) {
@@ -152,54 +148,64 @@ fun SyncStatusIcon(state: SyncUiState, actions: SyncPaneActions, modifier: Modif
 /** Quick-glance troubleshooting details, anchored on the app bar's status icon. */
 @Composable
 private fun SyncDebugPopover(state: SyncUiState, actions: SyncPaneActions) {
-    val debugInfo = state.debugInfo
     DropdownMenu(expanded = state.isDebugOpen, onDismissRequest = actions.onCloseDebug) {
-        Column(Modifier.widthIn(min = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(
-                stringResource(Res.string.sync_debug_title),
-                style = MaterialTheme.typography.titleMedium
-            )
+        SyncDebugContent(state, actions)
+    }
+}
+
+/**
+ * Split out from [SyncDebugPopover] so previews can render the popover's content directly - a
+ * `DropdownMenu` draws into a separate `Popup` layer that the preview renderer never captures,
+ * leaving previews of the live popover blank.
+ */
+@Composable
+private fun SyncDebugContent(state: SyncUiState, actions: SyncPaneActions) {
+    val debugInfo = state.debugInfo
+    Column(Modifier.widthIn(min = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            stringResource(Res.string.sync_debug_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        val connected = state.connection as? SyncConnectionState.Connected
+        if (connected != null) {
+            AccountChip(connected.username)
             Spacer(Modifier.height(8.dp))
-            val connected = state.connection as? SyncConnectionState.Connected
-            if (connected != null) {
-                AccountChip(connected.username)
-                Spacer(Modifier.height(8.dp))
-                SyncStatusRow(isSyncing = connected.isSyncing, lastSyncAt = connected.lastSyncAt)
-                Spacer(Modifier.height(8.dp))
-                DebugRow(stringResource(Res.string.sync_debug_server), connected.server)
-            }
-            if (debugInfo != null) {
-                DebugRow(stringResource(Res.string.sync_debug_device_id), debugInfo.deviceId)
-                DebugRow(stringResource(Res.string.sync_debug_app_root), debugInfo.appRoot)
-                DebugRow(
-                    stringResource(Res.string.sync_debug_last_sync),
-                    debugInfo.lastSyncAt?.printDateTime()
-                        ?: stringResource(Res.string.sync_debug_never)
-                )
-                DebugRow(
-                    stringResource(Res.string.sync_debug_root_etag),
-                    debugInfo.rootEtag ?: stringResource(Res.string.sync_debug_none)
-                )
-                DebugRow(
-                    stringResource(Res.string.sync_debug_last_gc),
-                    debugInfo.lastGcAt?.printDateTime()
-                        ?: stringResource(Res.string.sync_debug_never)
-                )
-                DebugRow(
-                    stringResource(Res.string.sync_debug_last_error),
-                    debugInfo.lastError ?: stringResource(Res.string.sync_debug_none)
-                )
-            }
+            SyncStatusRow(isSyncing = connected.isSyncing, lastSyncAt = connected.lastSyncAt)
             Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(Res.string.sync_debug_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            DebugRow(stringResource(Res.string.sync_debug_server), connected.server)
+        }
+        if (debugInfo != null) {
+            DebugRow(stringResource(Res.string.sync_debug_device_id), debugInfo.deviceId)
+            DebugRow(stringResource(Res.string.sync_debug_app_root), debugInfo.appRoot)
+            DebugRow(
+                stringResource(Res.string.sync_debug_last_sync),
+                debugInfo.lastSyncAt?.printDateTime()
+                    ?: stringResource(Res.string.sync_debug_never)
             )
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = actions.onOpenSettingsFromDebug) {
-                Text(stringResource(Res.string.sync_debug_action_settings))
-            }
+            DebugRow(
+                stringResource(Res.string.sync_debug_root_etag),
+                debugInfo.rootEtag ?: stringResource(Res.string.sync_debug_none)
+            )
+            DebugRow(
+                stringResource(Res.string.sync_debug_last_gc),
+                debugInfo.lastGcAt?.printDateTime()
+                    ?: stringResource(Res.string.sync_debug_never)
+            )
+            DebugRow(
+                stringResource(Res.string.sync_debug_last_error),
+                debugInfo.lastError ?: stringResource(Res.string.sync_debug_none)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(Res.string.sync_debug_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        TextButton(onClick = actions.onOpenSettingsFromDebug) {
+            Text(stringResource(Res.string.sync_debug_action_settings))
         }
     }
 }
@@ -258,33 +264,46 @@ private fun SyncStatusRow(isSyncing: Boolean, lastSyncAt: Instant?) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions) {
+fun SyncSettingsSheet(state: SyncUiState, actions: SyncPaneActions = SyncPaneActions()) {
     ModalBottomSheet(onDismissRequest = actions.onCloseSheet) {
-        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
-            Text(
-                stringResource(Res.string.sync_title),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(Res.string.sync_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(16.dp))
-            AppRootField(state, actions)
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
-            when (val connection = state.connection) {
-                is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
-                is SyncConnectionState.Connecting -> ConnectingContent(actions)
-                is SyncConnectionState.Connected -> ConnectedContent(connection, actions)
-            }
-            Spacer(Modifier.height(14.dp))
-            TextButton(onClick = actions.onCloseSheet, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(Res.string.sync_action_close))
-            }
+        SyncSettingsSheetContent(state, actions)
+    }
+}
+
+/**
+ * Split out from [SyncSettingsSheet] so previews can render the sheet's content directly -
+ * previewing the live `ModalBottomSheet` hangs forever, since its `SheetState` never settles
+ * without a real window to animate against.
+ */
+@Composable
+private fun SyncSettingsSheetContent(
+    state: SyncUiState,
+    actions: SyncPaneActions = SyncPaneActions()
+) {
+    Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+        Text(
+            stringResource(Res.string.sync_title),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(Res.string.sync_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(16.dp))
+        AppRootField(state, actions)
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+        when (val connection = state.connection) {
+            is SyncConnectionState.Disconnected -> DisconnectedContent(state, actions)
+            is SyncConnectionState.Connecting -> ConnectingContent(actions)
+            is SyncConnectionState.Connected -> ConnectedContent(connection, actions)
+        }
+        Spacer(Modifier.height(14.dp))
+        TextButton(onClick = actions.onCloseSheet, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(Res.string.sync_action_close))
         }
     }
 }
@@ -333,12 +352,21 @@ private fun DisconnectedContent(state: SyncUiState, actions: SyncPaneActions) {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = actions.onClickConnect,
-            enabled = state.serverUrlInput.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(Res.string.sync_action_connect))
+        val insecureKeyCustody = state.insecureKeyCustody
+        if (insecureKeyCustody != null) {
+            InsecureKeyWarning(
+                custody = insecureKeyCustody,
+                onConnectAnyway = actions.onClickConnectAnyway,
+                onCancel = actions.onCancelInsecureKeyWarning
+            )
+        } else {
+            Button(
+                onClick = actions.onClickConnect,
+                enabled = state.serverUrlInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(Res.string.sync_action_connect))
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -346,6 +374,57 @@ private fun DisconnectedContent(state: SyncUiState, actions: SyncPaneActions) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * Gates [SyncCoordinator.connect][eu.heha.conifer.sync.SyncCoordinator.connect] behind an explicit
+ * confirmation when the credentials it's about to write would land in a weaker key custody than
+ * usual - shown inline in place of the "Connect" button, *before* the Login Flow v2 dance starts,
+ * since once credentials are actually stored there's nothing left to warn about.
+ */
+@Composable
+private fun InsecureKeyWarning(
+    custody: String,
+    onConnectAnyway: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(12.dp)
+    ) {
+        Text(
+            stringResource(Res.string.sync_title_insecure_key),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onErrorContainer
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(Res.string.sync_message_insecure_key, custody),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.bits_action_cancel))
+            }
+            TextButton(
+                onClick = onConnectAnyway,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                ),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(stringResource(Res.string.sync_action_continue_anyway))
+            }
+        }
     }
 }
 
@@ -407,3 +486,168 @@ private fun ConnectedContent(connection: SyncConnectionState.Connected, actions:
         )
     }
 }
+
+data class SyncUiState(
+    val connection: SyncConnectionState = SyncConnectionState.Disconnected,
+    val isSheetOpen: Boolean = false,
+    val isDebugOpen: Boolean = false,
+    val serverUrlInput: String = "",
+    val debugInfo: SyncDebugInfo? = null,
+    /** Text field content; may differ from [savedAppRoot] while the user is still editing it. */
+    val appRootInput: String = SyncPrefs.DEFAULT_APP_ROOT,
+    val savedAppRoot: String = SyncPrefs.DEFAULT_APP_ROOT,
+    /** Non-null while a "connect anyway?" warning is pending - see [eu.heha.conifer.sync.SyncCoordinator.insecureKeyCustody]. */
+    val insecureKeyCustody: String? = null,
+)
+
+/**
+ * Everything the sync feature needs from the UI layer beyond [SyncUiState]: the app bar's status
+ * icon (idle/connected/syncing), its debug popover, and the full settings sheet - mirroring
+ * `docs/conifer-mockup.html`'s sync entry point.
+ */
+class SyncPaneActions(
+    val onClickSyncIcon: () -> Unit = {},
+    val onCloseSheet: () -> Unit = {},
+    val onCloseDebug: () -> Unit = {},
+    val onOpenSettingsFromDebug: () -> Unit = {},
+    val onServerUrlChange: (String) -> Unit = {},
+    val onClickConnect: () -> Unit = {},
+    val onClickConnectAnyway: () -> Unit = {},
+    val onCancelInsecureKeyWarning: () -> Unit = {},
+    val onAppRootChange: (String) -> Unit = {},
+    val onClickSaveAppRoot: () -> Unit = {},
+    val onClickCancelConnect: () -> Unit = {},
+    val onClickSyncNow: () -> Unit = {},
+    val onClickDisconnect: () -> Unit = {},
+)
+
+//region Previews
+
+private val PREVIEW_LAST_SYNC = Instant.fromEpochMilliseconds(1_753_000_000_000)
+
+private val PREVIEW_LAST_GC = Instant.fromEpochMilliseconds(1_752_500_000_000)
+
+private val previewConnection = SyncConnectionState.Connected(
+    server = "https://cloud.example.org",
+    username = "alice",
+    isSyncing = false,
+    lastSyncAt = PREVIEW_LAST_SYNC
+)
+
+private val previewSyncState = SyncUiState(
+    connection = previewConnection,
+    isDebugOpen = true,
+    debugInfo = SyncDebugInfo(
+        deviceId = "a1b2c3d4-e5f6-7890-aaaa-bbbbccccdddd",
+        appRoot = "Conifer",
+        lastSyncAt = PREVIEW_LAST_SYNC,
+        rootEtag = "\"abcd1234ef56\"",
+        lastGcAt = PREVIEW_LAST_GC,
+        lastError = null
+    )
+)
+
+/**
+ * Previews render [SyncSettingsSheetContent] directly rather than the full [SyncSettingsSheet] -
+ * the live `ModalBottomSheet` never settles without a real window, which hangs the preview
+ * renderer forever. The `Surface` stands in for the sheet's own background.
+ */
+@Composable
+private fun SheetPreviewSurface(content: @Composable () -> Unit) {
+    ConiferTheme {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+            content()
+        }
+    }
+}
+
+/** Not yet connected - just the server-url field and the "Connect to Nextcloud" button. */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetDisconnectedPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            state = previewSyncState.copy(
+                connection = SyncConnectionState.Disconnected
+            )
+        )
+    }
+}
+
+/** Connecting would land credentials in a weaker key custody - the inline warning gates it. */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetInsecureKeyWarningPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            state = previewSyncState.copy(
+                connection = SyncConnectionState.Disconnected,
+                insecureKeyCustody = "software file store (no OS keychain reachable)"
+            )
+        )
+    }
+}
+
+/** Waiting on the user to finish signing in their browser (Login Flow v2). */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetConnectingPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            state = previewSyncState.copy(
+                connection = SyncConnectionState.Connecting(
+                    loginUrl = "https://cloud.example.org/index.php/login/v2/flow/abc123"
+                )
+            )
+        )
+    }
+}
+
+/** Connected and idle. */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetConnectedPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            previewSyncState.copy(
+                connection = previewConnection
+            )
+        )
+    }
+}
+
+
+/** Connected with a sync round actually in flight - the spinner/status row differs. */
+@PreviewLightDark
+@Composable
+private fun SyncSettingsSheetSyncingPreview() {
+    SheetPreviewSurface {
+        SyncSettingsSheetContent(
+            previewSyncState.copy(
+                connection = previewConnection.copy(isSyncing = true)
+            )
+        )
+    }
+}
+
+/** Pressing the status icon once connected opens this debug glance instead of the full sheet. */
+@PreviewLightDark
+@Composable
+private fun SyncDebugPopoverPreview() {
+    SheetPreviewSurface {
+        SyncDebugContent(
+            state = previewSyncState,
+            actions = SyncPaneActions()
+        )
+    }
+}
+
+/** The app bar's status icon on its own, muted while disconnected. */
+@PreviewLightDark
+@Composable
+private fun SyncStatusIconDisconnectedPreview() {
+    ConiferTheme {
+        SyncStatusIcon(state = SyncUiState())
+    }
+}
+//endregion

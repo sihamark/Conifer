@@ -67,4 +67,8 @@
     <string name="sync_debug_action_settings">Sync settings…</string>
     <string name="sync_debug_none">none</string>
     <string name="sync_debug_never">never</string>
+
+    <string name="sync_title_insecure_key">Weaker credential protection</string>
+    <string name="sync_message_insecure_key">Your Nextcloud credentials will still be encrypted, but the encryption key won\'t be stored in this device\'s secure hardware store: %1$s</string>
+    <string name="sync_action_continue_anyway">Connect anyway</string>
 </resources>

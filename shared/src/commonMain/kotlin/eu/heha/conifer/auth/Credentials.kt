@@ -30,4 +30,11 @@ class Credentials(private val ksafe: KSafe) {
      */
     val isKeySecurelyStored: Boolean
         get() = ksafe.protectionInfo.effectiveLevel >= KSafeProtectionLevel.SANDBOX_PROTECTED
+
+    /**
+     * Human-readable detail on where the key actually lives, for surfacing [isKeySecurelyStored]
+     * `false` to the user (see [eu.anifantakis.lib.ksafe.KSafeProtectionInfo.custody]).
+     */
+    val keyCustodyDescription: String
+        get() = ksafe.protectionInfo.custody
 }

@@ -123,6 +123,7 @@ import eu.heha.conifer.PermissionRationale
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.theme.ConiferTheme
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.number
 import org.jetbrains.compose.resources.pluralStringResource
@@ -954,7 +955,6 @@ private fun DeleteConfirmationDialog(
     )
 }
 
-
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
@@ -1002,9 +1002,10 @@ class BitsPaneActions(
     val onScrolledToBit: () -> Unit = {}
 )
 
+/** Editing a bit, with the notification permission prompt and a custom time selection showing. */
 @PreviewLightDark
 @Composable
-private fun BitsPanePreview() {
+private fun BitsPaneEditingWithPermissionPromptPreview() {
     ConiferTheme {
         BitsPane(
             state = BitsPaneState(
@@ -1029,3 +1030,73 @@ private fun BitsPanePreview() {
         )
     }
 }
+
+/** A normal day-to-day view: several days, several bits, nothing being edited. */
+@PreviewLightDark
+@Composable
+private fun BitsPaneTypicalPreview() {
+    ConiferTheme {
+        BitsPane(
+            state = BitsPaneState(
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 5, 31),
+                        bits = listOf(
+                            Bit(
+                                text = "Finished the quarterly report",
+                                date = LocalDateTime(2024, 5, 31, 9, 15)
+                            ),
+                            Bit(
+                                text = "Lunch with the team",
+                                date = LocalDateTime(2024, 5, 31, 12, 30)
+                            )
+                        )
+                    ),
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(
+                            Bit(
+                                text = "Started reading a new book",
+                                date = LocalDateTime(2024, 6, 1, 8, 0)
+                            ),
+                            Bit(
+                                text = "Fixed the flaky CI test",
+                                date = LocalDateTime(2024, 6, 1, 14, 45)
+                            ),
+                            Bit(text = "Evening walk", date = LocalDateTime(2024, 6, 1, 19, 30))
+                        )
+                    )
+                )
+            )
+        )
+    }
+}
+
+/** No bits exist anywhere yet. */
+@PreviewLightDark
+@Composable
+private fun BitsPaneEmptyPreview() {
+    ConiferTheme {
+        BitsPane(state = BitsPaneState())
+    }
+}
+
+/** Bits exist, but the selected day (via the date chip/day picker) has none of its own. */
+@PreviewLightDark
+@Composable
+private fun BitsPaneEmptyFilteredPreview() {
+    ConiferTheme {
+        BitsPane(
+            state = BitsPaneState(
+                selectedDate = LocalDate(2024, 6, 2),
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(Bit(text = "A bit from another day"))
+                    )
+                )
+            )
+        )
+    }
+}
+

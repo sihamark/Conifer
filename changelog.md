@@ -44,6 +44,14 @@
   returning from a long stretch offline no longer resurrects a post another device deleted and
   garbage-collected while it was away (a stopgap, not the full spec mitigation - still needs a
   settings UI to ask the user, see `sync_review.md` #1)
+- sync settings UI wired up to the app bar, mirroring the mockup's sync entry point: a cloud icon
+  (muted/tinted/spinning for disconnected/connected/syncing) opens a sheet to connect through
+  Login Flow v2 in the system browser, change the destination folder ("app root") independently of
+  reconnecting, trigger a manual sync, or disconnect; once connected, tapping the icon instead
+  opens a debug popover with device id, last sync/GC time, root ETag and last error
+- before connecting, warns and requires an explicit "connect anyway" confirmation if the resulting
+  credentials would land in a weaker key custody than usual (e.g. no OS keyring reachable), instead
+  of silently storing them less securely
 
 ## Version 1.1.2 (17.07.2026)
 

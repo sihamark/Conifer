@@ -6,10 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.model.BitsRepository
-import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncCoordinator
-import eu.heha.conifer.sync.SyncDebugInfo
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -113,8 +111,34 @@ class SyncViewModel(
         }
     }
 
+    /**
+     * Before actually starting the Login Flow v2 dance, checks whether the credentials that dance
+     * ends with storing would land in a weaker key custody than usual (see
+     * [SyncCoordinator.insecureKeyCustody]) - if so, [state.insecureKeyCustody][SyncUiState]
+     * gates the real attempt behind [onClickConnectAnyway]/[onCancelInsecureKeyWarning] instead of
+     * connecting right away.
+     */
     fun onClickConnect() {
         val url = state.serverUrlInput.trim()
+        if (url.isBlank()) return
+        val custody = coordinator.insecureKeyCustody
+        if (custody != null) {
+            state = state.copy(insecureKeyCustody = custody)
+        } else {
+            startConnecting(url)
+        }
+    }
+
+    fun onClickConnectAnyway() {
+        state = state.copy(insecureKeyCustody = null)
+        startConnecting(state.serverUrlInput.trim())
+    }
+
+    fun onCancelInsecureKeyWarning() {
+        state = state.copy(insecureKeyCustody = null)
+    }
+
+    private fun startConnecting(url: String) {
         if (url.isBlank()) return
         connectJob?.cancel()
         connectJob = viewModelScope.launch { coordinator.connect(url) }
@@ -139,13 +163,3 @@ class SyncViewModel(
     }
 }
 
-data class SyncUiState(
-    val connection: SyncConnectionState = SyncConnectionState.Disconnected,
-    val isSheetOpen: Boolean = false,
-    val isDebugOpen: Boolean = false,
-    val serverUrlInput: String = "",
-    val debugInfo: SyncDebugInfo? = null,
-    /** Text field content; may differ from [savedAppRoot] while the user is still editing it. */
-    val appRootInput: String = SyncPrefs.DEFAULT_APP_ROOT,
-    val savedAppRoot: String = SyncPrefs.DEFAULT_APP_ROOT,
-)
