@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -56,7 +58,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,7 +71,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -123,25 +124,10 @@ fun BitsPane(
     state: BitsPaneState = BitsPaneState(),
     actions: BitsPaneActions = BitsPaneActions()
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    Scaffold(
-        contentWindowInsets = WindowInsets(),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.app_name)) },
-                actions = {
-                    val bitsCount = state.bitsByDate.sumOf { it.bits.size }
-                    Text(
-                        pluralStringResource(Res.plurals.bits_label_counter, bitsCount, bitsCount),
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
-                },
-                scrollBehavior = scrollBehavior
-            )
-        },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
-    ) { innerPadding ->
+    // While typing, the IME already claims a large share of the screen, so the top bar is hidden
+    // to leave as much room as possible for reading existing bits.
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
@@ -152,9 +138,16 @@ fun BitsPane(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .navigationBarsPadding()
-                .imePadding()
+                // The status bar is always padded by the column itself so showing/hiding the top
+                // bar only animates the bar's own height and nothing else jumps.
+                .statusBarsPadding()
         ) {
+            // The top bar lives in the content column instead of the Scaffold's topBar slot, so
+            // hiding it while the IME is open animates smoothly with the rest of the layout.
+            AnimatedVisibility(!isImeVisible) {
+                val bitsCount = state.bitsByDate.sumOf { it.bits.size }
+                Topbar(bitsCount)
+            }
             val permissionRationale = state.permissionRationale
             AnimatedVisibility(permissionRationale != null) {
                 PermissionPrompt(permissionRationale ?: "", actions)
@@ -173,37 +166,47 @@ fun BitsPane(
                     isFilteredByDate = state.selectedDate != null && state.dates.isNotEmpty(),
                     modifier = listModifier.fillMaxWidth()
                 )
-            } else LazyColumn(
-                state = listState,
-                // Bottom arrangement keeps the bits anchored to the input when the list is
-                // shorter than the viewport; it has no effect once the list fills the screen.
-                verticalArrangement = Arrangement.Bottom,
-                modifier = listModifier
-            ) {
-                item(key = "beginning") { BeginningNote() }
-                state.bitsByDate.asReversed().forEach { datedBits ->
-                    stickyHeader(key = datedBits.date.toEpochDays()) {
-                        DateHeader(
-                            date = datedBits.date,
-                            onClickCopy = {
-                                actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
-                            }
-                        )
+            } else {
+                LazyColumn(
+                    state = listState,
+                    // Bottom arrangement keeps the bits anchored to the input when the list is
+                    // shorter than the viewport; it has no effect once the list fills the screen.
+                    verticalArrangement = Arrangement.Bottom,
+                    modifier = listModifier
+                ) {
+                    item(key = "beginning") { BeginningNote() }
+                    state.bitsByDate.asReversed().forEach { datedBits ->
+                        stickyHeader(key = datedBits.date.toEpochDays()) {
+                            DateHeader(
+                                date = datedBits.date,
+                                onClickCopy = {
+                                    actions.onClickCopyBitsOfDateToClipboard(datedBits.date)
+                                }
+                            )
+                        }
+                        items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
+                            BitItem(
+                                bit = bit,
+                                isEditing = state.editingBitId == bit.id,
+                                onClickStartEdit = { actions.onClickEditBit(bit) },
+                                onClickCancelEdit = actions.onCancelEdit,
+                                onClickDelete = { actions.onDeleteBit(bit) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
-                    items(datedBits.bits.asReversed(), key = { it.id }) { bit ->
-                        BitItem(
-                            bit = bit,
-                            isEditing = state.editingBitId == bit.id,
-                            onClickStartEdit = { actions.onClickEditBit(bit) },
-                            onClickCancelEdit = actions.onCancelEdit,
-                            onClickDelete = { actions.onDeleteBit(bit) },
-                            modifier = Modifier.animateItem()
-                        )
-                    }
+                    item { Spacer(Modifier.height(8.dp)) }
                 }
-                item { Spacer(Modifier.height(8.dp)) }
             }
-            Column(Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            Column(
+                Modifier
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    // Padding the navigation bar and IME inside the colored column extends its
+                    // background behind the navigation bar instead of leaving a differently
+                    // colored strip below the input.
+                    .navigationBarsPadding()
+                    .imePadding()
+            ) {
                 DateTimeSelector(
                     dates = state.dates,
                     selectedDate = state.selectedDate,
@@ -226,6 +229,26 @@ fun BitsPane(
             }
         }
     }
+}
+
+@Composable
+private fun Topbar(bitsCount: Int) {
+    TopAppBar(
+        title = { Text(stringResource(Res.string.app_name)) },
+        actions = {
+            Text(
+                pluralStringResource(
+                    Res.plurals.bits_label_counter,
+                    bitsCount,
+                    bitsCount
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(end = 16.dp)
+            )
+        },
+        // The column already handles the status bar inset.
+        windowInsets = WindowInsets()
+    )
 }
 
 /**
@@ -569,6 +592,7 @@ private fun DateHeader(
     }
 }
 
+// todo: refactor to look like in mockup
 @Composable
 private fun PermissionPrompt(
     permissionRationale: String,

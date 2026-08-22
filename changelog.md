@@ -7,6 +7,7 @@
 - the keyboard now auto-capitalizes the start of sentences in the bit text field
 - a selected date/time is kept after adding a bit, so several bits can be entered for the same
   date/time in a row
+- the top bar is hidden while the keyboard is open, leaving more room for reading existing bits
 
 ## Version 1.1.1 (07.07.2026)
 
