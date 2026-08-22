@@ -43,6 +43,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -260,7 +262,7 @@ private const val INTERMEDIATE_STEPS = STEP_SLOTS - 2
 /**
  * The slot this time falls in, rounding down — slot 0 is 00:00, [LAST_STEP_SLOT] is 23:45.
  *
- * The slider's thumb position and the ↑/↓ nudge both start here, so the two can never disagree
+ * The slider's thumb position and the Alt+↑/↓ nudge both start here, so the two can never disagree
  * about which slot a given time is in.
  */
 private val LocalTime.timeSlot: Int get() = (hour * 60 + minute) / MINUTES_PER_STEP
@@ -282,7 +284,7 @@ private fun timeAtSlot(slot: Int): LocalTime {
 }
 
 /**
- * This time moved by [slots] slots — what ↑/↓ do while the text field is focused (see
+ * This time moved by [slots] slots — what Alt+↑/↓ do while the text field is focused (see
  * [NewBitText]).
  *
  * Clamped rather than rolling over, by [timeAtSlot]: the day is a separate choice, and holding an
@@ -369,7 +371,7 @@ private fun DaySelection(
 internal fun NewBitText(
     newBitText: String,
     isEditing: Boolean,
-    /** The time the bit would get, i.e. what ↑/↓ nudge. See [BitsPaneState.effectiveTime]. */
+    /** The time the bit would get, i.e. what Alt+↑/↓ nudge. See [BitsPaneState.effectiveTime]. */
     time: LocalTime,
     onNewBitTextChange: (String) -> Unit,
     onSelectTime: (LocalTime) -> Unit,
@@ -378,6 +380,8 @@ internal fun NewBitText(
     // Trimmed by the layouts that have to fit the whole composer into what a landscape keyboard
     // leaves over, where every dp below the field is one the field itself does not get.
     bottomPadding: Dp = 16.dp,
+    /** How far the field may grow before it scrolls instead. See [currentComposerMaxLines]. */
+    maxLines: Int = 1,
     modifier: Modifier = Modifier
 ) {
     // Track the selection locally; when the text is replaced from outside (an edit starts or the
@@ -418,23 +422,43 @@ internal fun NewBitText(
                 imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions { onClickAdd() },
-            singleLine = true,
-            modifier = modifier
+            // Long bits wrap into the room the window has to spare instead of scrolling sideways
+            // through a one-line slot; see [currentComposerMaxLines] for how far that goes.
+            singleLine = maxLines == 1,
+            maxLines = maxLines,
+            modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
-                // ↑/↓ nudge the time by one slider slot without leaving the text field, so a bit
-                // can be timed without reaching for the mouse. Previewed ahead of the field so it
-                // sees them first, and safe to take: the field is single-line, so up and down have
-                // nothing to do in it anyway - ←/→ keep moving the caret as usual.
+                // Alt+↑/↓ nudge the time by one slider slot and Enter submits, both without
+                // leaving the text field, so a bit can be timed and saved without reaching for the
+                // mouse. Previewed ahead of the field so they are seen before it turns them into
+                // caret movement and line breaks.
+                //
+                // The nudge takes the modifier rather than the bare arrows because the field can
+                // hold several lines now (see [maxLines]) and there ↑/↓ are the caret's — and how
+                // many lines it holds depends on the window, so bare arrows would mean one thing
+                // on a tall window and another on a short one. With Alt they mean the same
+                // everywhere, at any place in the text.
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    val slots = when (event.key) {
-                        Key.DirectionUp -> 1
-                        Key.DirectionDown -> -1
-                        else -> return@onPreviewKeyEvent false
+                    when (event.key) {
+                        // A field that can hold several lines would otherwise swallow Enter as a
+                        // line break. Shift+Enter still makes one, for the rare bit that wants it.
+                        Key.Enter, Key.NumPadEnter -> {
+                            if (event.isShiftPressed) return@onPreviewKeyEvent false
+                            onClickAdd()
+                            true
+                        }
+
+                        Key.DirectionUp, Key.DirectionDown -> {
+                            if (!event.isAltPressed) return@onPreviewKeyEvent false
+                            val slots = if (event.key == Key.DirectionUp) 1 else -1
+                            onSelectTime(time.shiftedByTimeSlots(slots))
+                            true
+                        }
+
+                        else -> false
                     }
-                    onSelectTime(time.shiftedByTimeSlots(slots))
-                    true
                 }
                 .weight(1f)
         )
@@ -457,3 +481,4 @@ internal fun NewBitText(
         }
     }
 }
+
