@@ -13,22 +13,22 @@ import platform.Foundation.NSUserDomainMask
 
 object IosDatabaseInitializer : DatabaseInitializer {
     override fun createDatabase(): AppDatabase {
-        val dbFilePath = documentDirectory() + "/" + DATABASE_NAME
+        val dbFilePath = iosDocumentDirectory() + "/" + DATABASE_NAME
         return Room.databaseBuilder<AppDatabase>(name = dbFilePath)
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }
+}
 
-    @OptIn(ExperimentalForeignApi::class)
-    private fun documentDirectory(): String {
-        val documentDirectory = NSFileManager.defaultManager.URLForDirectory(
-            directory = NSDocumentDirectory,
-            inDomain = NSUserDomainMask,
-            appropriateForURL = null,
-            create = false,
-            error = null,
-        )
-        return requireNotNull(documentDirectory?.path)
-    }
+@OptIn(ExperimentalForeignApi::class)
+internal fun iosDocumentDirectory(): String {
+    val documentDirectory = NSFileManager.defaultManager.URLForDirectory(
+        directory = NSDocumentDirectory,
+        inDomain = NSUserDomainMask,
+        appropriateForURL = null,
+        create = false,
+        error = null,
+    )
+    return requireNotNull(documentDirectory?.path)
 }

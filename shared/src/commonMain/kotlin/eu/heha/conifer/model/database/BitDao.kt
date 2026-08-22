@@ -10,7 +10,9 @@ import kotlinx.datetime.LocalDateTime
 @Dao
 interface BitDao {
 
-    @Query("SELECT * FROM bits ORDER BY date DESC, created_at DESC")
+    // deleted = 0: tombstones of synced-then-deleted bits stay in the table until garbage
+    // collection but are never shown.
+    @Query("SELECT * FROM bits WHERE deleted = 0 ORDER BY date DESC, created_at DESC")
     fun getAllBits(): Flow<List<Bit>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM bits WHERE date = :date)")

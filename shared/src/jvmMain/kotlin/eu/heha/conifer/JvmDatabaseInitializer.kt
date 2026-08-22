@@ -10,19 +10,22 @@ import java.io.File
 
 object JvmDatabaseInitializer : DatabaseInitializer {
     override fun createDatabase(): AppDatabase {
-        val jarFilePath = ConiferApp::class.java.protectionDomain.codeSource.location.toURI()
-
-        val rootFile = File(jarFilePath)
-            .parentFile //app folder
-            .parentFile //root folder
-
-        val dataFolder = File(rootFile, "data")
-            .also { it.mkdirs() }
-        val dbFile = File(dataFolder, DATABASE_NAME)
+        val dbFile = File(jvmDataFolder(), DATABASE_NAME)
         Napier.i("Database file path: ${dbFile.absolutePath}")
         return Room.databaseBuilder<AppDatabase>(name = dbFile.absolutePath)
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }
+}
+
+/** The desktop app's `data` folder next to the app folder, derived from the jar location. */
+internal fun jvmDataFolder(): File {
+    val jarFilePath = ConiferApp::class.java.protectionDomain.codeSource.location.toURI()
+
+    val rootFile = File(jarFilePath)
+        .parentFile //app folder
+        .parentFile //root folder
+
+    return File(rootFile, "data").also { it.mkdirs() }
 }

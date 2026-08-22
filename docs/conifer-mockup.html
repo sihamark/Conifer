@@ -9,49 +9,55 @@
     <link href="https://fonts.googleapis.com/css2?family=Story+Script&family=Lato:wght@400;700&display=swap"
           rel="stylesheet">
     <style>
+        /* Palette pulled from the real ConiferTheme (shared/.../ui/theme/Color.kt) - a
+           Material-generated olive/rust scheme, not the forest-green/amber this mockup
+           invented before. Variable names are kept for a smaller diff; see mockup_review.md
+           for the full before/after mapping. */
         :root{
-          --pine:#24402f;
-          --pine-deep:#16281d;
-          --moss:#6d8a72;
-          --fog:#edf1e9;
-          --card:#ffffff;
-          --ink:#22302a;
-          --ink-soft:#5c6b60;
-          --line:#d7e0d2;
-          --resin:#c9862b;
-          --resin-deep:#a86c1c;
-          --resin-soft:#fbf3e6;
-          --danger:#a5402f;
-          --chrome:#e7ece3;
-          --chip-bg:#ffffff;
-          --hover:#e0e7db;
-          --time-bg:#eef3ea;
-          --bezel:#16281d;
-          --page1:#dfe8da; --page2:#e3ead9;
+          --pine:#506527;        /* primaryLight */
+          --pine-deep:#394d11;   /* primaryContainerLight */
+          --heading:#1b1c15;     /* onSurfaceLight - plain heading/title color (NOT accent-tinted) */
+          --moss:#7b7768;        /* outlineLight */
+          --fog:#fafaee;         /* backgroundLight */
+          --card:#fbfaed;        /* surfaceLight */
+          --ink:#1b1c15;         /* onSurfaceLight */
+          --ink-soft:#4a4739;    /* onSurfaceVariantLight */
+          --line:#ccc6b5;        /* outlineVariantLight */
+          --resin:#8c4f27;       /* tertiaryLight */
+          --resin-deep:#6f3811;  /* onTertiaryContainerLight */
+          --resin-soft:#ffdbc8;  /* tertiaryContainerLight */
+          --danger:#904b40;      /* errorLight */
+          --chrome:#eae9dc;      /* surfaceContainerHighLight */
+          --chip-bg:#fbfaed;     /* surfaceLight */
+          --hover:#e4e3d7;       /* surfaceContainerHighestLight */
+          --time-bg:#e4e3d7;     /* surfaceContainerHighestLight */
+          --bezel:#1b1c15;       /* mockup device chrome only, no app equivalent */
+          --page1:#dbdbce; --page2:#f0eee2;  /* mockup background decoration only */
           --on-accent:#ffffff;
           --radius:14px;
           --shadow:0 1px 2px rgba(24,40,29,.08),0 4px 14px rgba(24,40,29,.07);
         }
         body[data-theme="dark"]{
-          --pine:#a8c9b1;
-          --pine-deep:#0c120e;
-          --moss:#7fa287;
-          --fog:#161d18;
-          --card:#1f2921;
-          --ink:#e3ebe2;
-          --ink-soft:#95a598;
-          --line:#2e3a30;
-          --resin:#d99a3d;
-          --resin-deep:#e8b263;
-          --resin-soft:#33291a;
-          --danger:#d4715f;
-          --chrome:#1a231c;
-          --chip-bg:#1f2921;
-          --hover:#28342a;
-          --time-bg:#26312a;
-          --bezel:#050706;
-          --page1:#141a15; --page2:#101511;
-          --on-accent:#101511;
+          --pine:#b7d085;        /* primaryDark */
+          --pine-deep:#394d11;   /* primaryContainerDark */
+          --heading:#e4e3d7;     /* onSurfaceDark */
+          --moss:#959181;        /* outlineDark */
+          --fog:#12140d;         /* backgroundDark */
+          --card:#13140d;        /* surfaceDark */
+          --ink:#e4e3d7;         /* onSurfaceDark */
+          --ink-soft:#ccc6b5;    /* onSurfaceVariantDark */
+          --line:#4a4739;        /* outlineVariantDark */
+          --resin:#ffb68b;       /* tertiaryDark */
+          --resin-deep:#ffdbc8;  /* onTertiaryContainerDark */
+          --resin-soft:#6f3811;  /* tertiaryContainerDark */
+          --danger:#ffb4a7;      /* errorDark */
+          --chrome:#1f2019;      /* surfaceContainerDark */
+          --chip-bg:#13140d;     /* surfaceDark */
+          --hover:#2a2b23;       /* surfaceContainerHighDark */
+          --time-bg:#35352d;     /* surfaceContainerHighestDark */
+          --bezel:#0e0f08;       /* mockup device chrome only */
+          --page1:#13140d; --page2:#1b1c15;  /* mockup background decoration only */
+          --on-accent:#243600;   /* onPrimaryDark */
           --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
         }
         *{box-sizing:border-box;margin:0;padding:0}
@@ -136,8 +142,16 @@
           display:flex;align-items:baseline;justify-content:space-between;
           padding:16px 18px 10px;flex:none;
         }
-        .appbar .title{font-family:'Story Script',cursive;font-size:1.9rem;color:var(--pine);line-height:1}
+        .appbar .title{font-family:'Story Script',cursive;font-size:1.9rem;color:var(--heading);line-height:1}
         .appbar .count{font-size:.78rem;color:var(--ink-soft)}
+        .appbar-right{display:flex;align-items:center;gap:2px;position:relative}
+
+        /* ---------- sync entry point (appbar icon) ---------- */
+        #syncBtn{color:var(--ink-soft)}
+        #syncBtn.connected{color:var(--moss)}
+        #syncBtn.syncing{color:var(--pine)}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        #syncBtn.syncing svg{animation:spin 0.9s linear infinite}
 
         /* ---------- two-pane body ---------- */
         .body-wrap{flex:1;display:flex;min-height:0}
@@ -147,7 +161,7 @@
         }
         .screen.twopane .sidebar{display:block}
         .side-title{
-          font-family:'Story Script',cursive;font-size:1.15rem;color:var(--pine);
+          font-family:'Story Script',cursive;font-size:1.15rem;color:var(--heading);
           padding:6px 10px 4px;
         }
         .side-item{
@@ -179,7 +193,9 @@
           padding:8px 4px 6px;
           background:linear-gradient(var(--fog) 78%, transparent);
         }
-        .day-header h2{font-family:'Story Script',cursive;font-weight:400;font-size:1.25rem;color:var(--pine)}
+        /* Real DateHeader uses plain body text (MaterialTheme.typography.bodyMedium), not the
+           cursive display font - only the title/dialogs/sidebar use Story Script. */
+        .day-header h2{font-weight:700;font-size:.95rem;color:var(--heading)}
         .day-header .rule{flex:1;height:1px;background:var(--line)}
         .icon-btn{
           border:none;background:transparent;color:var(--moss);
@@ -195,11 +211,13 @@
         }
         .bit:hover{border-color:var(--moss)}
         .bit .time{
-          flex:none;font-size:.72rem;font-weight:700;color:var(--moss);
+          flex:none;font-size:.72rem;font-weight:700;color:var(--pine);
           background:var(--time-bg);border-radius:6px;padding:3px 7px;margin-top:2px;letter-spacing:.3px;
         }
         .bit .text{flex:1;font-size:.92rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
-        .bit.editing{border-color:var(--resin);box-shadow:0 0 0 2px rgba(201,134,43,.22)}
+        /* Real BitItem highlights editing with a plain outline border (colorScheme.outline),
+           not an accent color. */
+        .bit.editing{border-color:var(--moss);box-shadow:0 0 0 2px rgba(123,119,104,.22)}
 
         .menu-pop{
           position:absolute;right:8px;top:36px;z-index:20;
@@ -216,10 +234,19 @@
         .empty{text-align:center;color:var(--ink-soft);font-size:.9rem;padding:48px 20px}
         .empty .cone{font-size:1.8rem;display:block;margin-bottom:8px}
 
+        /* Real BeginningNote: a fixed marker above the oldest day, shown whenever the list has
+           at least one bit (distinct from .empty, which only appears when it has none). */
+        .beginning-note{
+          display:flex;flex-direction:column;align-items:center;text-align:center;
+          color:var(--ink-soft);font-size:.82rem;line-height:1.4;
+          padding:24px 32px;
+        }
+        .beginning-note .sprout{font-size:1.4rem;margin-bottom:8px}
+
         /* ---------- android notification card ---------- */
         .perm-card{
           display:none;gap:12px;align-items:center;
-          background:var(--card);border:1px dashed var(--moss);border-radius:var(--radius);
+          background:var(--card);border:1px dashed var(--resin);border-radius:var(--radius);
           padding:12px 14px;margin:8px 0 2px;
         }
         .screen.android .perm-card.visible{display:flex}
@@ -238,10 +265,13 @@
         }
         .frame.desktop .screen.twopane .composer,.frame.web .screen.twopane .composer{padding:10px 22px 14px}
         .when-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        /* Real DateTimeSelector's collapsed chip is onSurface-colored by default; it only
+           switches to the tertiary-container treatment (below, .when-chip.custom) once a
+           custom date/time is picked. */
         .when-chip{
           display:flex;align-items:center;gap:7px;
           border:1.5px solid var(--line);background:var(--fog);
-          padding:6px 12px;border-radius:999px;font-size:.8rem;font-weight:700;color:var(--pine);
+          padding:6px 12px;border-radius:999px;font-size:.8rem;font-weight:700;color:var(--heading);
         }
         .when-chip:hover{border-color:var(--moss)}
         .when-chip .caret{transition:transform .18s ease;color:var(--moss)}
@@ -262,15 +292,18 @@
           flex:none;width:52px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);
           padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;
         }
-        .day-cell .wd{font-size:.62rem;font-weight:700;letter-spacing:.6px;color:var(--ink-soft);text-transform:uppercase}
+        .day-cell .wd{font-size:.62rem;font-weight:700;letter-spacing:.6px;color:var(--ink-soft)}
         .day-cell .dm{font-size:.82rem;font-weight:700;color:var(--ink)}
-        .day-cell .dot{width:5px;height:5px;border-radius:50%;background:transparent;margin-top:1px}
-        .day-cell.has .dot{background:var(--resin)}
-        .day-cell.today{border-color:var(--moss)}
-        .day-cell.today .wd{color:var(--pine)}
+        /* Real DaySelection draws 1-3 small tertiary dots (DatedBits.dots: one for any bit, two
+           once both morning and afternoon have one, three past 3 bits that same day) - not a
+           single has/hasn't indicator. */
+        .day-cell .dots{display:flex;gap:2px;margin-top:1px;height:5px}
+        .day-cell .dots span{width:5px;height:5px;border-radius:50%;background:var(--resin)}
+        /* Real DaySelection has no special text color for "today", only the border differs
+           (colorScheme.primary vs outlineVariant); the weekday label stays --ink-soft either way. */
+        .day-cell.today{border-color:var(--pine)}
         .day-cell.selected{background:var(--pine);border-color:var(--pine)}
         .day-cell.selected .wd,.day-cell.selected .dm{color:var(--fog)}
-        .day-cell.selected .dot{background:var(--resin)}
         .day-cell:hover{border-color:var(--moss)}
 
         .time-row{display:flex;align-items:center;gap:12px;padding:2px 4px 10px}
@@ -282,20 +315,23 @@
         .field{flex:1;position:relative}
         .field label{
           position:absolute;top:-7px;left:12px;background:var(--card);padding:0 5px;
-          font-size:.68rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--moss);
+          font-size:.68rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-soft);
         }
-        .field.editing label{color:var(--resin-deep)}
+        /* The real OutlinedTextField itself doesn't change appearance between add/edit mode -
+           only its label text ("New Bit"/"Edit Bit") and the submit icon do; the edit-mode
+           highlight lives on the bit card being edited (.bit.editing), not the composer. */
         .field input{
           width:100%;border:1.5px solid var(--line);border-radius:12px;
           padding:12px 12px;font-size:.95rem;font-family:inherit;background:var(--card);color:var(--ink);
         }
         .field input::placeholder{color:var(--ink-soft);opacity:.7}
-        .field input:focus{border-color:var(--moss);outline:none}
-        .field.editing input{border-color:var(--resin)}
+        .field input:focus{border-color:var(--pine);outline:none}
+        /* Real NewBitText uses a FilledIconButton, whose default colors are primary/onPrimary -
+           not the tertiary accent this mockup used to give it. */
         .submit{
           flex:none;width:46px;height:46px;border-radius:50%;border:none;
-          background:var(--resin);color:var(--on-accent);display:grid;place-items:center;
-          box-shadow:0 3px 10px rgba(201,134,43,.4);transition:transform .12s ease,opacity .15s;
+          background:var(--pine);color:var(--on-accent);display:grid;place-items:center;
+          box-shadow:0 3px 10px rgba(80,101,39,.4);transition:transform .12s ease,opacity .15s;
         }
         .submit:hover{opacity:.88}
         .submit:active{transform:scale(.93)}
@@ -314,7 +350,7 @@
           background:var(--card);border-radius:18px;padding:20px;max-width:300px;width:100%;
           box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:left;
         }
-        .dialog h3{font-family:'Story Script',cursive;font-weight:400;font-size:1.35rem;color:var(--pine);margin-bottom:6px}
+        .dialog h3{font-family:'Story Script',cursive;font-weight:400;font-size:1.35rem;color:var(--heading);margin-bottom:6px}
         .dialog p{font-size:.86rem;color:var(--ink-soft);line-height:1.45;margin-bottom:16px}
         .dialog .row{display:flex;gap:8px;justify-content:flex-end}
         .btn{border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:.83rem}
@@ -332,6 +368,57 @@
         }
         .toast.show{opacity:1;transform:translate(-50%,0)}
 
+        /* ---------- sync sheet ---------- */
+        .sync-sheet{
+          background:var(--card);border-radius:20px;padding:20px;max-width:320px;width:100%;
+          max-height:88%;overflow-y:auto;
+          box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:left;
+        }
+        .sync-sheet h3{font-family:'Story Script',cursive;font-weight:400;font-size:1.5rem;color:var(--heading);margin-bottom:4px}
+        .sync-sheet .sub{font-size:.8rem;color:var(--ink-soft);line-height:1.5;margin-bottom:16px}
+        .sync-sheet .field{margin-bottom:14px}
+        .btn.primary{background:var(--resin);color:var(--on-accent)}
+        .btn.primary:hover{opacity:.88}
+        .btn.block{width:100%;display:block;text-align:center}
+        .btn:disabled{opacity:.5;cursor:default;pointer-events:none}
+
+        .spinner-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;
+          background:var(--fog);border-radius:12px;padding:12px;font-size:.82rem;color:var(--ink-soft);line-height:1.4}
+        .ring{flex:none;width:18px;height:18px;border-radius:50%;
+          border:2.5px solid var(--line);border-top-color:var(--resin);animation:spin 0.8s linear infinite}
+
+        .account-chip{display:flex;align-items:center;gap:8px;background:var(--fog);border-radius:12px;
+          padding:9px 12px;font-size:.85rem;color:var(--ink);margin-bottom:10px;word-break:break-all}
+        .account-chip .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--moss)}
+        .sync-status-row{font-size:.78rem;color:var(--ink-soft);margin-bottom:14px}
+        .sync-status-row.syncing{color:var(--resin-deep);font-weight:700}
+        .sync-sheet .row{display:flex;gap:8px}
+        .sync-sheet .row .btn{flex:1}
+
+        .debug-row{display:flex;justify-content:space-between;gap:10px;padding:5px 2px;
+          border-bottom:1px dashed var(--line)}
+        .debug-row span:first-child{color:var(--ink-soft)}
+        .debug-row span:last-child{color:var(--ink);font-weight:700;text-align:right;word-break:break-all}
+        .debug-note{font-size:.72rem;color:var(--ink-soft);line-height:1.5;margin-top:10px;font-style:italic}
+
+        /* ---------- sync debug popover (opens from the app bar's status icon) ---------- */
+        .debug-pop{
+          display:none;position:absolute;top:38px;right:0;z-index:25;width:240px;
+          background:var(--card);border:1px solid var(--line);border-radius:12px;
+          box-shadow:var(--shadow);padding:14px;font-size:.76rem;color:var(--ink-soft);
+        }
+        .debug-pop.open{display:block}
+        .debug-pop-title{font-family:'Story Script',cursive;font-size:1.15rem;color:var(--heading);margin-bottom:8px}
+        .debug-pop .account-chip{margin-bottom:8px}
+        .debug-pop .sync-status-row{margin-bottom:10px}
+        .debug-pop .debug-note{margin-top:8px;margin-bottom:0}
+        .debug-pop-link{
+          display:block;width:100%;text-align:center;border:none;background:none;
+          color:var(--pine);font-size:.78rem;font-weight:700;
+          border-top:1px solid var(--line);margin-top:10px;padding-top:10px;
+        }
+        .debug-pop-link:hover{opacity:.8}
+
         .foot-note{margin-top:16px;font-size:.78rem;color:var(--ink-soft);text-align:center;max-width:600px;line-height:1.5}
     </style>
 </head>
@@ -348,7 +435,9 @@
     </div>
     <div class="opts-bar">
         <button class="opt-chip" id="themeToggle">🌙 Dark theme</button>
-        <button class="opt-chip hidden" id="paneToggle">◫ Two-pane</button>
+        <button class="opt-chip hidden" id="paneToggle"
+                title="Design proposal - not implemented in the real app yet">◫ Two-pane (proposal)
+        </button>
     </div>
 </div>
 
@@ -371,7 +460,35 @@
     <div class="screen android" id="screen">
         <div class="appbar">
             <span class="title">Conifer</span>
-            <span class="count" id="bitCount"></span>
+            <div class="appbar-right">
+                <span class="count" id="bitCount"></span>
+                <button aria-expanded="false" aria-haspopup="true" aria-label="Sync status"
+                        class="icon-btn" id="syncBtn" title="Sync (optional)"></button>
+
+                <!-- Quick-glance sync debug popover: pressing the status icon opens this
+                     directly once connected, instead of digging through settings for it. -->
+                <div aria-label="Sync debug details" class="debug-pop" id="debugPop" role="dialog">
+                    <div class="debug-pop-title">Sync</div>
+                    <div class="account-chip">
+                        <span class="dot"></span>
+                        <span id="debugAccountLabel">alice@cloud.example.org</span>
+                    </div>
+                    <div class="sync-status-row" id="debugStatusRow">Last synced just now</div>
+                    <div class="debug-row"><span>Device ID</span><span id="dbgDeviceId">—</span>
+                    </div>
+                    <div class="debug-row"><span>App root</span><span>Conifer</span></div>
+                    <div class="debug-row"><span>Last sync</span><span id="dbgLastSync">—</span>
+                    </div>
+                    <div class="debug-row"><span>Root ETag</span><span id="dbgEtag">—</span></div>
+                    <div class="debug-row"><span>Pending changes</span><span
+                            id="dbgPending">0</span></div>
+                    <div class="debug-row"><span>Last error</span><span id="dbgError">none</span>
+                    </div>
+                    <p class="debug-note">For troubleshooting only — this is what a bug report would
+                        include instead of your bits' content.</p>
+                    <button class="debug-pop-link" id="debugPopSettings">Sync settings…</button>
+                </div>
+            </div>
         </div>
 
         <div class="body-wrap">
@@ -406,13 +523,7 @@
                             <input autocomplete="off" id="bitInput" placeholder="What just happened?"
                                    type="text">
                         </div>
-                        <button aria-label="Save bit" class="submit" id="submitBtn">
-                            <svg fill="none" stroke="currentColor" stroke-linecap="round"
-                                 stroke-linejoin="round"
-                                 stroke-width="3" viewBox="0 0 24 24">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                        </button>
+                        <button aria-label="Add bit" class="submit" id="submitBtn"></button>
                     </div>
                 </div>
             </div>
@@ -420,12 +531,59 @@
 
         <div class="scrim" id="scrim">
             <div aria-labelledby="dlgTitle" class="dialog" role="alertdialog">
-                <h3 id="dlgTitle">Delete this bit?</h3>
-                <p id="dlgText">It will be gone for good — Conifer keeps no trash.</p>
+                <h3 id="dlgTitle">Delete bit?</h3>
+                <p id="dlgText">This bit will be permanently deleted.</p>
                 <div class="row">
-                    <button class="btn ghost" id="dlgCancel">Keep it</button>
+                    <button class="btn ghost" id="dlgCancel">Cancel</button>
                     <button class="btn danger" id="dlgDelete">Delete</button>
                 </div>
+            </div>
+        </div>
+
+        <div class="scrim" id="syncScrim">
+            <div aria-labelledby="syncTitle" class="sync-sheet" role="dialog">
+                <h3 id="syncTitle">Sync</h3>
+                <p class="sub">Optional — Conifer works fully offline, on this device only, unless
+                    you
+                    connect an account below. Nothing is sent anywhere until you do.</p>
+
+                <div id="syncStateDisconnected">
+                    <div class="field">
+                        <label for="serverUrlInput">Nextcloud server</label>
+                        <input autocomplete="off" id="serverUrlInput"
+                               placeholder="https://cloud.example.org"
+                               type="text">
+                    </div>
+                    <button class="btn primary block" id="connectBtn">Connect to Nextcloud</button>
+                    <p class="debug-note">Opens your browser to sign in (Login Flow v2) — Conifer
+                        never
+                        sees your password, only an app-scoped token.</p>
+                </div>
+
+                <div id="syncStateConnecting" style="display:none">
+                    <div class="spinner-row">
+                        <span class="ring"></span>
+                        <span>Waiting for you to finish signing in in your browser…</span>
+                    </div>
+                    <button class="btn ghost block" id="cancelConnectBtn">Cancel</button>
+                </div>
+
+                <div id="syncStateConnected" style="display:none">
+                    <div class="account-chip">
+                        <span class="dot"></span>
+                        <span id="accountLabel">alice@cloud.example.org</span>
+                    </div>
+                    <div class="sync-status-row" id="syncStatusRow">Last synced just now</div>
+                    <div class="row">
+                        <button class="btn ghost" id="syncNowBtn">Sync now</button>
+                        <button class="btn danger" id="disconnectBtn">Disconnect</button>
+                    </div>
+                    <p class="debug-note">Tap the cloud icon in the app bar any time for sync
+                        details (debug) - device id, last sync, pending changes, last error.</p>
+                </div>
+
+                <button class="btn ghost block" id="closeSyncBtn" style="margin-top:14px">Close
+                </button>
             </div>
         </div>
 
@@ -435,8 +593,12 @@
 
 <p class="foot-note">
     Double-click a card (or ⋮ → Edit) to edit in place; the copy icon on a day header exports that
-    day as markdown. Desktop and Web can switch to a two-pane layout where the sidebar owns day
-    selection; the 🌙 toggle previews the dark theme on every platform.
+    day as markdown. The 🌙 toggle previews the dark theme on every platform. The cloud icon in the
+    app bar opens sync settings — entirely optional, off by default, and shows a live syncing state
+    plus a debug details panel once connected. Desktop and Web can switch to a two-pane layout with
+    a day sidebar, marked "(proposal)" — that layout doesn't exist in the real app yet; see
+    mockup_review.md for the rest of what's design exploration versus what the app actually does
+    today.
 </p>
 
 <script>
@@ -460,6 +622,15 @@
       let twoPane = false;
       let widePaneChoice = true;   // remembered preference for desktop/web
       let dark = false;
+
+      /* ---------- sync state (all optional - off by default) ---------- */
+      let syncState = 'disconnected';   // 'disconnected' | 'connecting' | 'connected'
+      let syncing = false;              // true only while an actual sync round is "in flight"
+      let account = null;
+      let deviceId = null;
+      let lastSyncAt = null;
+      let connectTimer = null;
+      let autoSyncTimer = null;
 
       (function seed(){
         const now = new Date();
@@ -540,24 +711,38 @@
       }
 
       /* ---------- day strip (single-pane) ---------- */
+      // Mirrors DatedBits.dots exactly: one dot for any bit, two once both morning (<12:00)
+      // and afternoon have one, three past that once the day holds more than 3 bits total.
+      function dotsFor(dayBits){
+        if(!dayBits || !dayBits.length) return 0;
+        const morning = dayBits.some(b=>b.date.getHours()<12);
+        const afternoon = dayBits.some(b=>b.date.getHours()>=12);
+        if(morning && afternoon && dayBits.length>3) return 3;
+        if(morning && afternoon) return 2;
+        return 1;
+      }
+
       function renderStrip(){
         const strip = $('daystrip');
         strip.innerHTML = '';
-        const haveDays = new Set(bits.map(b=>dayKey(b.date)));
+        const byDay = {};
+        bits.forEach(b=>{ const k=dayKey(b.date); (byDay[k] = byDay[k]||[]).push(b); });
         const today = new Date();
         for(let i=0;i<30;i++){
           const d = new Date(today); d.setDate(d.getDate()-i);
           const key = dayKey(d);
+          const dots = dotsFor(byDay[key]);
           const cell = document.createElement('button');
           cell.className = 'day-cell'
-            + (haveDays.has(key)?' has':'')
             + (i===0?' today':'')
             + (selectedDay===key?' selected':'');
-          cell.innerHTML = '<span class="wd">'+WD[d.getDay()]+'</span>'
+          // Real DaySelection reads dayOfWeek.name.take(3) - an un-localized, all-caps
+          // three-letter code (e.g. "FRI"), not a Title Case abbreviation.
+          cell.innerHTML = '<span class="wd">'+WD[d.getDay()].toUpperCase()+'</span>'
             + '<span class="dm">'+d.getDate()+'.'+(d.getMonth()+1)+'</span>'
-            + '<span class="dot"></span>';
+            + '<span class="dots">'+'<span></span>'.repeat(dots)+'</span>';
           cell.setAttribute('aria-label', WD_FULL[d.getDay()]+' '+d.getDate()+'.'+(d.getMonth()+1)
-            + (haveDays.has(key)?', has bits':''));
+            + (dots?', has bits':''));
           cell.addEventListener('click', ()=>{
             selectedDay = (selectedDay===key) ? null : key;
             renderAll();
@@ -574,12 +759,30 @@
         $('clearWhen').classList.toggle('visible', custom && !editingId);
         if(custom){
           const d = currentInstant();
-          label.textContent = WD[d.getDay()]+' '+d.getDate()+'.'+(d.getMonth()+1)+' · '+fmtTime(d);
+          // Real DateTimeSelector shows "Today" only for the literal current date, and the
+          // plain ISO date (LocalDate.print()) otherwise - not a "Weekday D.M" label.
+          const dayLabel = dayKey(d)===dayKey(new Date()) ? 'Today' : dayKey(d);
+          label.textContent = dayLabel+' · '+fmtTime(d);
         }else{
           label.textContent = 'Now · '+fmtTime(new Date());
         }
         const q = +$('timeSlider').value;
         $('timeLabel').textContent = pad(Math.floor(q/4))+':'+pad((q%4)*15);
+      }
+
+      // Real NewBitText swaps the submit icon: a checkmark while adding, a pencil while saving
+      // an edit (Icons.Default.Check / Icons.Default.Edit). Its real contentDescription strings
+      // are actually swapped the *other* way around (a pre-existing accessibility bug - see
+      // mockup_review.md) - this uses sensible labels instead of copying that bug.
+      const ICON_CHECK = '<svg fill="none" stroke="currentColor" stroke-linecap="round" '
+        + 'stroke-linejoin="round" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+      const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+        + 'stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>'
+        + '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+      function updateSubmitIcon(){
+        const btn = $('submitBtn');
+        btn.innerHTML = editingId ? ICON_EDIT : ICON_CHECK;
+        btn.setAttribute('aria-label', editingId ? 'Save bit' : 'Add bit');
       }
 
       /* ---------- list ---------- */
@@ -614,7 +817,8 @@
         const keys = [...groups.keys()].sort();                       // oldest day first, newest at the bottom
         keys.forEach(k=>groups.get(k).sort((a,b)=> a.date-b.date || a.createdAt-b.createdAt)); // chronological within a day
 
-        $('bitCount').textContent = bits.length + (bits.length===1?' bit':' bits');
+        // Real bits_label_counter plural string is "%d Bit"/"%d Bits" (capitalized).
+        $('bitCount').textContent = bits.length + (bits.length===1?' Bit':' Bits');
 
         if(keys.length===0){
           const e = document.createElement('div');
@@ -626,15 +830,18 @@
           return;
         }
 
-        const todayKey = dayKey(new Date());
-        const yestD = new Date(); yestD.setDate(yestD.getDate()-1);
-        const yestKey = dayKey(yestD);
+        // Real BitsPane always shows this above the oldest visible day, even when a day filter
+        // is applied - it's a fixed marker at the top of the list, not an empty-state message.
+        const beginning = document.createElement('div');
+        beginning.className = 'beginning-note';
+        beginning.innerHTML = '<span class="sprout">🌱</span>'
+          + '<span>This is where your Conifer sprouted.<br>Keep adding bits and watch it grow!</span>';
+        list.appendChild(beginning);
 
         keys.forEach(k=>{
-          const d = new Date(k+'T00:00:00');
-          let name = WD_FULL[d.getDay()]+', '+d.getDate()+'.'+(d.getMonth()+1)+'.';
-          if(k===todayKey) name = 'Today';
-          else if(k===yestKey) name = 'Yesterday';
+          // Real DateHeader shows the plain ISO date (LocalDate.print()) - no "Today"/
+          // "Yesterday" friendliness and no weekday name. dayKey() is already that format.
+          const name = k;
 
           const header = document.createElement('div');
           header.className = 'day-header';
@@ -672,14 +879,20 @@
         if(openMenuId===id){ closeMenu(); return; }
         closeMenu();
         openMenuId = id;
+        // Real BitItem's menu flips its first item to "Cancel Edit" for whichever bit is
+        // currently being edited, rather than always offering "Edit".
+        const isEditingThis = id===editingId;
         const pop = document.createElement('div');
         pop.className = 'menu-pop';
         pop.innerHTML =
-          '<button data-a="edit">✏️ Edit</button>' +
+          '<button data-a="edit">'+(isEditingThis ? '✕ Cancel Edit' : '✏️ Edit')+'</button>' +
           '<button data-a="del" class="danger">🗑 Delete</button>';
         pop.addEventListener('click', e=>{
           const a = e.target.closest('button') ? e.target.closest('button').dataset.a : null;
-          if(a==='edit') startEditing(id);
+          if(a==='edit'){
+            if(isEditingThis){ exitEdit(); renderAll(); toast('Edit discarded'); }
+            else startEditing(id);
+          }
           if(a==='del'){ pendingDeleteId=id; $('scrim').classList.add('open'); closeMenu(); }
         });
         card.appendChild(pop);
@@ -816,7 +1029,7 @@
       function applyPane(){
         $('screen').classList.toggle('twopane', twoPane);
         $('paneToggle').classList.toggle('active', twoPane);
-        $('paneToggle').textContent = twoPane ? '◫ Two-pane' : '▭ Single pane';
+        $('paneToggle').textContent = twoPane ? '◫ Two-pane (proposal)' : '▭ Single pane';
         renderAll();
         scrollToEnd();
       }
@@ -825,6 +1038,153 @@
         widePaneChoice = twoPane;
         applyPane();
       });
+
+      /* ---------- sync (entirely optional, off by default) ---------- */
+      const ICON_CLOUD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+        + 'stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H8a5 5 0 0 1-.9-9.92 6 6 0 0 1 '
+        + '11.4 2.42A4.5 4.5 0 0 1 17.5 19Z"/></svg>';
+      const ICON_SPINNER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" '
+        + 'stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/></svg>';
+
+      function relTime(d){
+        if(!d) return 'never';
+        const s = Math.max(0, Math.round((Date.now()-d.getTime())/1000));
+        if(s < 45) return 'just now';
+        const m = Math.round(s/60);
+        if(m < 60) return m+'m ago';
+        const h = Math.round(m/60);
+        if(h < 24) return h+'h ago';
+        return Math.round(h/24)+'d ago';
+      }
+
+      // The app bar icon is the only always-visible trace of sync: muted when never set up,
+      // moss when connected and idle, spinning while a round is actually in flight.
+      function updateSyncIcon(){
+        const btn = $('syncBtn');
+        btn.innerHTML = syncing ? ICON_SPINNER : ICON_CLOUD;
+        btn.classList.toggle('connected', syncState==='connected' && !syncing);
+        btn.classList.toggle('syncing', syncing);
+        btn.title = syncing ? 'Syncing…' : (syncState==='connected' ? 'Synced · '+relTime(lastSyncAt) : 'Sync (optional)');
+      }
+
+      // Populates the debug popover - both its own account/status glance and the raw fields.
+      // Kept up to date regardless of whether the popover is currently open, same as the sheet.
+      function renderDebugPop(){
+        if(account) $('debugAccountLabel').textContent = account;
+        const statusRow = $('debugStatusRow');
+        statusRow.textContent = syncing ? 'Syncing…' : 'Last synced '+relTime(lastSyncAt);
+        statusRow.classList.toggle('syncing', syncing);
+        $('dbgDeviceId').textContent = deviceId || '—';
+        $('dbgLastSync').textContent = lastSyncAt ? lastSyncAt.toLocaleString() : 'never';
+        $('dbgEtag').textContent = lastSyncAt ? ('"'+lastSyncAt.getTime().toString(16).slice(-8)+'"') : '—';
+        $('dbgPending').textContent = '0';
+        $('dbgError').textContent = 'none';
+      }
+
+      function openDebugPop(){
+        renderDebugPop();
+        $('debugPop').classList.add('open');
+        $('syncBtn').setAttribute('aria-expanded', 'true');
+      }
+      function closeDebugPop(){
+        $('debugPop').classList.remove('open');
+        $('syncBtn').setAttribute('aria-expanded', 'false');
+      }
+      function toggleDebugPop(){
+        $('debugPop').classList.contains('open') ? closeDebugPop() : openDebugPop();
+      }
+
+      function updateSyncSheetStatus(){
+        const row = $('syncStatusRow');
+        row.textContent = syncing ? 'Syncing…' : 'Last synced '+relTime(lastSyncAt);
+        row.classList.toggle('syncing', syncing);
+        $('syncNowBtn').disabled = syncing;
+        renderDebugPop();
+      }
+
+      function showSyncState(){
+        $('syncStateDisconnected').style.display = syncState==='disconnected' ? '' : 'none';
+        $('syncStateConnecting').style.display = syncState==='connecting' ? '' : 'none';
+        $('syncStateConnected').style.display = syncState==='connected' ? '' : 'none';
+        if(syncState==='connected'){
+          $('accountLabel').textContent = account;
+          updateSyncSheetStatus();
+        }
+      }
+
+      function openSyncSheet(){ showSyncState(); $('syncScrim').classList.add('open'); }
+      function closeSyncSheet(){ $('syncScrim').classList.remove('open'); }
+
+      function connect(){
+        const url = $('serverUrlInput').value.trim();
+        if(!url){ $('serverUrlInput').focus(); return; }
+        syncState = 'connecting';
+        showSyncState();
+        // Simulates opening the system browser for Nextcloud Login Flow v2 and polling until
+        // the user finishes signing in there - the real flow never shows Conifer a password.
+        connectTimer = setTimeout(()=>{
+          const host = url.replace(/^https?:\/\//,'').replace(/\/$/,'');
+          account = 'alice@'+host;
+          deviceId = deviceId || crypto.randomUUID().slice(0,8);
+          syncState = 'connected';
+          lastSyncAt = null;
+          showSyncState();
+          updateSyncIcon();
+          toast('Connected to Nextcloud');
+          simulateSync(true);
+          autoSyncTimer = setInterval(()=>simulateSync(true), 45000); // periodic background sync
+        }, 2600);
+      }
+      function cancelConnect(){
+        clearTimeout(connectTimer);
+        syncState = 'disconnected';
+        showSyncState();
+      }
+      function disconnect(){
+        clearInterval(autoSyncTimer);
+        syncState = 'disconnected';
+        account = null;
+        syncing = false;
+        showSyncState();
+        updateSyncIcon();
+        closeSyncSheet();
+        closeDebugPop();
+        toast('Sync disconnected — your bits stay right here');
+      }
+
+      // Stands in for one real SyncEngine.sync() round (pull, push, readable render, GC).
+      function simulateSync(auto){
+        if(syncState!=='connected' || syncing) return;
+        syncing = true;
+        updateSyncIcon();
+        updateSyncSheetStatus();
+        setTimeout(()=>{
+          syncing = false;
+          lastSyncAt = new Date();
+          updateSyncIcon();
+          updateSyncSheetStatus();
+          if(!auto) toast('Synced');
+        }, 1300);
+      }
+
+      // Pressing the status icon is the fast path to sync info: once connected it's a debug
+      // glance (no need to dig through settings for it); only before that does it make sense
+      // to open the full connect/settings flow, since there's nothing yet to show a status for.
+      $('syncBtn').addEventListener('click', ()=>{
+        if(syncState==='connected') toggleDebugPop();
+        else openSyncSheet();
+      });
+      $('debugPopSettings').addEventListener('click', ()=>{ closeDebugPop(); openSyncSheet(); });
+      $('closeSyncBtn').addEventListener('click', closeSyncSheet);
+      $('syncScrim').addEventListener('click', e=>{ if(e.target===$('syncScrim')) closeSyncSheet(); });
+      $('connectBtn').addEventListener('click', connect);
+      $('cancelConnectBtn').addEventListener('click', cancelConnect);
+      $('syncNowBtn').addEventListener('click', ()=>simulateSync(false));
+      $('disconnectBtn').addEventListener('click', disconnect);
+      document.addEventListener('click', e=>{
+        if(!e.target.closest('#debugPop') && !e.target.closest('#syncBtn')) closeDebugPop();
+      });
+      updateSyncIcon();
 
       /* ---------- platform switching ---------- */
       document.querySelectorAll('.platform-chip').forEach(chip=>{
@@ -843,7 +1203,7 @@
       });
 
       /* ---------- render all ---------- */
-      function renderAll(){ renderSidebar(); renderStrip(); renderWhen(); renderList(); }
+      function renderAll(){ renderSidebar(); renderStrip(); renderWhen(); renderList(); updateSubmitIcon(); }
       $('timeSlider').value = new Date().getHours()*4 + Math.round(new Date().getMinutes()/15);
       renderAll();
       scrollToEnd();

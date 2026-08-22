@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -45,7 +46,13 @@ kotlin {
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        browser()
+        browser {
+            testTask {
+                useKarma {
+                    useFirefox()
+                }
+            }
+        }
     }
 
     sourceSets {
@@ -54,6 +61,7 @@ kotlin {
             implementation(libs.jetbrains.compose.ui.tooling)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
             implementation(libs.jetbrains.compose.runtime)
@@ -66,6 +74,8 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodel)
             implementation(libs.jetbrains.lifecycle.runtime)
             implementation(libs.androidx.room.runtime)
+            implementation(libs.androidx.datastore.preferences.core)
+            implementation(libs.androidx.datastore.core)
             // execSQL is not available to common code spanning web + non-web targets;
             // the async executeSQL from sqlite-async is the common replacement.
             implementation(libs.androidx.sqlite.async)
@@ -76,30 +86,40 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.napier)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.auth)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ksafe)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         jvmTest.dependencies {
             implementation(libs.androidx.room.testing)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.testcontainers)
         }
         // BundledSQLiteDriver is only published for the native/JVM/Android targets, so it lives in
         // the per-platform source sets rather than commonMain (the web target uses sqlite-web).
         iosMain.dependencies {
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.darwin)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.okhttp)
         }
         wasmJsMain.dependencies {
             implementation(libs.androidx.sqlite.web)
             // The Web Worker that backs WebWorkerSQLiteDriver is not shipped by androidx; we vendor
             // their example worker as a local npm package (it pulls in @sqlite.org/sqlite-wasm).
             implementation(npm("sqlite-web-worker", project.file("sqlite-web-worker")))
+            implementation(libs.ktor.client.js)
         }
     }
 }

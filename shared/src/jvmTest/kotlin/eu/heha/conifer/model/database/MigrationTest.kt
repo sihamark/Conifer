@@ -61,6 +61,34 @@ class MigrationTest {
         assertEquals(expectedLocalDateTime(), storedDate)
     }
 
+    @Test
+    fun `migrate from 3 to 4 backfills the sync bookkeeping`() = runTest {
+        val helper = helper()
+        helper.createDatabase(3).use { connection ->
+            connection.execSQL(
+                "INSERT INTO bits (id, text, created_at, date) " +
+                        "VALUES ('bit-1', 'hello', $DATE_MILLIS, '2025-07-13T14:00')"
+            )
+        }
+
+        helper.runMigrationsAndValidate(4).use { connection ->
+            connection.prepare(
+                "SELECT modified_at, bucket, dirty, deleted, modified_by, remote_etag, payload " +
+                        "FROM bits WHERE id = 'bit-1'"
+            ).use { statement ->
+                assertTrue(statement.step(), "expected the bit to survive the migration")
+                assertEquals(DATE_MILLIS, statement.getLong(0), "modified_at = created_at")
+                // bucket comes from created_at in UTC: 2025-07-13T12:00:00Z → 2025-07
+                assertEquals("2025-07", statement.getText(1))
+                assertEquals(1L, statement.getLong(2), "existing bits start dirty")
+                assertEquals(0L, statement.getLong(3), "existing bits are not tombstones")
+                assertEquals("", statement.getText(4), "modified_by starts empty")
+                assertTrue(statement.isNull(5), "remote_etag starts null (never pushed)")
+                assertTrue(statement.isNull(6), "payload starts null (never pulled)")
+            }
+        }
+    }
+
     private fun SQLiteConnection.dateOfFirstBit(): String =
         prepare("SELECT date FROM bits WHERE id = 'bit-1'").use { statement ->
             assertTrue(statement.step(), "expected the bit to survive the migration")

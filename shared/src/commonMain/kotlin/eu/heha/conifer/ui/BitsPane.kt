@@ -133,7 +133,9 @@ import kotlin.math.roundToInt
 @Composable
 fun BitsPane(
     state: BitsPaneState = BitsPaneState(),
-    actions: BitsPaneActions = BitsPaneActions()
+    actions: BitsPaneActions = BitsPaneActions(),
+    syncState: SyncUiState = SyncUiState(),
+    syncActions: SyncPaneActions = SyncPaneActions()
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         val focusRequester = remember { FocusRequester() }
@@ -250,7 +252,7 @@ fun BitsPane(
                 // Hidden while the IME is open, since the keyboard already claims a large share
                 // of the screen.
                 val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-                Topbar(bitsCount)
+                Topbar(bitsCount, syncState, syncActions)
             }
             Column(
                 Modifier
@@ -306,7 +308,7 @@ private fun List<DatedBits>.indexOfBit(bitId: String): Int? {
 }
 
 @Composable
-private fun Topbar(bitsCount: Int) {
+private fun Topbar(bitsCount: Int, syncState: SyncUiState, syncActions: SyncPaneActions) {
     // While typing, the IME already claims a large share of the screen, so the top bar is hidden
     // to leave as much room as possible for reading existing bits.
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -321,8 +323,9 @@ private fun Topbar(bitsCount: Int) {
                         bitsCount
                     ),
                     style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(end = 16.dp)
+                    modifier = Modifier.padding(end = 8.dp)
                 )
+                SyncStatusIcon(syncState, syncActions, modifier = Modifier.padding(end = 8.dp))
             },
             // The column already handles the status bar inset.
             windowInsets = WindowInsets()

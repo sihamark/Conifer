@@ -8,6 +8,7 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun BitsRoute(permissionHandler: PermissionHandler? = null) {
     val model = koinViewModel<BitsViewModel> { parametersOf(permissionHandler) }
+    val syncModel = koinViewModel<SyncViewModel>()
     BitsPane(
         state = model.state,
         actions = BitsPaneActions(
@@ -22,6 +23,20 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onCancelEdit = model::cancelEdit,
             onDeleteBit = model::deleteBit,
             onScrolledToBit = model::onScrolledToBit,
+        ),
+        syncState = syncModel.state,
+        syncActions = SyncPaneActions(
+            onClickSyncIcon = syncModel::onClickSyncIcon,
+            onCloseSheet = syncModel::onCloseSheet,
+            onCloseDebug = syncModel::onCloseDebug,
+            onOpenSettingsFromDebug = syncModel::onOpenSettingsFromDebug,
+            onServerUrlChange = syncModel::onServerUrlChange,
+            onClickConnect = syncModel::onClickConnect,
+            onAppRootChange = syncModel::onAppRootChange,
+            onClickSaveAppRoot = syncModel::onClickSaveAppRoot,
+            onClickCancelConnect = syncModel::onClickCancelConnect,
+            onClickSyncNow = syncModel::onClickSyncNow,
+            onClickDisconnect = syncModel::onClickDisconnect,
         )
     )
 }
