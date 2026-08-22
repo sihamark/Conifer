@@ -103,6 +103,10 @@ kotlin {
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.testcontainers)
+            // Drives the composer's key handling for real; the desktop target is the one with a
+            // physical keyboard, so it is the one that runs the interaction tests. `ui-test`
+            // alone is enough - the tests use `runComposeUiTest`, not the JUnit4 rule.
+            implementation(libs.jetbrains.compose.ui.test)
         }
         // BundledSQLiteDriver is only published for the native/JVM/Android targets, so it lives in
         // the per-platform source sets rather than commonMain (the web target uses sqlite-web).

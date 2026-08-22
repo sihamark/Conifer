@@ -7,11 +7,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
@@ -303,18 +303,22 @@ private fun Bits(
     paneInset: Dp,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier) {
+    BoxWithConstraints(modifier) {
+        // The list spans the whole pane so that a drag anywhere in it scrolls — including the
+        // empty margins beside the bits on a wide window. Narrowing the list itself instead would
+        // leave those margins outside the scrollable area and dead to the touch, so the width
+        // limit lives in the content padding.
+        val sideInset =
+            ((maxWidth - CONTENT_MAX_WIDTH) / 2).coerceAtLeast(0.dp) + paneInset
         BitsList(
             state = state,
             visibleBitsByDate = visibleBitsByDate,
             actions = actions,
             isTopBarVisible = isTopBarVisible,
-            // Only the list is inset; the top bar floating above it keeps spanning the whole pane.
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxHeight()
-                .widthIn(max = CONTENT_MAX_WIDTH)
-                .padding(horizontal = paneInset)
+            // Only the list's content is inset; the top bar floating above it keeps spanning the
+            // whole pane.
+            contentPadding = PaddingValues(horizontal = sideInset),
+            modifier = Modifier.fillMaxSize()
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
         Topbar(bitsCount, isTopBarVisible, syncState, syncActions, syncPresentation)
@@ -370,7 +374,9 @@ private fun Composer(
             NewBitText(
                 newBitText = state.newBitText,
                 isEditing = state.editingBitId != null,
+                time = state.effectiveTime,
                 onNewBitTextChange = actions.onNewBitTextChange,
+                onSelectTime = actions.onSelectTime,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,
                 bottomPadding = if (isShort) 8.dp else 16.dp
