@@ -6,6 +6,8 @@ import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 interface Platform {
     val name: String
@@ -31,6 +33,36 @@ interface Platform {
  * (`buildSrc`), duplicated here since `buildSrc` isn't on the app's runtime classpath.
  */
 internal const val KSAFE_APP_NAMESPACE = "eu.heha.conifer"
+
+/**
+ * Dates and times spelled the way the reader's own system spells them — which is a question only the
+ * platform can answer, since it is the one holding the locale, the 12-or-24-hour setting and the
+ * names of the months.
+ *
+ * Every method takes a date or a time and returns something to show a person. None of it is ever
+ * parsed back: what goes into the database, the sync files and the logs stays ISO
+ * (`printIso` and the database converters), because those are read by machines and by other
+ * devices, whose locale is none of this app's business.
+ *
+ * The default implementation is [eu.heha.conifer.ui.IsoDateTimeFormats], which is what previews and
+ * tests get: no locale of its own, so a screenshot of a preview looks the same on every machine.
+ */
+interface DateTimeFormats {
+    /** The time of day: `14:30`, or `2:30 PM` where that is how it is written. */
+    fun timeOfDay(time: LocalTime): String
+
+    /** The weekday, shortened: `Wed`, `Mi`, `水`. For the day strip and the sidebar. */
+    fun weekdayShort(date: LocalDate): String
+
+    /** Day and month without the year, in the locale's own order: `6.8.`, `8/6`. */
+    fun dayAndMonth(date: LocalDate): String
+
+    /** A whole date, as short as it can be while still being unambiguous: `6 Aug 2026`. */
+    fun date(date: LocalDate): String
+
+    /** A whole date with the weekday written out, for a heading: `Thursday, 6 August 2026`. */
+    fun dateWithWeekday(date: LocalDate): String
+}
 
 interface DatabaseInitializer {
     /**

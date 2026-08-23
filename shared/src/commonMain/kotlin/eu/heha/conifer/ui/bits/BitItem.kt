@@ -43,7 +43,7 @@ import conifer.shared.generated.resources.bits_action_menu_edit
 import conifer.shared.generated.resources.bits_message_delete_bit
 import conifer.shared.generated.resources.bits_title_delete_bit
 import eu.heha.conifer.model.database.Bit
-import eu.heha.conifer.ui.print
+import eu.heha.conifer.ui.LocalDateTimeFormats
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -90,7 +90,7 @@ internal fun BitItem(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Text(
-                        bit.date.time.print(),
+                        LocalDateTimeFormats.current.timeOfDay(bit.date.time),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,

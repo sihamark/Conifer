@@ -1,6 +1,7 @@
 package eu.heha.conifer
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +14,7 @@ import eu.heha.conifer.log.FileAntilog
 import eu.heha.conifer.log.logFileName
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
+import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.theme.ConiferTheme
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -25,6 +27,7 @@ object ConiferApp {
     fun initialize(
         isDebug: Boolean,
         platform: Platform,
+        dateTimeFormats: DateTimeFormats,
         databaseInitializer: DatabaseInitializer,
         syncPrefsInitializer: SyncPrefsInitializer,
         credentialsInitializer: CredentialsInitializer,
@@ -43,6 +46,7 @@ object ConiferApp {
                 coreModule,
                 platformModule(
                     platform,
+                    dateTimeFormats,
                     databaseInitializer,
                     syncPrefsInitializer,
                     credentialsInitializer,
@@ -91,7 +95,11 @@ object ConiferApp {
         if (!credentialsReady) return
 
         ConiferTheme {
-            BitsRoute(permissionHandler)
+            // The one place the platform's spellings are handed to the screen; everything below
+            // reads them off LocalDateTimeFormats rather than being threaded them one at a time.
+            CompositionLocalProvider(LocalDateTimeFormats provides koin.get<DateTimeFormats>()) {
+                BitsRoute(permissionHandler)
+            }
         }
     }
 }

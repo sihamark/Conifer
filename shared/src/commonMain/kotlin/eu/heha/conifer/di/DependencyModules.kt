@@ -4,6 +4,7 @@ import eu.heha.conifer.BrowserOpener
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.CredentialsInitializer
 import eu.heha.conifer.DatabaseInitializer
+import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.Platform
 import eu.heha.conifer.SyncPrefsInitializer
 import eu.heha.conifer.model.BitsRepository
@@ -19,7 +20,8 @@ import org.koin.dsl.module
 
 /**
  * Platform-agnostic dependencies. The platform-specific implementations
- * ([Platform], [DatabaseInitializer], [ClipboardController]) are contributed by [platformModule],
+ * ([Platform], [DateTimeFormats], [DatabaseInitializer], [ClipboardController]) are contributed by
+ * [platformModule],
  * which is built from the values passed to `ConiferApp.initialize(...)`.
  */
 val coreModule = module {
@@ -36,7 +38,13 @@ val coreModule = module {
     // Not viewModelOf(::BitsViewModel): the clipboard controller is optional and has to resolve to
     // null where no platform supplied one. The permission handler is not injected at all — the
     // screen binds the current one, see BitsViewModel.bindPermissionHandler.
-    viewModel { BitsViewModel(repository = get(), clipboardController = getOrNull()) }
+    viewModel {
+        BitsViewModel(
+            repository = get(),
+            dateTimeFormats = get(),
+            clipboardController = getOrNull()
+        )
+    }
     // Same reason as BitsViewModel above: the clipboard controller is optional, so it has to
     // resolve to null rather than fail to resolve.
     viewModel {
@@ -54,6 +62,7 @@ val coreModule = module {
  */
 fun platformModule(
     platform: Platform,
+    dateTimeFormats: DateTimeFormats,
     databaseInitializer: DatabaseInitializer,
     syncPrefsInitializer: SyncPrefsInitializer,
     credentialsInitializer: CredentialsInitializer,
@@ -61,6 +70,7 @@ fun platformModule(
     clipboardController: ClipboardController?
 ) = module {
     single { platform }
+    single { dateTimeFormats }
     single { databaseInitializer }
     single { syncPrefsInitializer }
     single { credentialsInitializer }
