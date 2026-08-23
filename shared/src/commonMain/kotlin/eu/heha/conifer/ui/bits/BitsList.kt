@@ -2,10 +2,12 @@ package eu.heha.conifer.ui.bits
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -254,8 +256,12 @@ private fun BeginningNote(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(horizontal = 32.dp, vertical = 24.dp)
     ) {
-        Spacer(Modifier.height(4.dp))
-        Text(text = "🌱", style = MaterialTheme.typography.headlineSmall)
+        EmojiFallScene(
+            emoji = "🌱",
+            falling = SEEDLING_FALL,
+            height = BEGINNING_SCENE_HEIGHT,
+            circling = SEEDLING_ANIMALS
+        )
         Spacer(Modifier.height(4.dp))
         Text(
             text = stringResource(Res.string.bits_message_beginning),
@@ -272,24 +278,64 @@ private fun BeginningNote(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun EmptyState(isFilteredByDate: Boolean, modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier.padding(horizontal = 32.dp, vertical = 48.dp)
-    ) {
-        Text(text = "🌲", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(
-                if (isFilteredByDate) {
-                    Res.string.bits_message_empty_filtered
-                } else {
-                    Res.string.bits_message_empty
-                }
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+    BoxWithConstraints(modifier) {
+        // The tree gets the pane's height less what the message needs, and no more than it can use.
+        // The message is the part that has to be readable, so on a phone in landscape with the
+        // keyboard up — where there is barely room for the message alone — the tree gives way
+        // entirely rather than pushing it off the screen.
+        val sceneHeight = (maxHeight - EMPTY_MESSAGE_ROOM).coerceAtMost(EMPTY_SCENE_HEIGHT)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 16.dp)
+        ) {
+            if (sceneHeight >= EMPTY_SCENE_MIN_HEIGHT) {
+                EmojiFallScene(
+                    emoji = "🌲",
+                    falling = TREE_FALL,
+                    height = sceneHeight,
+                    scampering = TREE_ANIMALS
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            Text(
+                text = stringResource(
+                    if (isFilteredByDate) {
+                        Res.string.bits_message_empty_filtered
+                    } else {
+                        Res.string.bits_message_empty
+                    }
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
+
+/** What comes down past the tree of the empty state, and past the seedling of the beginning note. */
+private val TREE_FALL = listOf("🍂", "🍃", "🌰", "🍁")
+private val SEEDLING_FALL = listOf("💧", "✨", "🍃")
+
+/**
+ * Who turns up, every half minute or so. What each of them does is decided by which list it is in:
+ * the tree is tall enough to be climbed down, whereas nothing climbs down a seedling — so the ones
+ * who come to see that go round it at ground level instead and off out the other side.
+ */
+private val TREE_ANIMALS = listOf("🐿️", "🐦")
+private val SEEDLING_ANIMALS = listOf("🐞", "🐁")
+
+/**
+ * How tall the two scenes are. The beginning note's is a fixed item in a scrolling list, so it can
+ * simply be as tall as it wants to be. The empty state's shares the pane with its message, so it is
+ * a maximum: what the pane has beyond [EMPTY_MESSAGE_ROOM] — the two lines of the message, the space
+ * above them and the padding around all of it — and nothing at all below
+ * [EMPTY_SCENE_MIN_HEIGHT], where a tree would be too small to be worth the room it takes.
+ */
+private val BEGINNING_SCENE_HEIGHT = 120.dp
+private val EMPTY_SCENE_HEIGHT = 200.dp
+private val EMPTY_SCENE_MIN_HEIGHT = 72.dp
+private val EMPTY_MESSAGE_ROOM = 88.dp
