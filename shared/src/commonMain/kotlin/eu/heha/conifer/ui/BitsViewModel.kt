@@ -10,6 +10,8 @@ import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.bits.BitsPaneState
+import eu.heha.conifer.ui.bits.dateShiftedBy
+import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -246,12 +248,57 @@ class BitsViewModel(
     }
 
     /**
+     * Steps the day by [days] — the keyboard's way in, where the day lists have [selectDate].
+     *
+     * It counts from the day being written to ([BitsPaneState.effectiveDate]) rather than from the
+     * filter, so the first press from an unfiltered list goes straight to yesterday instead of
+     * spending itself landing on today. It also keeps the list where it is unless the list was
+     * already showing a single day: stepping the date while writing is a thing one does mid-sentence,
+     * and having the bits jump about underneath would be no help. While a bit is being edited, that
+     * makes this the date counterpart of the time nudge — it re-dates the bit in hand.
+     *
+     * Clamped to the days both day lists offer, so the selection is always one of them can show.
+     */
+    fun shiftDate(days: Int) = moveToDate(state.dateShiftedBy(days))
+
+    /**
+     * As [shiftDate], but skips to the nearest day in that direction that has bits — the whole
+     * month is mostly empty days, and stepping through them one press at a time to reach the
+     * writing is a poor way to spend a keyboard. Does nothing when there is no such day.
+     */
+    fun skipToDateWithBits(days: Int) {
+        moveToDate(state.nearestDateWithBits(days) ?: return)
+    }
+
+    /** Back to today, on [shiftDate]'s terms. */
+    fun selectToday() = moveToDate(state.today)
+
+    private fun moveToDate(date: LocalDate) {
+        state = state.copy(
+            // Today is left to the clock rather than written down, so that a date stepped back to
+            // today still rolls over at midnight like one never picked at all.
+            composerDate = date.takeIf { it != state.today },
+            filterDate = state.filterDate?.let { date }
+        )
+    }
+
+    /**
      * Shows every day again — the two-pane sidebar's "All days", which is where that layout puts
      * what the day strip does by tapping the selected day again, so it does the same thing: the
      * date goes back to the current one, a chosen time is kept.
      */
     fun selectAllDays() {
         state = state.copy(filterDate = null, composerDate = null)
+    }
+
+    /**
+     * Everything the user had pointed the screen at, dropped in one go: all days again, and the
+     * clock back in charge of both the date and the time. [selectAllDays] and [resetToNow] each undo
+     * half of that, one because the day lists ask for it and one because the chip's reset does; this
+     * is the whole of it, and belongs to Esc — the key for being done with whatever you were in.
+     */
+    fun resetSelection() {
+        state = state.copy(filterDate = null, composerDate = null, composerTime = null)
     }
 
     fun selectTime(newTime: LocalTime) {

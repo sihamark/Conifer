@@ -92,7 +92,7 @@ internal fun DaySidebar(
                         onClick = onClickAllDays
                     )
                 }
-                items(30, key = { it }) { dayIndex ->
+                items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
                     val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
                     val datedBits = bitsByDate.firstOrNull { it.date == date }
                     DaySidebarItem(

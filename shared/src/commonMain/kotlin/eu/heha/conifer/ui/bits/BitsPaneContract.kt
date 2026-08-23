@@ -29,6 +29,20 @@ enum class BitsLayout {
     SideComposer
 }
 
+/**
+ * How many days back the day lists reach — the day strip and the [DaySidebar] both offer this many,
+ * today included, and the day hotkeys stay inside the same window: a day neither list can show is
+ * one the user would be filtered to with nothing on screen saying so.
+ */
+// TODO(no fixed day window): both day lists should instead grow as they are scrolled, loading older
+//  days on demand and reaching as far back as there are bits. This number is the only thing making
+//  that a limit rather than a starting point, and three things lean on it being one: the two lists
+//  count items from it, and the day hotkeys clamp to it (dateShiftedBy, nearestDateWithBits) so a
+//  selected day is always one a list can mark. Once the lists reach everywhere, the clamp on the
+//  plain step should become "as far back as there are bits" and the clamp on the skip should go
+//  altogether — the day it lands on is by definition a day with bits, so a list will have it.
+internal const val DAY_LIST_DAYS = 30
+
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
@@ -59,6 +73,47 @@ data class BitsPaneState(
      * made one. [DateTimeSelector] derives the same value from the two fields it is handed.
      */
     val effectiveTime: LocalTime get() = composerTime ?: currentTime
+
+    /**
+     * The day the composer would stamp on a bit added right now, and with that the day the day
+     * hotkeys count from: whichever day is being written to is the one it makes sense to step off.
+     */
+    val effectiveDate: LocalDate get() = composerDate ?: today
+
+    /** The oldest day either day list offers, and so the oldest the day hotkeys reach. */
+    val oldestListedDate: LocalDate
+        get() = LocalDate.fromEpochDays(today.toEpochDays() - (DAY_LIST_DAYS - 1))
+
+    /**
+     * Whether the screen is pointed at anything other than every day and now — a day being looked
+     * at, or a date or time the composer will use in place of the clock. This is what Esc backs out
+     * of, and a time nudged on its own counts: it is as much a thing to be stuck with as a day is.
+     */
+    val hasSelection: Boolean
+        get() = filterDate != null || composerDate != null || composerTime != null
+}
+
+/**
+ * The day [days] steps away from the one being written to, clamped to the days the day lists offer:
+ * the arithmetic behind Alt+←/→, kept out of the view model for the same reason
+ * [shiftedByTimeSlots] is — it is the part worth testing on its own.
+ */
+internal fun BitsPaneState.dateShiftedBy(days: Int): LocalDate =
+    LocalDate.fromEpochDays(effectiveDate.toEpochDays() + days)
+        .coerceIn(oldestListedDate, today)
+
+/**
+ * The nearest day in that direction that has bits, or null when there is none within reach — the
+ * arithmetic behind Shift+Alt+←/→. Clamped to the same days as [dateShiftedBy], so a day with bits
+ * older than the lists go is left to the unfiltered list to show.
+ */
+internal fun BitsPaneState.nearestDateWithBits(days: Int): LocalDate? {
+    val dates = bitsByDate.map { it.date }
+    return if (days < 0) {
+        dates.filter { it < effectiveDate && it >= oldestListedDate }.maxOrNull()
+    } else {
+        dates.filter { it > effectiveDate && it <= today }.minOrNull()
+    }
 }
 
 class BitsPaneActions(
@@ -67,6 +122,22 @@ class BitsPaneActions(
     val onClickRequestPermission: () -> Unit = {},
     val onClickDate: (LocalDate) -> Unit = {},
     val onClickAllDays: () -> Unit = {},
+    /**
+     * Steps the day being written to by days, clamped to what the day lists show. Unlike
+     * [onClickDate] — which is the day lists', and says "look at this day *and* write to it" — this
+     * is the keyboard's, and only pulls the list along if it was already filtered to a day.
+     */
+    val onShiftDate: (days: Int) -> Unit = {},
+    /** As [onShiftDate], but to the nearest day in that direction that has bits at all. */
+    val onSkipToDateWithBits: (days: Int) -> Unit = {},
+    /** Back to today, on the same terms as [onShiftDate]. */
+    val onSelectToday: () -> Unit = {},
+    /**
+     * Back to every day and now: the day filter, the composer's date and its time all dropped at
+     * once. What Esc does, and the one thing that clears the time as well — [onClickAllDays] is the
+     * day lists' "All days" and leaves a chosen time alone, since picking days is not picking times.
+     */
+    val onResetSelection: () -> Unit = {},
     val onSelectTime: (LocalTime) -> Unit = {},
     val onResetToNow: () -> Unit = {},
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},

@@ -24,7 +24,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,10 +38,16 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -48,6 +58,7 @@ import androidx.window.core.layout.WindowSizeClass
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
 import conifer.shared.generated.resources.bits_label_counter
+import conifer.shared.generated.resources.shortcuts_content_show
 import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.SyncPane
 import eu.heha.conifer.ui.SyncPaneActions
@@ -79,9 +90,34 @@ fun BitsPane(
         .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
     // How tall the text field may grow; also not part of BitsLayout, since it is the height left
     // over that decides it and not how the panes are arranged. Overridable like the layout.
-    composerMaxLines: Int = currentComposerMaxLines()
+    composerMaxLines: Int = currentComposerMaxLines(),
+    // Whether this device is one that comes with a keyboard, which decides whether the shortcuts are
+    // advertised — see Platform.hasHardwareKeyboard, which is what BitsRoute passes. Defaulted rather
+    // than injected here so that a preview or a test is a plain composable with nothing behind it,
+    // and defaulted to the quieter answer: a screen with no keyboard is the one with nothing extra
+    // on it.
+    hasHardwareKeyboard: Boolean = false
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
+        // Somewhere for the key events to go when the text field hasn't got them. A key event is
+        // only offered to the focused node and the nodes above it — and with *nothing* focused it is
+        // offered to key input above the root focus node, which the screen's own handler is below,
+        // so it would then be offered to nothing at all. Without a focus target here, clicking a bit
+        // or the background would quietly turn the shortcuts off until the field was clicked again.
+        //
+        // It is only ever a fallback, never taken from anything: focus is asked for here first, and
+        // the field's own request — below, and so after it, and repeated whenever the field is empty
+        // or an edit begins — takes it straight back off. What is left is a screen that holds focus
+        // exactly when nothing on it does.
+        val paneFocusRequester = remember { FocusRequester() }
+        LaunchedEffect(Unit) { paneFocusRequester.requestFocus() }
+        var isShortcutsOverlayOpen by remember { mutableStateOf(false) }
+        // The platform's answer is only a guess about the device (see Platform.hasHardwareKeyboard),
+        // and a modifier arriving is proof: nothing on a touch keyboard sends Alt. So a tablet with a
+        // keyboard plugged in earns the icon as soon as it is used, without asking the platform
+        // anything it cannot answer.
+        var hasSeenModifier by remember { mutableStateOf(false) }
+        val isKeyboardPresent = hasHardwareKeyboard || hasSeenModifier
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(state.newBitText) {
             if (state.newBitText.isBlank()) focusRequester.requestFocus()
@@ -96,6 +132,21 @@ fun BitsPane(
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                // Previewed at the top of the screen rather than on the text field, where the rest
+                // of the shortcuts live: these are the screen's, not the field's, and a day is
+                // switched just as often with a bit half-written and the mouse in the list.
+                .onPreviewKeyEvent { event ->
+                    if (event.isAltPressed) hasSeenModifier = true
+                    handleShortcut(
+                        event = event,
+                        state = state,
+                        actions = actions,
+                        isShortcutsOverlayOpen = isShortcutsOverlayOpen,
+                        onShortcutsOverlayChange = { isShortcutsOverlayOpen = it }
+                    )
+                }
+                .focusRequester(paneFocusRequester)
+                .focusTarget()
                 .padding(innerPadding)
                 // The status bar is always padded here so showing/hiding the top bar only animates
                 // the bar's own height and nothing else jumps.
@@ -133,6 +184,8 @@ fun BitsPane(
                 isTopBarVisible = isTopBarVisible,
                 composerMaxLines = composerMaxLines,
                 focusRequester = focusRequester,
+                isKeyboardPresent = isKeyboardPresent,
+                onClickShortcuts = { isShortcutsOverlayOpen = true },
                 modifier = Modifier.weight(1f)
             )
             // The mirror image of the sidebar, on the other side of the main pane and shown only
@@ -159,6 +212,9 @@ fun BitsPane(
                 }
             }
         }
+        if (isShortcutsOverlayOpen) {
+            ShortcutsOverlay(onDismiss = { isShortcutsOverlayOpen = false })
+        }
     }
 }
 
@@ -174,6 +230,8 @@ private fun MainPane(
     isTopBarVisible: Boolean,
     composerMaxLines: Int,
     focusRequester: FocusRequester,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // The state always holds all days; the day filter only decides what the list (and the counter)
@@ -198,6 +256,8 @@ private fun MainPane(
                 actions = actions,
                 syncState = syncState,
                 syncActions = syncActions,
+                isKeyboardPresent = isKeyboardPresent,
+                onClickShortcuts = onClickShortcuts,
                 syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 paneInset = paneInset,
@@ -308,6 +368,8 @@ private fun Bits(
     syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     paneInset: Dp,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier) {
@@ -328,7 +390,15 @@ private fun Bits(
             modifier = Modifier.fillMaxSize()
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
-        Topbar(bitsCount, isTopBarVisible, syncState, syncActions, syncPresentation)
+        Topbar(
+            bitsCount = bitsCount,
+            isVisible = isTopBarVisible,
+            syncState = syncState,
+            syncActions = syncActions,
+            syncPresentation = syncPresentation,
+            isKeyboardPresent = isKeyboardPresent,
+            onClickShortcuts = onClickShortcuts
+        )
     }
 }
 
@@ -383,9 +453,7 @@ private fun Composer(
             NewBitText(
                 newBitText = state.newBitText,
                 isEditing = state.editingBitId != null,
-                time = state.effectiveTime,
                 onNewBitTextChange = actions.onNewBitTextChange,
-                onSelectTime = actions.onSelectTime,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,
                 bottomPadding = if (isShort) 8.dp else 16.dp,
@@ -401,7 +469,9 @@ private fun Topbar(
     isVisible: Boolean,
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
-    syncPresentation: SyncPresentation
+    syncPresentation: SyncPresentation,
+    isKeyboardPresent: Boolean,
+    onClickShortcuts: () -> Unit
 ) {
     AnimatedVisibility(visible = isVisible, modifier = Modifier.fillMaxWidth()) {
         TopAppBar(
@@ -416,6 +486,16 @@ private fun Topbar(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(end = 8.dp)
                 )
+                // Only where there is a keyboard to use them with. There is no point advertising
+                // shortcuts to a phone, and nothing is lost by leaving them undiscovered on one.
+                if (isKeyboardPresent) {
+                    IconButton(onClick = onClickShortcuts) {
+                        Icon(
+                            imageVector = Icons.Default.Keyboard,
+                            contentDescription = stringResource(Res.string.shortcuts_content_show)
+                        )
+                    }
+                }
                 SyncStatusIcon(
                     state = syncState,
                     actions = syncActions,

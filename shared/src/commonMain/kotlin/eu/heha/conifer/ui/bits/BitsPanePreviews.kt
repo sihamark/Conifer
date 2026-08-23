@@ -279,3 +279,15 @@ private fun BitsPaneEmptyFilteredPreview() {
         )
     }
 }
+
+/**
+ * The list of shortcuts over the screen. Drawn on its own rather than through [BitsPane], whose
+ * overlay opens on a key press a preview has no way to send.
+ */
+@PreviewLightDark
+@Composable
+private fun ShortcutsOverlayPreview() {
+    ConiferTheme {
+        ShortcutsOverlay(onDismiss = {})
+    }
+}

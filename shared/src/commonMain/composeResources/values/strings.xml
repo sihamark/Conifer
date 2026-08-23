@@ -34,6 +34,23 @@
     <string name="bits_message_empty">No bits yet.\nWrite your first one below.</string>
     <string name="bits_message_empty_filtered">No bits on this day yet.\nWrite one below — it will land here.</string>
 
+    <string name="shortcuts_title">Keyboard shortcuts</string>
+    <string name="shortcuts_content_show">Show keyboard shortcuts</string>
+    <string name="shortcuts_action_close">Close</string>
+    <string name="shortcuts_group_composing">The bit you are writing</string>
+    <string name="shortcuts_group_days">The day you are looking at</string>
+    <string name="shortcuts_group_leaving">Getting out</string>
+    <string name="shortcuts_save">Save the bit</string>
+    <string name="shortcuts_line_break">Start a new line in it</string>
+    <string name="shortcuts_time">Move its time by 15 minutes</string>
+    <string name="shortcuts_day">Move its day, one day at a time</string>
+    <string name="shortcuts_day_with_bits">Jump to the nearest day that has bits</string>
+    <string name="shortcuts_today">Back to today</string>
+    <string name="shortcuts_all_days">Show every day</string>
+    <string name="shortcuts_escape">Stop editing — or, if you are not, back to every day and now</string>
+    <string name="shortcuts_help">Show and hide this list</string>
+    <string name="shortcuts_note">The day and time keys work wherever the cursor is, and hold one down to keep going. On macOS, Alt is ⌥.</string>
+
     <string name="sync_content_status_icon">Sync status</string>
     <string name="sync_content_syncing">Syncing</string>
     <string name="sync_content_close">Close sync</string>

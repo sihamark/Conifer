@@ -8,6 +8,26 @@
   scroll position had nothing left to hold on to. They are two things now: the day lists (the day
   strip and the sidebar) filter, the date chip dates, and editing only ever borrows the chip. So
   the list stays exactly where it was, and a day you picked stays picked
+- the shortcuts are written down: **Alt+H** (or F1) shows the whole list over the screen, grouped by
+  what it acts on, and Esc or another Alt+H puts it away. While it is up the keyboard belongs to it,
+  so nothing lands in the text field behind it. The keyboard icon that opens it appears only where
+  there is a keyboard to use — never on a phone, and on a tablet as soon as one is plugged in and
+  used
+- days can be switched from the keyboard. Alt+←/→ steps back and forth a day the way the day strip
+  runs — today at the right, the month behind it to the left — and holding one down walks through
+  the
+  month; Shift skips the empty days and goes straight to the next day that has bits. Alt+Home is
+  today again, Alt+0 is all days, and Esc backs out of whatever you are in: the edit first, and
+  after
+  that everything you had picked at all — the day, the date and the time, so one press hands both
+  back to the clock. Alt+PageUp/PageDown do what the arrows do, for anyone who wants Alt+←/→ left
+  alone for jumping words. All of it works whether or not the text field has the cursor, and a step
+  taken while writing leaves the list where it is — it re-dates the bit in hand, and only follows
+  along if you were already looking at a single day
+- Alt+↑/↓ nudges the time from anywhere on the screen too, not only from inside the text field. It
+  and the day keys are one gesture — Alt and the arrows, the time one way and the day the other — so
+  they are now one thing in one place, and neither of them needs the cursor to be anywhere in
+  particular
 - the tree of the empty state and the seedling above the oldest bit are much larger now, and each
   has a little scene of its own: leaves, pine nuts and — over the seedling — water and sparkles
   drift down behind it and out of the bottom, forever and never quite the same way twice. All emoji,

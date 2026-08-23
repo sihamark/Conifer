@@ -7,6 +7,9 @@ data object JvmPlatform : Platform {
      * only of interest once a bug turns out to be runtime-specific.
      */
     override val name: String = "${osName()}, Java ${property("java.version")}"
+
+    /** A desktop window is being looked at over a keyboard, without exception. */
+    override val hasHardwareKeyboard: Boolean = true
 }
 
 private fun osName(): String = "${property("os.name")} ${property("os.version")}"

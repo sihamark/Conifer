@@ -9,6 +9,19 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface Platform {
     val name: String
+
+    /**
+     * Whether this kind of device is one that comes with a keyboard — what decides whether the app
+     * offers to show its keyboard shortcuts at all (see `ShortcutsOverlay`). The shortcuts
+     * themselves are always live; a device with no keyboard simply never sends the events.
+     *
+     * A property of the platform rather than of the moment, because that is the honest shape of what
+     * can be known here: a desktop window or a browser tab always has a keyboard, a phone usually
+     * has none, and neither answer changes while the app runs. What it cannot see is a keyboard
+     * attached to a tablet later on, so the screen also watches for a modifier key actually being
+     * used and takes that as the same answer — see `BitsPane`.
+     */
+    val hasHardwareKeyboard: Boolean
 }
 
 /**
