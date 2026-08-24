@@ -94,6 +94,10 @@ enum class ShortcutChord(internal val label: String) {
  * The screen's keyboard shortcuts: adjusting what the composer will stamp on the bit, and getting
  * out of things.
  *
+ * Esc is the getting out, and it takes one thing at a time — the list of shortcuts, then whatever
+ * [waysOut] holds, and only with nothing left to be in does it mean "every day and now", which it
+ * then means unconditionally. See [waysOut] for what does and does not belong in that order.
+ *
  * The [chord] and the arrows are one idea, which is why they are in one place: they change the
  * stamp, vertically the time by a slider slot, horizontally the day. They take a modifier because the
  * text field usually has focus and has a claim on every unmodified key — ↑/↓ and ←/→ are all the
@@ -122,36 +126,42 @@ internal fun handleShortcut(
     actions: BitsPaneActions,
     chord: ShortcutChord,
     isShortcutsOverlayOpen: Boolean,
-    onShortcutsOverlayChange: (Boolean) -> Unit
+    onShortcutsOverlayChange: (Boolean) -> Unit,
+    /**
+     * What Esc closes before it means anything else, innermost first: one press closes one thing,
+     * and this list is where that order is written down (see [BitsPane], which builds it).
+     *
+     * Only what the screen draws inside itself goes in here. A dialog, a menu and sync's popover are
+     * each a window of their own: they take focus with them and keep their own Esc, so a press meant
+     * for one never reaches this function and needs no place in the order.
+     */
+    waysOut: List<() -> Unit> = emptyList()
 ): Boolean {
     // Only the presses; taking the releases as well would switch two days per key.
     if (event.type != KeyEventType.KeyDown) return false
     if (event.key == Key.Escape) {
-        return when {
-            // The list of shortcuts is the outermost thing to be in and the first to be dismissed:
-            // it is in the way of everything else, so it is never what the user means to keep.
-            isShortcutsOverlayOpen -> {
-                onShortcutsOverlayChange(false)
-                true
-            }
-
-            // Whichever of the two the user is in, innermost first: an edit is the more recent
-            // thing to have got into, and the more surprising one to be left in.
-            state.editingBitId != null -> {
-                actions.onCancelEdit()
-                true
-            }
-
-            // Every day and now again — the time included, unlike the day lists' "All days".
-            state.hasSelection -> {
-                actions.onResetSelection()
-                true
-            }
-
-            // Nothing to get out of. Left unhandled rather than swallowed, in case anything below
-            // has its own use for it — a dialog's dismiss, say.
-            else -> false
+        // The list of shortcuts is the outermost thing to be in and the first to be dismissed: it is
+        // in the way of everything else, so it is never what the user means to keep. Not part of
+        // [waysOut] because it also has the keyboard to itself while it is up, below.
+        if (isShortcutsOverlayOpen) {
+            onShortcutsOverlayChange(false)
+            return true
         }
+        // Then whatever else the screen has open over itself, in the order it was given.
+        waysOut.firstOrNull()?.let { closeIt ->
+            closeIt()
+            return true
+        }
+        // Nothing left to be in: every day and now again — the time included, unlike the day lists'
+        // "All days" — and with it the day lists home from wherever they were scrolled.
+        //
+        // Unconditional, which is the point of the key. With nothing selected there is no other
+        // field to change, and that is exactly the state a list scrolled a year into the past is in:
+        // making the press conditional on something else moving would leave it doing nothing in the
+        // one case that most wants a way back. Nothing is left to fall through to either, now that
+        // everything the screen can be in is either handled above or a window of its own.
+        actions.onResetSelection()
+        return true
     }
     // F1 without a modifier, since that is what F1 is everywhere and it is no use to a text field.
     // It is not the only way in, because macOS keeps F1 for itself unless the keyboard is set to

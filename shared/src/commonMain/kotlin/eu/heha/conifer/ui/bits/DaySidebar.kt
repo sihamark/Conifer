@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -23,6 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,10 +49,14 @@ import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The two-pane layout's day list: "All days" followed by the same 30 days the day strip offers,
- * each with the strip's dots and the number of bits written that day. It replaces the day strip
- * inside the composer's picker, so selecting a day here filters the list *and* dates the next bit,
+ * The two-pane layout's day list: "All days" followed by the same days the day strip offers, each
+ * with the strip's dots and the number of bits written that day. It replaces the day strip inside
+ * the composer's picker, so selecting a day here filters the list *and* dates the next bit,
  * exactly as the strip does — tapping the selected day again (or "All days") lifts the filter.
+ *
+ * It reaches [dayCount] days back and asks for more as it is scrolled towards the oldest of them
+ * ([LoadOlderDaysWhenNearTheOldest]), so scrolling into the past simply goes on — and comes back to
+ * today when asked ([ScrollBackToTodayWhenAsked]).
  *
  * [selectedDate] is the day the list is filtered to ([BitsPaneState.filterDate]), not the day the
  * composer is set to write on: both day lists mark the day being looked at, which is all they
@@ -59,8 +70,17 @@ internal fun DaySidebar(
     isTopBarVisible: Boolean,
     onClickDate: (LocalDate) -> Unit,
     onClickAllDays: () -> Unit,
+    dayCount: Int = DAY_LIST_PAGE,
+    onLoadOlderDays: () -> Unit = {},
+    scrollHomeRequest: Int = 0,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+    LoadOlderDaysWhenNearTheOldest(listState, onLoadOlderDays)
+    ScrollBackToTodayWhenAsked(listState, scrollHomeRequest)
+    // A day is looked up once per row and there are as many rows as have been scrolled to, so the
+    // days are indexed rather than searched through for each of them.
+    val bitsOfDate = remember(bitsByDate) { bitsByDate.associateBy { it.date } }
     Column(modifier.width(SIDEBAR_WIDTH)) {
         // Lines the sidebar's content up with the list's, below the top bar floating over the main
         // pane; it follows the bar out of the way while the IME is open.
@@ -76,6 +96,7 @@ internal fun DaySidebar(
         // the minimum touch target height, so a useful number of days fits without scrolling.
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp)
@@ -93,10 +114,10 @@ internal fun DaySidebar(
                         onClick = onClickAllDays
                     )
                 }
-                items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
+                items(dayCount, key = { it }) { dayIndex ->
                     val formats = LocalDateTimeFormats.current
                     val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
-                    val datedBits = bitsByDate.firstOrNull { it.date == date }
+                    val datedBits = bitsOfDate[date]
                     DaySidebarItem(
                         weekday = formats.weekdayShort(date),
                         label = formats.dayAndMonth(date),
@@ -244,6 +265,75 @@ private fun DaySidebarItem(
                 }
             }
         }
+    }
+}
+
+/**
+ * Calls [onLoadOlderDays] whenever [listState] comes within [DAY_LOAD_MARGIN] items of its end —
+ * shared by the day strip and the sidebar, so both grow into the past the same way.
+ *
+ * Counted from the end of the whole list rather than from the days in it, so the "All days" row
+ * above the sidebar's days and the spacers around the strip's need no accounting for; a margin of
+ * a few items is wide enough to cover them and to have the next page ready before its first day
+ * would have been scrolled to.
+ *
+ * A [snapshotFlow] rather than an effect keyed on "is it near the end": the answer is still yes
+ * right after a page arrives, and a list taller than a page (or one asked for before it was ever
+ * measured) needs asking again on those terms. Every page changes the item count, so the flow
+ * emits again and the question is put again until the days reach past the margin — which they
+ * must, a page being longer than it.
+ */
+@Composable
+internal fun LoadOlderDaysWhenNearTheOldest(
+    listState: LazyListState,
+    onLoadOlderDays: () -> Unit
+) {
+    // The action is rebuilt with the pane's actions on every recomposition; read through this, the
+    // collection below is started once for the list rather than restarted for each of them.
+    val loadOlderDays by rememberUpdatedState(onLoadOlderDays)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layoutInfo = listState.layoutInfo
+            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index
+            lastVisibleIndex to layoutInfo.totalItemsCount
+        }.collect { (lastVisibleIndex, totalItemsCount) ->
+            // Nothing measured yet (a list of no height, a pane still off screen): asking for days
+            // then would grow the list for as long as nobody could see it.
+            if (lastVisibleIndex == null) return@collect
+            if (lastVisibleIndex >= totalItemsCount - DAY_LOAD_MARGIN) loadOlderDays()
+        }
+    }
+}
+
+/** How near its oldest day a day list has to come before it asks for the next page. */
+private const val DAY_LOAD_MARGIN = 5
+
+/**
+ * Takes [listState] back to today each time [scrollHomeRequest] changes — Esc, "All days" and the
+ * key for today all ask for this (see [BitsPaneState.scrollDaysHomeRequest]). Now that the lists go
+ * as far into the past as they are scrolled, the way home can be a very long drag, and those three
+ * actions are the ones that mean "out of wherever I was".
+ *
+ * Driven by a request from the view model rather than by watching the selection fall away, because
+ * the case that most wants a way home is the one where the state does not move: a list scrolled a
+ * year back with nothing selected leaves Esc nothing to clear, and the intent is in the press.
+ *
+ * The days themselves stay ([BitsPaneState.listedDayCount] is not wound back): what was scrolled to
+ * costs a longer list and nothing else, and leaving it there means going back to where one was
+ * reading is one drag rather than another walk through the pages.
+ *
+ * Item 0 is the today end of both lists — the sidebar's "All days" row above its days, the strip's
+ * spacer to the right of its newest chip — so this is the position each of them started in. A list
+ * already there scrolls nowhere, which is what makes the first firing, on the number the list was
+ * composed with, cost nothing.
+ */
+@Composable
+internal fun ScrollBackToTodayWhenAsked(
+    listState: LazyListState,
+    scrollHomeRequest: Int
+) {
+    LaunchedEffect(scrollHomeRequest) {
+        listState.animateScrollToItem(0)
     }
 }
 

@@ -11,6 +11,34 @@
   build run from the sources, and only the key — the password itself was encrypted the whole time.
   The log now also says *why* the key ended up where it did, which is the line that would have shown
   this months ago
+- the day lists no longer stop a month back. The strip of days in the composer and the day list
+  beside the bits both ended thirty days ago, so a bit written before that could only be reached by
+  scrolling the bits themselves, and a day further back could not be picked to write to at all. Both
+  lists now count back another month whenever you scroll near their oldest day, for as long as you
+  keep scrolling. The keys that move between days follow: Alt+← walks back as far as your oldest bit
+  rather than stopping at the edge of the month, and Shift+Alt+← skips to the nearest day you wrote
+  on however long ago that was, the lists reaching back to it as it lands (Ctrl+Alt on a Mac, as
+  ever). And there is a way back: Esc, *All days* and the key for today each bring the day list home
+  from wherever you scrolled it, even when there is no day selected for them to let go of, so no
+  amount of scrolling into the past leaves you to drag your way out of it. The days it counted back
+  to stay there to scroll down to again; only the position returns
+- Esc takes one thing at a time. It had been the key for getting out of whatever you were in, but
+  it only ever looked at the day and time you had picked: pressed with nothing picked it did nothing
+  at all, which — now that the day lists go as far back as you scroll them — was exactly the press
+  that wanted to bring them home. It now always does, and the things open over the screen each get
+  their own press first: the shortcuts list, then the composer's date picker, then a bit being
+  edited, and only then every day and now again. One press, one thing, in that order — so an Esc
+  meant for the open picker closes it, where it used to leave it open and clear the day you were
+  writing to instead. The sync popover answers to Esc as well now: it had been the one thing on
+  screen the key did nothing to at all, neither closing it nor reaching past it. The sync settings
+  sheet still wants its own Close button or a tap outside
+- nothing changed about how the day lists behave: the actions that bring them home, and the date
+  steps and skips that move between days, now each say what they do in one state change (`movedTo`,
+  `withDayListsHome`) instead of spelling it out at every call. The view model's side of bringing
+  the
+  days home has tests of its own, and the four view model tests share one main-thread harness —
+  which
+  also closes a teardown race that could fail whichever test ran next
 
 ## Version 1.2.6 (22.08.2026)
 

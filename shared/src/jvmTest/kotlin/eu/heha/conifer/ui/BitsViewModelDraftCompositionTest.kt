@@ -13,18 +13,10 @@ import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.InMemoryPreferencesStore
 import eu.heha.conifer.prefs.SyncPrefs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExecutorCoroutineDispatcher
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.file.Files
-import java.util.concurrent.Executors
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
@@ -38,32 +30,19 @@ import kotlin.time.Duration.Companion.seconds
  *
  * So this test does no standing in: it composes something that reads the state and then only waits.
  */
-@OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
-class BitsViewModelDraftCompositionTest {
+@OptIn(ExperimentalTestApi::class)
+class BitsViewModelDraftCompositionTest : BitsViewModelTestCase() {
 
     private val draftPrefs = DraftPrefs(InMemoryPreferencesStore())
-    private lateinit var mainThread: ExecutorCoroutineDispatcher
-
-    @BeforeTest
-    fun setUp() {
-        // A single thread of its own for Main, for the reason spelled out in [BitsViewModelDraftTest].
-        mainThread = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "test-main") }
-            .asCoroutineDispatcher()
-        Dispatchers.setMain(mainThread)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-        mainThread.close()
-    }
 
     @Test
     fun typingIsStoredWithNothingButACompositionRunning() = runComposeUiTest {
-        val model = BitsViewModel(
-            repository = repository(),
-            dateTimeFormats = IsoDateTimeFormats,
-            draftPrefs = draftPrefs
+        val model = track(
+            BitsViewModel(
+                repository = repository(),
+                dateTimeFormats = IsoDateTimeFormats,
+                draftPrefs = draftPrefs
+            )
         )
         setContent {
             // Whatever reads the state is what keeps the snapshot machinery honest; the real screen

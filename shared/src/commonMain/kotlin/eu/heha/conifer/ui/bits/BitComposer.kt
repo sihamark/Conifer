@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -102,13 +103,24 @@ internal fun DateTimeSelector(
     isDaySelectionVisible: Boolean,
     /** Only decides which half of the time picker opens first — see [TimeChip]. */
     isKeyboardPresent: Boolean,
+    /**
+     * Whether the picker below the chip is open. Hoisted rather than kept here so that Esc can close
+     * it before it reaches anything else — it is drawn inside the screen, so unlike a dialog it is
+     * the screen's own to get out of (see [handleShortcut]).
+     */
+    isExpanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onClickDate: (LocalDate) -> Unit,
     onSelectTime: (LocalTime) -> Unit,
     onResetToNow: () -> Unit,
     onCancelEdit: () -> Unit,
+    /** How many days the strip reaches back, and how it asks for more — see [DaySelection]. */
+    dayCount: Int = DAY_LIST_PAGE,
+    onLoadOlderDays: () -> Unit = {},
+    /** Bumped to send the strip back to today — see [ScrollBackToTodayWhenAsked]. */
+    scrollHomeRequest: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
     val hasCustomSelection = composerDate != null || composerTime != null
     val effectiveDate = composerDate ?: currentDate
     val effectiveTime = composerTime ?: currentTime
@@ -119,7 +131,7 @@ internal fun DateTimeSelector(
             modifier = Modifier.fillMaxWidth()
         ) {
             Surface(
-                onClick = { isExpanded = !isExpanded },
+                onClick = { onExpandedChange(!isExpanded) },
                 shape = MaterialTheme.shapes.extraLarge,
                 color = if (hasCustomSelection) {
                     MaterialTheme.colorScheme.tertiaryContainer
@@ -202,7 +214,10 @@ internal fun DateTimeSelector(
                         bitsByDate = bitsByDate,
                         selectedDate = filterDate,
                         currentDate = currentDate,
-                        onClickDate = onClickDate
+                        onClickDate = onClickDate,
+                        dayCount = dayCount,
+                        onLoadOlderDays = onLoadOlderDays,
+                        scrollHomeRequest = scrollHomeRequest
                     )
                 }
                 TimeSlider(
@@ -383,28 +398,44 @@ internal fun LocalTime.shiftedByTimeSlots(slots: Int): LocalTime =
     timeAtSlot(if (slots < 0 && !isOnTimeSlot) timeSlot + 1 + slots else timeSlot + slots)
 
 
+/**
+ * The composer's day list: a strip of day chips running back from today, newest at the right. It
+ * reaches [dayCount] days back and asks for another page as it is scrolled towards the oldest of
+ * them ([LoadOlderDaysWhenNearTheOldest]) — dragging it leftwards goes on into the past for as
+ * long as one keeps dragging, and Esc or the key for today brings it back
+ * ([ScrollBackToTodayWhenAsked]).
+ */
 @Composable
 private fun DaySelection(
     bitsByDate: List<DatedBits>,
     selectedDate: LocalDate?,
     currentDate: LocalDate,
     onClickDate: (LocalDate) -> Unit,
+    dayCount: Int = DAY_LIST_PAGE,
+    onLoadOlderDays: () -> Unit = {},
+    scrollHomeRequest: Int = 0,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+    LoadOlderDaysWhenNearTheOldest(listState, onLoadOlderDays)
+    ScrollBackToTodayWhenAsked(listState, scrollHomeRequest)
+    // As in the sidebar: one lookup per chip, of which there are as many as have been scrolled to.
+    val bitsOfDate = remember(bitsByDate) { bitsByDate.associateBy { it.date } }
     // The clickable Surface would otherwise enforce the 48.dp minimum touch target height on
     // every chip; lifting the enforcement lets the chips stay as flat as their content.
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
         LazyRow(
+            state = listState,
             reverseLayout = true,
             modifier = modifier
         ) {
             item { Spacer(Modifier.width(14.dp)) }
-            items(DAY_LIST_DAYS, key = { it }) { dayIndex ->
+            items(dayCount, key = { it }) { dayIndex ->
                 val formats = LocalDateTimeFormats.current
                 val date = LocalDate.fromEpochDays(currentDate.toEpochDays() - dayIndex)
                 val isSelected = date == selectedDate
                 val isCurrent = date == currentDate
-                val dots = bitsByDate.firstOrNull { it.date == date }?.dots ?: 0
+                val dots = bitsOfDate[date]?.dots ?: 0
                 Surface(
                     onClick = { onClickDate(date) },
                     shape = MaterialTheme.shapes.medium,

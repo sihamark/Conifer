@@ -46,16 +46,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.bits_action_cancel
 import conifer.shared.generated.resources.sync_action_cancel_connect
@@ -200,11 +211,36 @@ fun SyncStatusIcon(
  */
 @Composable
 private fun SyncDebugPopover(state: SyncUiState, actions: SyncPaneActions) {
+    val isOpen = state.isSyncOpen && !state.areSettingsOpen
     DropdownMenu(
-        expanded = state.isSyncOpen && !state.areSettingsOpen,
-        onDismissRequest = actions.onCloseSync
+        expanded = isOpen,
+        onDismissRequest = actions.onCloseSync,
+        // Focusable so that the popup is a focus owner in its own right, and the key below is
+        // handed to it rather than to the screen behind. On this platform a popup is an in-window
+        // layer and the handler is reached either way — a test cannot tell the flag apart — but
+        // where a popup is a real window with FLAG_NOT_FOCUSABLE it never sees a key at all, and
+        // the press would go to the screen instead, which is precisely what must not happen.
+        properties = PopupProperties(focusable = true)
     ) {
-        SyncDebugContent(state, actions)
+        // Esc spelled out rather than left to `dismissOnBackPress`, which is wired to a back
+        // gesture and never to this key — the popover used to sit there with Esc doing nothing at
+        // all, neither closing it nor reaching the screen. Previewed on a target of its own, so it
+        // is caught whichever row inside holds the focus: the rows are buttons and take it as soon
+        // as they are there.
+        val focusRequester = remember { FocusRequester() }
+        LaunchedEffect(isOpen) { if (isOpen) focusRequester.requestFocus() }
+        Box(
+            Modifier
+                .onPreviewKeyEvent { event ->
+                    val isEscape = event.type == KeyEventType.KeyDown && event.key == Key.Escape
+                    if (isEscape) actions.onCloseSync()
+                    isEscape
+                }
+                .focusRequester(focusRequester)
+                .focusTarget()
+        ) {
+            SyncDebugContent(state, actions)
+        }
     }
 }
 
