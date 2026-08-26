@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.kotlin.serialization)
+    jacoco
 }
 
 kotlin {
@@ -170,4 +171,41 @@ dependencies {
 
 room3 {
     schemaDirectory("$projectDir/schemas")
+}
+
+// Test coverage. Kover, the usual choice for Kotlin Multiplatform, cannot be applied here: it
+// insists on the project-level `android` extension, which the new `com.android.kotlin.
+// multiplatform.library` plugin does not create. JaCoCo on the jvm target loses nothing that
+// matters - the jvm test source set is where all but a handful of the tests live, and it exercises
+// commonMain and jvmMain together.
+val coverageExclusions = listOf(
+    // Generated: Room's DAO/database implementations, the BuildInfo object, the Compose resource
+    // accessor, and the lambda holders the Compose compiler emits.
+    "**/*_Impl*",
+    "**/BuildInfo*",
+    "conifer/shared/generated/resources/**",
+    "**/ComposableSingletons*",
+    // Preview-only composables, which no test drives on purpose.
+    "**/*Previews*"
+)
+
+tasks.register<JacocoReport>("jvmCoverageReport") {
+    description = "Runs the JVM tests and reports their coverage of commonMain and jvmMain."
+    group = "verification"
+    dependsOn(tasks.named("jvmTest"))
+
+    executionData.from(layout.buildDirectory.file("jacoco/jvmTest.exec"))
+    classDirectories.from(
+        layout.buildDirectory.dir("classes/kotlin/jvm/main").map {
+            fileTree(it) { exclude(coverageExclusions) }
+        }
+    )
+    sourceDirectories.from(files("src/commonMain/kotlin", "src/jvmMain/kotlin"))
+
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        // The badge workflow's generator reads the CSV.
+        csv.required.set(true)
+    }
 }
