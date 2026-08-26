@@ -44,8 +44,8 @@ import kotlin.time.Duration.Companion.seconds
  * [BitsViewModelTestCase]'s main thread, which the test bodies run on because that is the thread the
  * screen calls these from.
  *
- * Dates are all relative to [BitsPaneState.today], which comes from the clock — a test that wrote
- * today down would pass until midnight.
+ * Dates are all relative to [eu.heha.conifer.ui.bits.BitsPaneState.today], which comes from the
+ * clock — a test that wrote today down would pass until midnight.
  */
 class BitsViewModelDayListsHomeTest : BitsViewModelTestCase() {
 
