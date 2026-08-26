@@ -1,6 +1,7 @@
 package eu.heha.conifer.log
 
 import io.github.aakira.napier.LogLevel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.TimeZone
@@ -124,6 +125,7 @@ class FileAntilogTest {
     }
 
     /** What Napier hands the antilog also goes through the redactor, not just our own messages. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun writesRedactedLinesToTheSink() = runTest {
         val sink = RecordingSink()
