@@ -12,8 +12,6 @@ name: Release artifacts
 on:
   push:
     tags: [ 'v*' ]
-    # TEMPORARY: smoke-testing this workflow on the branch. Remove before merging.
-    branches: [ feature_build_in_github ]
   workflow_dispatch:
 
 permissions:
