@@ -30,6 +30,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -48,6 +49,7 @@ import conifer.shared.generated.resources.shortcuts_group_leaving
 import conifer.shared.generated.resources.shortcuts_help
 import conifer.shared.generated.resources.shortcuts_line_break
 import conifer.shared.generated.resources.shortcuts_note
+import conifer.shared.generated.resources.shortcuts_note_mac
 import conifer.shared.generated.resources.shortcuts_save
 import conifer.shared.generated.resources.shortcuts_time
 import conifer.shared.generated.resources.shortcuts_title
@@ -56,28 +58,58 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
+ * Which modifier the screen's shortcuts are held down with — a question about the platform's *text
+ * editing*, not about its keyboard, which is why it is decided per platform rather than per key.
+ *
+ * Everywhere except Apple's platforms that modifier is Alt, which no text field wants. On macOS and
+ * iPadOS Alt is ⌥, and ⌥ is what moves and selects by word — so a screen that claimed ⌥←/→ for its
+ * days would take word-jump away from every field on it, and taking a system-wide editing key away
+ * from someone who has used it for years is worse than any shortcut is good. There the shortcuts add
+ * Ctrl (⌃), which the text system has no use for and macOS itself only binds with the bare arrows
+ * (⌃←/→ switches spaces, and never reaches the app).
+ *
+ * The keys themselves are the same on both, so this only says what has to be held while pressing
+ * them — see [handleShortcut] for the keys and [shortcutGroups] for how the pair is written out.
+ */
+enum class ShortcutChord(internal val label: String) {
+    /** Alt alone: Windows, Linux, Android, and any web browser not on a Mac. */
+    Alt("Alt"),
+
+    /** Ctrl and Alt together (⌃⌥), leaving ⌥ on its own to the words: macOS and iPadOS. */
+    CtrlAlt("Ctrl+Alt");
+
+    /**
+     * Whether this is the chord being held. [Alt] does not mind Ctrl also being down — it never had
+     * a meaning of its own there — but [CtrlAlt] insists on it, since that is the whole point.
+     */
+    internal fun isHeld(event: KeyEvent): Boolean = when (this) {
+        Alt -> event.isAltPressed
+        CtrlAlt -> event.isAltPressed && event.isCtrlPressed
+    }
+}
+
+/**
  * The screen's keyboard shortcuts: adjusting what the composer will stamp on the bit, and getting
  * out of things.
  *
- * Alt and the arrows are one idea, which is why they are in one place: they change the stamp,
- * vertically the time by a slider slot, horizontally the day. They take Alt because the text field
- * usually has focus and has a claim on every unmodified key — ↑/↓ and ←/→ are all the caret's, in a
- * field that can hold several lines now, and how many it holds depends on the window, so bare arrows
- * would mean one thing on a tall window and another on a short one. With Alt they mean the same
- * everywhere, at any place in the text, whether the field has the cursor or not. ←/→ are the way
- * round they are because that is the way the day strip runs: today at the right, and back through the
- * month to the left.
+ * The [chord] and the arrows are one idea, which is why they are in one place: they change the
+ * stamp, vertically the time by a slider slot, horizontally the day. They take a modifier because the
+ * text field usually has focus and has a claim on every unmodified key — ↑/↓ and ←/→ are all the
+ * caret's, in a field that can hold several lines now, and how many it holds depends on the window,
+ * so bare arrows would mean one thing on a tall window and another on a short one. With the chord
+ * they mean the same everywhere, at any place in the text, whether the field has the cursor or not.
+ * ←/→ are the way round they are because that is the way the day strip runs: today at the right, and
+ * back through the month to the left.
  *
- * PageUp/PageDown do the same as ←/→. They are here because Alt+←/→ is word-jump on macOS, so anyone
- * who wants that back needs somewhere else to switch days from; they follow the "previous/next"
- * reading of those keys rather than the list's scroll direction, since Alt+← is what they stand in
- * for.
+ * PageUp/PageDown do the same as ←/→, for a keyboard whose arrows are awkward to reach in
+ * combination and for anyone who reads days as pages; they follow the "previous/next" reading of
+ * those keys rather than the list's scroll direction, since ←/→ is what they stand in for.
  *
  * The day keys go through actions of their own ([BitsPaneActions.onShiftDate] and the rest) because
  * they carry a policy the day lists don't — what happens to the filter. The time nudge has no such
  * thing to say and so just picks a time, exactly as the slider does.
  *
- * **Every key handled here is listed in [SHORTCUT_GROUPS] below**, which is what the overlay shows;
+ * **Every key handled here is listed in [shortcutGroups] below**, which is what the overlay shows;
  * they are in one file so that a key added to one and not the other is visible in a single screen.
  *
  * Returns whether the event was the screen's, which is what stops it reaching the field.
@@ -86,6 +118,7 @@ internal fun handleShortcut(
     event: KeyEvent,
     state: BitsPaneState,
     actions: BitsPaneActions,
+    chord: ShortcutChord,
     isShortcutsOverlayOpen: Boolean,
     onShortcutsOverlayChange: (Boolean) -> Unit
 ): Boolean {
@@ -129,10 +162,10 @@ internal fun handleShortcut(
         // While the list is up the keyboard is its own. It is drawn over the text field, which still
         // has the cursor, and letters going into a field nobody can see is the one outcome to rule
         // out — so everything is swallowed here except the two keys above, which put it away.
-        if (event.isAltPressed && event.key == Key.H) onShortcutsOverlayChange(false)
+        if (chord.isHeld(event) && event.key == Key.H) onShortcutsOverlayChange(false)
         return true
     }
-    if (!event.isAltPressed) return false
+    if (!chord.isHeld(event)) return false
     val days = when (event.key) {
         // The time: off the same effective value the slider and the chip show, and
         // [shiftedByTimeSlots] takes care of a time that isn't on a slot to begin with.
@@ -156,9 +189,9 @@ internal fun handleShortcut(
             return true
         }
 
-        // H for help, and a letter because it has to be reachable on any layout — Alt+/ would be
-        // Alt+Shift+7 on a German keyboard. Closing again is handled above, where the list has the
-        // keyboard to itself.
+        // H for help, and a letter because it has to be reachable on any layout — a chord with /
+        // would need Shift+7 as well on a German keyboard. Closing again is handled above, where the
+        // list has the keyboard to itself.
         Key.H -> {
             onShortcutsOverlayChange(true)
             return true
@@ -185,7 +218,7 @@ internal fun handleShortcut(
  * lets it swallow the keys that would otherwise land in the text field behind this.
  */
 @Composable
-internal fun ShortcutsOverlay(onDismiss: () -> Unit) {
+internal fun ShortcutsOverlay(chord: ShortcutChord, onDismiss: () -> Unit) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -223,7 +256,7 @@ internal fun ShortcutsOverlay(onDismiss: () -> Unit) {
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    SHORTCUT_GROUPS.forEachIndexed { index, group ->
+                    shortcutGroups(chord).forEachIndexed { index, group ->
                         if (index > 0) Spacer(Modifier.height(16.dp))
                         Text(
                             text = stringResource(group.title),
@@ -231,11 +264,18 @@ internal fun ShortcutsOverlay(onDismiss: () -> Unit) {
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
-                        group.rows.forEach { row -> ShortcutRow(row) }
+                        group.rows.forEach { row -> ShortcutRow(row, chord) }
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        text = stringResource(Res.string.shortcuts_note),
+                        text = stringResource(
+                            // Only worth saying where the keys are not spelled the way they are
+                            // printed, which is the one platform that writes them as symbols.
+                            when (chord) {
+                                ShortcutChord.Alt -> Res.string.shortcuts_note
+                                ShortcutChord.CtrlAlt -> Res.string.shortcuts_note_mac
+                            }
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -252,7 +292,7 @@ internal fun ShortcutsOverlay(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ShortcutRow(row: ShortcutRow) {
+private fun ShortcutRow(row: ShortcutRow, chord: ShortcutChord) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -260,11 +300,12 @@ private fun ShortcutRow(row: ShortcutRow) {
             .padding(vertical = 3.dp)
     ) {
         // The keys share a column of their own so the descriptions line up down the page, and it is
-        // wide enough for the longest of them ("Shift+Alt+←/→") at this text size.
+        // wide enough for the longest of them ("Shift+Alt+←/→", or "Shift+Ctrl+Alt+←/→" where the
+        // chord is the longer one) at this text size.
         Column(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(2.dp),
-            modifier = Modifier.width(KEY_COLUMN_WIDTH)
+            modifier = Modifier.width(keyColumnWidth(chord))
         ) {
             row.keys.forEach { keys -> KeyCap(keys) }
         }
@@ -305,41 +346,51 @@ private class ShortcutGroup(val title: StringResource, val rows: List<ShortcutRo
  * What the overlay lists, in the order it lists it: the composer's own keys first, since they are the
  * ones used while writing, then the days, then the ways out.
  *
- * The keys are spelled here as plainly as they can be — "Alt" rather than a platform's symbol for it,
- * with the one note about ⌥ left to [Res.string.shortcuts_note] — because these strings stand for
- * what is printed on the key, and a list that renamed them per platform would be harder to match
- * against the keyboard in front of the reader, not easier.
+ * Built per [chord] rather than written out twice, because the chord is the only thing that differs
+ * between platforms and a second copy of this list is a second place to forget a key in.
+ *
+ * The keys are spelled as plainly as they can be — "Ctrl+Alt" rather than ⌃⌥, with the one note
+ * about the symbols left to [Res.string.shortcuts_note_mac] — because these strings stand for what is
+ * printed on the key, and ⌃⌥ is printed nowhere. What *does* change per platform is which keys are
+ * listed at all: a list naming a chord this platform doesn't answer to would be worse than any
+ * spelling of it.
  *
  * Anything added to [handleShortcut] belongs here too.
  */
-private val SHORTCUT_GROUPS = listOf(
-    ShortcutGroup(
-        title = Res.string.shortcuts_group_composing,
-        rows = listOf(
-            ShortcutRow("Enter", Res.string.shortcuts_save),
-            ShortcutRow("Shift+Enter", Res.string.shortcuts_line_break),
-            ShortcutRow("Alt+↑/↓", Res.string.shortcuts_time)
-        )
-    ),
-    ShortcutGroup(
-        title = Res.string.shortcuts_group_days,
-        rows = listOf(
-            ShortcutRow(listOf("Alt+←/→", "Alt+PgUp/PgDn"), Res.string.shortcuts_day),
-            ShortcutRow("Shift+Alt+←/→", Res.string.shortcuts_day_with_bits),
-            ShortcutRow("Alt+Home", Res.string.shortcuts_today),
-            ShortcutRow("Alt+0", Res.string.shortcuts_all_days)
-        )
-    ),
-    ShortcutGroup(
-        title = Res.string.shortcuts_group_leaving,
-        rows = listOf(
-            ShortcutRow("Esc", Res.string.shortcuts_escape),
-            ShortcutRow(listOf("Alt+H", "F1"), Res.string.shortcuts_help)
+private fun shortcutGroups(chord: ShortcutChord): List<ShortcutGroup> {
+    val held = chord.label
+    return listOf(
+        ShortcutGroup(
+            title = Res.string.shortcuts_group_composing,
+            rows = listOf(
+                ShortcutRow("Enter", Res.string.shortcuts_save),
+                ShortcutRow("Shift+Enter", Res.string.shortcuts_line_break),
+                ShortcutRow("$held+↑/↓", Res.string.shortcuts_time)
+            )
+        ),
+        ShortcutGroup(
+            title = Res.string.shortcuts_group_days,
+            rows = listOf(
+                ShortcutRow(listOf("$held+←/→", "$held+PgUp/PgDn"), Res.string.shortcuts_day),
+                ShortcutRow("Shift+$held+←/→", Res.string.shortcuts_day_with_bits),
+                ShortcutRow("$held+Home", Res.string.shortcuts_today),
+                ShortcutRow("$held+0", Res.string.shortcuts_all_days)
+            )
+        ),
+        ShortcutGroup(
+            title = Res.string.shortcuts_group_leaving,
+            rows = listOf(
+                ShortcutRow("Esc", Res.string.shortcuts_escape),
+                ShortcutRow(listOf("$held+H", "F1"), Res.string.shortcuts_help)
+            )
         )
     )
-)
+}
 
-private val KEY_COLUMN_WIDTH = 116.dp
+private fun keyColumnWidth(chord: ShortcutChord) = when (chord) {
+    ShortcutChord.Alt -> 116.dp
+    ShortcutChord.CtrlAlt -> 152.dp
+}
 
 /** How wide the card gets on a window with room to spare, and how dark the screen behind it goes. */
 private val OVERLAY_MAX_WIDTH = 420.dp

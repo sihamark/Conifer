@@ -7,4 +7,10 @@ data object IosPlatform : Platform {
 
     /** As on Android: assume the on-screen keyboard, and let a real one announce itself. */
     override val hasHardwareKeyboard: Boolean = false
+
+    /**
+     * A keyboard plugged into an iPad is a Mac keyboard as far as the text system is concerned:
+     * ⌥←/→ moves by word there too, so the shortcuts keep off it exactly as they do on macOS.
+     */
+    override val usesOptionForWordJump: Boolean = true
 }

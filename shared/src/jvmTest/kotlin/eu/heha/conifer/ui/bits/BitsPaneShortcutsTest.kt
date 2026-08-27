@@ -347,6 +347,105 @@ class BitsPaneShortcutsTest {
         }
     }
 
+    /**
+     * The macOS bargain, from the side that matters most: ⌥←/→ is how that platform has always moved
+     * by word, and where the screen asks for ⌃⌥ instead, ⌥ on its own must reach the text field
+     * untouched — a swallowed word-jump is exactly the complaint this chord exists to answer.
+     */
+    @Test
+    fun onTheCtrlAltChordPlainAltArrowsAreLeftToTheWordsInTheText() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        val skipped = mutableListOf<Int>()
+        setContent {
+            ShortcutPane(
+                actions = BitsPaneActions(
+                    onShiftDate = { stepped += it },
+                    onSkipToDateWithBits = { skipped += it }
+                ),
+                shortcutChord = ShortcutChord.CtrlAlt
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionRight) } }
+        onRoot().performKeyInput {
+            withKeyDown(Key.AltLeft) { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionLeft) } }
+        }
+
+        assertTrue(stepped.isEmpty(), "Alt+←/→ is word-jump where this chord is in use")
+        assertTrue(skipped.isEmpty(), "and Shift+Alt+←/→ is selecting by word")
+    }
+
+    @Test
+    fun theCtrlAltChordStepsAndSkipsTheDayWithCtrlHeldAsWell() = runComposeUiTest {
+        val stepped = mutableListOf<Int>()
+        val skipped = mutableListOf<Int>()
+        setContent {
+            ShortcutPane(
+                actions = BitsPaneActions(
+                    onShiftDate = { stepped += it },
+                    onSkipToDateWithBits = { skipped += it }
+                ),
+                shortcutChord = ShortcutChord.CtrlAlt
+            )
+        }
+
+        onRoot().performKeyInput {
+            withKeyDown(Key.CtrlLeft) { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionLeft) } }
+        }
+        onRoot().performKeyInput {
+            withKeyDown(Key.CtrlLeft) { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionRight) } }
+        }
+        onRoot().performKeyInput {
+            withKeyDown(Key.CtrlLeft) {
+                withKeyDown(Key.AltLeft) {
+                    withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionLeft) }
+                }
+            }
+        }
+
+        assertEquals(listOf(-1, 1), stepped)
+        assertEquals(listOf(-1), skipped)
+    }
+
+    @Test
+    fun theCtrlAltChordNudgesTheTimeAndOpensTheListToo() = runComposeUiTest {
+        val picked = mutableListOf<LocalTime>()
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(composerTime = LocalTime(12, 0)),
+                actions = BitsPaneActions(onSelectTime = { picked += it }),
+                shortcutChord = ShortcutChord.CtrlAlt
+            )
+        }
+
+        onRoot().performKeyInput {
+            withKeyDown(Key.CtrlLeft) { withKeyDown(Key.AltLeft) { pressKey(Key.DirectionUp) } }
+        }
+        onRoot().performKeyInput {
+            withKeyDown(Key.CtrlLeft) { withKeyDown(Key.AltLeft) { pressKey(Key.H) } }
+        }
+
+        assertEquals(listOf(LocalTime(12, 15)), picked)
+        onNodeWithText("Keyboard shortcuts").assertExists()
+    }
+
+    @Test
+    fun theListNamesTheChordThisPlatformActuallyAnswersTo() = runComposeUiTest {
+        setContent { ShortcutPane(shortcutChord = ShortcutChord.CtrlAlt) }
+        onRoot().performKeyInput { pressKey(Key.F1) }
+
+        listOf(
+            "Ctrl+Alt+↑/↓", "Ctrl+Alt+←/→", "Ctrl+Alt+PgUp/PgDn", "Shift+Ctrl+Alt+←/→",
+            "Ctrl+Alt+Home", "Ctrl+Alt+0", "Ctrl+Alt+H"
+        ).forEach { keys ->
+            onNodeWithText(keys).assertExists()
+        }
+        // The keys that never had the chord on them are the same on every platform.
+        onNodeWithText("Enter").assertExists()
+        onNodeWithText("F1").assertExists()
+    }
+
     @Test
     fun escapeClosesTheListBeforeItTouchesAnythingElse() = runComposeUiTest {
         var cancelled = 0
@@ -411,7 +510,8 @@ private fun ShortcutPane(
     state: BitsPaneState = BitsPaneState(),
     actions: BitsPaneActions = BitsPaneActions(),
     composerMaxLines: Int = 1,
-    hasHardwareKeyboard: Boolean = false
+    hasHardwareKeyboard: Boolean = false,
+    shortcutChord: ShortcutChord = ShortcutChord.Alt
 ) {
     BitsPane(
         state = state.copy(
@@ -423,6 +523,7 @@ private fun ShortcutPane(
         layout = BitsLayout.Stacked,
         doesImeHideTopBar = false,
         composerMaxLines = composerMaxLines,
-        hasHardwareKeyboard = hasHardwareKeyboard
+        hasHardwareKeyboard = hasHardwareKeyboard,
+        shortcutChord = shortcutChord
     )
 }
