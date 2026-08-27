@@ -136,3 +136,18 @@ jobs:
           path: releases/android/
           if-no-files-found: error
           retention-days: 90
+
+      # if-no-files-found only fires when nothing at all arrived, so a copy that silently dropped
+      # two of the three files still went green. Name what has to be there. This runs after the
+      # upload on purpose: a partial artifact is worth having when it is time to work out why.
+      - name: Check all three artifacts are there
+        run: |
+          ls -lh releases/android/
+          missing=""
+          for ext in apk aab mapping.txt; do
+            ls releases/android/*."$ext" >/dev/null 2>&1 || missing="$missing .$ext"
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing from releases/android:$missing" >&2
+            exit 1
+          fi
