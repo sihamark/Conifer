@@ -15,6 +15,9 @@ plugins {
 kotlin {
     compilerOptions {
         optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+        // AppDatabaseConstructor is the one expect/actual class left, and Room's compiler is what
+        // writes the actual - so the Beta warning it raises is not ours to fix.
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
     android {
@@ -31,6 +34,10 @@ kotlin {
             jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
         }
         androidResources.enable = true
+
+        // commonTest on the JVM against the stubbed android.jar - no emulator involved. The
+        // instrumented counterpart (withDeviceTest) is deliberately left off.
+        withHostTest {}
     }
 
     listOf(

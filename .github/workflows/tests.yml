@@ -6,6 +6,11 @@ name: Tests
 #
 # Only iosSimulatorArm64 can run tests at all - iosArm64 is device-only and has no test task, and
 # the simulator target is disabled on anything but macOS.
+#
+# The android job does repeat commonTest, which jvmTest already covers - on purpose. It runs against
+# the stubbed android.jar rather than a real JDK, which is what catches common code reaching for a
+# JVM API that Android does not have. No emulator is involved: withHostTest in shared/build.gradle.
+# kts is the local unit test variant, not the instrumented one.
 
 on:
   push:
@@ -45,6 +50,34 @@ jobs:
           name: wasm-test-results
           path: |
             shared/build/test-results/wasmJsBrowserTest/
+            shared/build/reports/tests/
+          retention-days: 14
+
+  android:
+    name: Android (host)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Run the host tests
+        run: ./gradlew :shared:testAndroidHostTest --stacktrace
+
+      - name: Keep the test results if they failed
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-results
+          path: |
+            shared/build/test-results/testAndroidHostTest/
             shared/build/reports/tests/
           retention-days: 14
 

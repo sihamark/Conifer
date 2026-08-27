@@ -47,6 +47,13 @@
   writes or would test. It reports and nothing more; no build fails over a number. A GitHub Actions
   workflow runs the same task on `main` and on every pull request, keeps the full report as an
   artifact, and refreshes the coverage badges the readme shows
+  - the targets that report cannot see are tested on their own: a second workflow runs the browser
+    tests on the web target and the shared tests on an iOS simulator, and the Android target now
+    runs them too. Enabling `withHostTest` on the Android library gives `commonTest` a run against
+    the stubbed `android.jar` rather than a real JDK, which is where common code reaching for a JVM
+    API that Android has not got would show up — no emulator involved; the instrumented variant is
+    deliberately left off. 126 tests, and nothing that only passes because a desktop JVM was
+    underneath them
 
 ## Version 1.2.6 (22.08.2026)
 
