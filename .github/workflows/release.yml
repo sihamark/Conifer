@@ -1,0 +1,138 @@
+name: Release artifacts
+
+# Builds what a release consists of: the desktop distributable for each of the three desktops, and
+# the signed Android APK and AAB. Nothing is published from here - every job leaves its output as a
+# workflow artifact for the release process to collect (see the release steps in CHANGELOG/README).
+#
+# Runs on a pushed `v*` tag, which is the point in the release process where the version is already
+# in AppConfig and the changelog is dated, and on demand via workflow_dispatch for trying it out.
+#
+# Not built here: iOS, which needs an Xcode signing identity of its own, and the web bundle.
+
+on:
+  push:
+    tags: [ 'v*' ]
+    # TEMPORARY: smoke-testing this workflow on the branch. Remove before merging.
+    branches: [ feature_build_in_github ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A second push to the same tag replaces the run rather than racing it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    strategy:
+      # One failing desktop should not take the other two artifacts down with it.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+          - os: ubuntu-latest
+            label: Linux
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Only the JVM target is compiled here, but :shared configures the ios targets on macOS and
+      # the Kotlin plugin may fetch the toolchain for them. Cheap to cache, expensive to re-download.
+      - name: Cache the Kotlin/Native toolchain
+        if: runner.os == 'macOS'
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      # buildDesktopRelease builds the release distributable (ProGuard included) and zips the app
+      # image into ./releases/desktop, named after the OS it was built on. There is no
+      # cross-compiling: each desktop is built on its own runner, which is what the matrix is for.
+      - name: Build the desktop distributable
+        shell: bash
+        run: ./gradlew :desktopApp:buildDesktopRelease --stacktrace
+
+      - name: Keep the distributable
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.os }}
+          path: releases/desktop/
+          if-no-files-found: error
+          retention-days: 90
+
+  android:
+    name: Android (signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The keystore itself is in the repository; only the passwords and the alias are not, and
+      # androidApp/build.gradle.kts reads them from this git-ignored file. It is missing on a fresh
+      # checkout, and fromKeystoreProperties says nothing when it is - the release build then fails
+      # further along with a signing config that has no store file. So check for the secrets here,
+      # where the message can say which one is missing.
+      - name: Write the keystore properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          missing=""
+          [ -n "$STORE_PASSWORD" ] || missing="$missing ANDROID_STORE_PASSWORD"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing ANDROID_KEY_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing ANDROID_KEY_ALIAS"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing" >&2
+            exit 1
+          fi
+          # storeFile is a path, not a secret: the keystore is committed at this location.
+          cat > androidApp/keystore/keystore.properties <<PROPS
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=androidApp/keystore/keystore.jks
+          PROPS
+
+      # prepareAndroidRelease assembles and bundles, then copies the APK, the AAB and the ProGuard
+      # mapping into ./releases/android under the version from AppConfig.
+      - name: Build the signed release
+        run: ./gradlew :androidApp:prepareAndroidRelease --stacktrace
+
+      # Whatever the outcome, the file holding the passwords does not outlive the job's build steps.
+      - name: Remove the keystore properties
+        if: always()
+        run: rm -f androidApp/keystore/keystore.properties
+
+      - name: Keep the APK, the AAB and the mapping
+        uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: releases/android/
+          if-no-files-found: error
+          retention-days: 90
