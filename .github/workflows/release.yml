@@ -4,14 +4,18 @@ name: Release artifacts
 # the signed Android APK and AAB. Nothing is published from here - every job leaves its output as a
 # workflow artifact for the release process to collect (see the release steps in CHANGELOG/README).
 #
-# Runs on a pushed `v*` tag, which is the point in the release process where the version is already
-# in AppConfig and the changelog is dated, and on demand via workflow_dispatch for trying it out.
+# Runs on a pushed version tag - bare and three-part, the way every tag in this repository is
+# written - which is the point in the release process where the version is already in AppConfig
+# and the changelog is dated, and on demand via workflow_dispatch for trying it out.
 #
 # Not built here: iOS, which needs an Xcode signing identity of its own, and the web bundle.
 
 on:
   push:
-    tags: [ 'v*' ]
+    # A GitHub filter pattern, not a regular expression, however much it looks like one: `+` means
+    # one or more of the character before it and `.` is a literal dot. Matches 1.2.7 and nothing
+    # else - not a 1.2, not a 1.2.7.1, and not a scratch tag that happens to start with a digit.
+    tags: [ '[0-9]+.[0-9]+.[0-9]+' ]
   workflow_dispatch:
 
 permissions:

@@ -54,7 +54,7 @@
     API that Android has not got would show up — no emulator involved; the instrumented variant is
     deliberately left off. 126 tests, and nothing that only passes because a desktop JVM was
     underneath them
-- what a release is made of is built by the CI now. A pushed `v*` tag — the step the release
+- what a release is made of is built by the CI now. A pushed version tag — the step the release
   process already had — builds the desktop distributable for all three desktops and the signed
   Android APK and AAB, and leaves each as a downloadable artifact. Nothing is published from
   there; collecting them and uploading is still done by hand. The desktops are built one per
