@@ -54,6 +54,26 @@
     API that Android has not got would show up — no emulator involved; the instrumented variant is
     deliberately left off. 126 tests, and nothing that only passes because a desktop JVM was
     underneath them
+- what a release is made of is built by the CI now. A pushed `v*` tag — the step the release
+  process already had — builds the desktop distributable for all three desktops and the signed
+  Android APK and AAB, and leaves each as a downloadable artifact. Nothing is published from
+  there; collecting them and uploading is still done by hand. The desktops are built one per
+  runner because there is no cross-compiling here: `buildDesktopRelease` names its zip after the
+  machine it ran on, so macOS, Windows and Linux each need their own. The macOS one is built on an
+  arm64 runner and is neither signed nor notarized, which is what a locally built one has always
+  been. Signing the Android build needs three secrets in the repository — the store and key
+  passwords and the alias — written into the git-ignored `keystore.properties` for the build and
+  deleted after it; the keystore itself is in the repository and always has been
+  - the first run on the CI found a bug the release task had been carrying all along: a project
+    without flavors holds its flavor name as the empty string, and the helpers that build the
+    output paths test it for null, so the empty string took the flavored branch and asked for
+    `bundle/Release` and `mapping/Release` rather than the lowercase folders the Android plugin
+    actually writes. A Mac finds those anyway — its filesystem does not care about case — and a
+    Linux runner does not, and a copy from a folder that is not there says nothing at all, so the
+    build came back green having collected the APK alone. The AAB and the mapping had been
+    arriving locally by the grace of the filesystem, which is a poor thing to build a release on.
+    The workflow now also names the three files it expects, so a copy that quietly drops one
+    fails instead of being uploaded
 
 ## Version 1.2.6 (22.08.2026)
 
