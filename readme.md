@@ -106,6 +106,78 @@ Run them with:
 ./gradlew :shared:jvmTest --tests "*MergePolicyTest"
 ```
 
+### Releasing
+
+A release is a version tag, the artifacts built from it, and an upload to Nextcloud. The building is
+done by GitHub Actions; dating, tagging and uploading are still done by hand.
+
+1. **Check the version.** `versionName` and `versionCode` in
+   [buildSrc/src/main/kotlin/AppConfig.kt](./buildSrc/src/main/kotlin/AppConfig.kt) are bumped when
+   the work on a version starts, not at release time — so at this point they should already be
+   right.
+
+2. **Date the changelog.** The newest heading in [changelog.md](./changelog.md) carries no date
+   while
+   the version is in progress; add it now, in the same `dd.MM.yyyy` form as the entries below it:
+
+   ```markdown
+   ## Version 1.2.7 (28.08.2026)
+   ```
+
+3. **Tag and push.** The tag is the bare three-part version, the way every tag in this repository is
+   written — no `v` prefix:
+
+   ```shell
+   git tag 1.2.7
+   git push origin 1.2.7
+   ```
+
+   Pushing it starts the [Release artifacts](./.github/workflows/release.yml) workflow, which builds
+   the desktop distributable on a macOS, a Windows and a Linux runner (there is no cross-compiling —
+   each desktop is built on its own machine) and the signed Android APK, AAB and ProGuard mapping on
+   a fourth. Each job leaves its output as a downloadable workflow artifact, kept for 90 days.
+   Nothing is published from there.
+
+   Signing the Android build needs three repository secrets — `ANDROID_STORE_PASSWORD`,
+   `ANDROID_KEY_PASSWORD` and `ANDROID_KEY_ALIAS`. The keystore itself is in the repository; only
+   those three are not.
+
+   Not built by the workflow: iOS, which needs an Xcode signing identity of its own, and the web
+   bundle.
+
+4. **Collect the artifacts into `./releases`.** The folder is git-ignored and the upload in the next
+   step sends *everything* under it, so clear out what an earlier version left behind first.
+   Download the workflow artifacts and unpack them so the folder looks like this:
+
+   ```
+   releases/
+     android/   Conifer.1.2.7.12.apk, .aab, .mapping.txt
+     desktop/   Conifer.1.2.7.macos.zip, .windows.zip, .linux.zip
+   ```
+
+   The same layout can be produced locally, which is what to do when the CI is not an option — with
+   the caveat that a local run only builds the desktop for the machine it runs on:
+
+   ```shell
+   ./gradlew :desktopApp:buildDesktopRelease :androidApp:prepareAndroidRelease
+   ```
+
+   `prepareAndroidRelease` reads the signing passwords from a git-ignored
+   `androidApp/keystore/keystore.properties`. Add `:androidApp:prepareAndroidDebug` for a debug APK
+   alongside the release one; the workflow does not build one.
+
+5. **Upload.** Copy [nextcloud.properties.example](./nextcloud.properties.example) to
+   `nextcloud.properties` (git-ignored) and fill in the server, the account and an app password.
+   Then:
+
+   ```shell
+   ./gradlew uploadReleasesToNextcloud
+   ```
+
+   Everything under `./releases` goes up over WebDAV, mirroring the folder structure, into
+   `Conifer/<versionName>` unless `nextcloud.remoteFolder` says otherwise. APKs are wrapped in a
+   `.zip` on the way, because Android browsers refuse to download a raw `.apk`.
+
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),

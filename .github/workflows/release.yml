@@ -2,7 +2,7 @@ name: Release artifacts
 
 # Builds what a release consists of: the desktop distributable for each of the three desktops, and
 # the signed Android APK and AAB. Nothing is published from here - every job leaves its output as a
-# workflow artifact for the release process to collect (see the release steps in CHANGELOG/README).
+# workflow artifact for the release process to collect (see "Releasing" in the readme).
 #
 # Runs on a pushed version tag - bare and three-part, the way every tag in this repository is
 # written - which is the point in the release process where the version is already in AppConfig

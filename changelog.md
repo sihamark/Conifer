@@ -74,6 +74,9 @@
     arriving locally by the grace of the filesystem, which is a poor thing to build a release on.
     The workflow now also names the three files it expects, so a copy that quietly drops one
     fails instead of being uploaded
+  - the readme says how a release is made, which it never did: the version, the date on the
+    changelog heading, the tag, where the artifacts are collected and the upload — the steps that
+    until now lived only in the habit of the person doing them
 
 ## Version 1.2.6 (22.08.2026)
 
