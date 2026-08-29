@@ -286,7 +286,8 @@ private fun MainPane(
                 layout = layout,
                 paneInset = paneInset,
                 maxLines = composerMaxLines,
-                focusRequester = focusRequester
+                focusRequester = focusRequester,
+                isKeyboardPresent = isKeyboardPresent
             )
         },
         modifier = modifier
@@ -420,6 +421,7 @@ private fun Composer(
     paneInset: Dp,
     maxLines: Int,
     focusRequester: FocusRequester,
+    isKeyboardPresent: Boolean,
     modifier: Modifier = Modifier
 ) {
     val isShort = layout == BitsLayout.SideComposer
@@ -454,6 +456,7 @@ private fun Composer(
                 isEditing = state.editingBitId != null,
                 // Only the sidebar layout takes the day off the picker's hands.
                 isDaySelectionVisible = layout != BitsLayout.DaySidebar,
+                isKeyboardPresent = isKeyboardPresent,
                 onClickDate = actions.onClickDate,
                 onSelectTime = actions.onSelectTime,
                 onResetToNow = actions.onResetToNow,

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -30,6 +31,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePickerDisplayMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -62,6 +64,7 @@ import conifer.shared.generated.resources.bits_action_back_to_now
 import conifer.shared.generated.resources.bits_action_cancel_edit
 import conifer.shared.generated.resources.bits_action_hide_date_picker
 import conifer.shared.generated.resources.bits_action_show_date_picker
+import conifer.shared.generated.resources.bits_action_show_time_picker
 import conifer.shared.generated.resources.bits_content_edit_bit
 import conifer.shared.generated.resources.bits_content_save_bit
 import conifer.shared.generated.resources.bits_label_date_time_now
@@ -79,7 +82,8 @@ import kotlin.math.roundToInt
  * being written would get; a custom selection highlights the chip and a "back to now" text button
  * clears it, so a selection survives collapsing the picker. While editing a bit, a "cancel edit"
  * text button is offered instead. Expanding the chip reveals the day picker (unless the two-pane
- * layout's sidebar already owns the day, see [isDaySelectionVisible]) and a slim time slider.
+ * layout's sidebar already owns the day, see [isDaySelectionVisible]) and a slim time slider, whose
+ * own chip opens the time picker for a time the slider's quarter hours cannot make.
  */
 @Composable
 internal fun DateTimeSelector(
@@ -96,6 +100,8 @@ internal fun DateTimeSelector(
     currentTime: LocalTime,
     isEditing: Boolean,
     isDaySelectionVisible: Boolean,
+    /** Only decides which half of the time picker opens first — see [TimeChip]. */
+    isKeyboardPresent: Boolean,
     onClickDate: (LocalDate) -> Unit,
     onSelectTime: (LocalTime) -> Unit,
     onResetToNow: () -> Unit,
@@ -201,6 +207,7 @@ internal fun DateTimeSelector(
                 }
                 TimeSlider(
                     time = effectiveTime,
+                    isKeyboardPresent = isKeyboardPresent,
                     onSelectTime = onSelectTime,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -212,6 +219,7 @@ internal fun DateTimeSelector(
 @Composable
 private fun TimeSlider(
     time: LocalTime,
+    isKeyboardPresent: Boolean,
     onSelectTime: (LocalTime) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -219,24 +227,19 @@ private fun TimeSlider(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth()
     ) {
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Text(
-                text = LocalDateTimeFormats.current.timeOfDay(time),
-                style = MaterialTheme.typography.titleSmall,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
+        TimeChip(
+            time = time,
+            isKeyboardPresent = isKeyboardPresent,
+            onSelectTime = onSelectTime
+        )
         Spacer(Modifier.width(12.dp))
         // The slider works in 15-minute slots (0 = 00:00 … LAST = 23:45) so the discrete
         // steps line up exactly and draw a tick mark at every quarter hour.
         val interactionSource = remember { MutableInteractionSource() }
         Slider(
-            value = time.timeSlot.toFloat(),
+            // The unrounded position rather than the slot, so a time the picker made between two
+            // ticks — 12:07 — comes to rest on the nearer of them; see [sliderPosition].
+            value = time.sliderPosition,
             onValueChange = { slot -> onSelectTime(timeAtSlot(slot.roundToInt())) },
             interactionSource = interactionSource,
             valueRange = 0f..LAST_STEP_SLOT.toFloat(),
@@ -248,6 +251,69 @@ private fun TimeSlider(
                 )
             },
             modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * The time the bit would be stamped with, and the way to an exact one: it reads as the slider's
+ * value, and pressing it opens the [TimeOfDayPickerDialog] for the times the quarter-hour slots
+ * cannot make. The clock icon is what says it can be pressed at all — a bare number beside a slider
+ * reads as a display.
+ */
+@Composable
+private fun TimeChip(
+    time: LocalTime,
+    isKeyboardPresent: Boolean,
+    onSelectTime: (LocalTime) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isPickerOpen by remember { mutableStateOf(false) }
+    // As in [DaySelection]: the minimum touch target would otherwise make this chip taller than the
+    // slider it sits beside, and the composer's height is the one thing the landscape layout has
+    // none of to spare. It leaves the chip under the 48.dp a tap target is meant to be — knowingly,
+    // for now: the height is scarce on exactly the windows where the target matters most, so the
+    // way out is to spend it where there is some, not to spend it everywhere.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        Surface(
+            onClick = { isPickerOpen = true },
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = modifier
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Schedule,
+                    contentDescription = stringResource(Res.string.bits_action_show_time_picker),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = LocalDateTimeFormats.current.timeOfDay(time),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+    if (isPickerOpen) {
+        TimeOfDayPickerDialog(
+            time = time,
+            // Where a keyboard is the way in, the dial is the long way round to a time that can
+            // simply be typed; where it is a finger, it is the other way about. The dialog's own
+            // toggle switches either way, so the guess only decides which half is one press cheaper.
+            initialDisplayMode = if (isKeyboardPresent) {
+                TimePickerDisplayMode.Input
+            } else {
+                TimePickerDisplayMode.Picker
+            },
+            onSelectTime = onSelectTime,
+            onDismiss = { isPickerOpen = false }
         )
     }
 }
@@ -264,19 +330,33 @@ private const val LAST_STEP_SLOT = STEP_SLOTS - 1
 private const val INTERMEDIATE_STEPS = STEP_SLOTS - 2
 
 /**
- * The slot this time falls in, rounding down — slot 0 is 00:00, [LAST_STEP_SLOT] is 23:45.
- *
- * The slider's thumb position and the Alt+↑/↓ nudge both start here, so the two can never disagree
- * about which slot a given time is in.
+ * Minutes since midnight. Seconds are dropped rather than rounded: the composer deals in whole
+ * minutes and shows nothing finer, so 12:00:30 counts as 12:00 everywhere below.
  */
-private val LocalTime.timeSlot: Int get() = (hour * 60 + minute) / MINUTES_PER_STEP
+private val LocalTime.minutesOfDay: Int get() = hour * 60 + minute
 
 /**
- * Whether this time sits exactly on a slot, i.e. whether [timeSlot] rounds anything away. Seconds
- * don't count: the composer deals in whole minutes and shows nothing finer, so 12:00:30 is "on"
- * 12:00 as far as the user can tell.
+ * The slot this time falls in, rounding down — slot 0 is 00:00, [LAST_STEP_SLOT] is 23:45.
+ *
+ * What the Alt+↑/↓ nudge steps from, and what the slider hands back as it is dragged, so the two
+ * can never disagree about which slot a given time is in.
  */
-private val LocalTime.isOnTimeSlot: Boolean get() = (hour * 60 + minute) % MINUTES_PER_STEP == 0
+private val LocalTime.timeSlot: Int get() = minutesOfDay / MINUTES_PER_STEP
+
+/**
+ * Where the slider's thumb sits for this time, in slots — [timeSlot] without its rounding, which
+ * the slider then does its own way: it snaps whatever value it is handed to the *nearest* tick, so
+ * 12:12 rests on 12:15 rather than on the 12:00 [timeSlot] would round it down to. The thumb never
+ * comes to rest between two ticks; the chip beside it is what spells the time out exactly.
+ *
+ * Capped at the last slot so the final quarter hour (23:45 … 23:59) stays a position on the track
+ * rather than one past its end.
+ */
+internal val LocalTime.sliderPosition: Float
+    get() = (minutesOfDay / MINUTES_PER_STEP.toFloat()).coerceAtMost(LAST_STEP_SLOT.toFloat())
+
+/** Whether this time sits exactly on a slot, i.e. whether [timeSlot] rounds anything away. */
+private val LocalTime.isOnTimeSlot: Boolean get() = minutesOfDay % MINUTES_PER_STEP == 0
 
 /**
  * The time at [slot] — the inverse of [timeSlot], clamped to the day so out-of-range arithmetic

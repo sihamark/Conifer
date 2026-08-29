@@ -20,6 +20,8 @@
     <string name="bits_action_menu_cancel_edit">Cancel Edit</string>
     <string name="bits_content_save_bit">Save Bit</string>
     <string name="bits_action_show_date_picker">Show date picker</string>
+    <string name="bits_action_show_time_picker">Pick an exact time</string>
+    <string name="bits_action_set_time">Set time</string>
 
     <string name="bits_label_date_time_now">Now</string>
     <string name="bits_label_days">Days</string>

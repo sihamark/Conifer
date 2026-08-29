@@ -2,6 +2,12 @@
 
 ## Version 1.2.4
 
+- a bit can be given an exact time. The slider moves in quarter hours, which is the right size for
+  *about now* and the wrong one for *seven minutes past* — the time beside it opens a proper clock
+  now, and the minute you set there is the minute the bit gets. It is your system's clock: twelve or
+  twenty-four hours as your machine has it, opening on the keypad where there is a keyboard and on
+  the dial where there is a finger. Nothing is kept until you press *Set time*, and the slider's
+  thumb settles on the nearest quarter hour while the exact time is written out beside it
 - the day sidebar's rows are a single line again. *Today* had been wrapping beside the current day
   and leaving that row twice as tall as the rest; where the system spells the short weekday out in
   full — *sábado*, *Jumamosi* — every row did it. Names with no room left are shortened to *sáb…*
