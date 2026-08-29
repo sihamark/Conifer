@@ -81,6 +81,12 @@
     fails the job rather than producing a page with nothing on it. The bundle and the mapping stay
     off it: an AAB cannot be installed from a download, and the mapping is the file that turns the
     obfuscated build back into readable names. Nextcloud still gets everything
+  - the tag has to agree with the version the build was made from. Nothing carries a tag into the
+    build — the artifacts are named after `AppConfig` — so a tag that says one version while
+    `AppConfig` says another would have produced a page whose title and whose files disagreed, and
+    nothing downstream would have noticed. And the whole chain can be rehearsed without tagging at
+    all: run by hand it builds the same page from `AppConfig`'s version and marks it a rehearsal,
+    which, being a draft, leaves not even a tag behind
   - the readme says how a release is made, which it never did: the version, the date on the
     changelog heading, the tag, where the artifacts are collected and the upload — the steps that
     until now lived only in the habit of the person doing them

@@ -125,7 +125,10 @@ done by GitHub Actions; dating, tagging and uploading are still done by hand.
    ```
 
 3. **Tag and push.** The tag is the bare three-part version, the way every tag in this repository is
-   written — no `v` prefix:
+   written — no `v` prefix, and it has to equal the `versionName` from step 1. The artifacts are
+   named after `AppConfig`, which the tag never reaches, so a tag that disagrees would put
+   `Conifer.1.2.7.*` files on a page titled something else; the workflow checks the two and stops if
+   they differ.
 
    ```shell
    git tag 1.2.7
@@ -187,6 +190,11 @@ done by GitHub Actions; dating, tagging and uploading are still done by hand.
 6. **Publish the release page.** Open the draft under
    [Releases](https://github.com/sihamark/Conifer/releases), read the changelog entry as it renders,
    check the four files are attached, and press Publish.
+
+To try the whole chain out without tagging anything, run the workflow by hand from the Actions tab
+(**Release artifacts** → *Run workflow*). It builds everything the same way and assembles the same
+page from `AppConfig`'s version, titled *rehearsal* and saying so in the notes. A draft creates no
+tag, so nothing is left behind but the draft itself — delete it when you have seen what you needed.
 
 ---
 

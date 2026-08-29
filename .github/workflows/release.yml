@@ -8,7 +8,8 @@ name: Release artifacts
 #
 # Runs on a pushed version tag - bare and three-part, the way every tag in this repository is
 # written - which is the point in the release process where the version is already in AppConfig
-# and the changelog is dated, and on demand via workflow_dispatch for trying it out.
+# and the changelog is dated. On demand via workflow_dispatch it builds the same thing and marks
+# the page a rehearsal, which is how to try the whole chain out without tagging anything.
 #
 # Not built here: iOS, which needs an Xcode signing identity of its own, and the web bundle.
 
@@ -162,10 +163,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Only a tag carries a version to name a release after and to look up in the changelog. A
-    # workflow_dispatch run is for trying the builds out, and stops at the artifacts.
-    if: startsWith(github.ref, 'refs/tags/')
-
     # The one job here that writes anything back; the builds above stay read-only.
     permissions:
       contents: write
@@ -179,12 +176,51 @@ jobs:
         with:
           path: artifacts
 
+      # Which version this is, and whether it is a real release or a rehearsal.
+      #
+      # The version is AppConfig's either way, because that is what the artifacts are named after -
+      # the tag never reaches the build. A tag that disagrees with it would put files called
+      # Conifer.1.2.7.* on a page titled 0.0.1, and nothing downstream would notice, so the two are
+      # made to agree here.
+      #
+      # Without a tag - a workflow_dispatch run - there is nothing to disagree with and the run is a
+      # rehearsal: the same page, built from the same artifacts, marked as such and meant to be
+      # deleted once it has been looked at. A draft creates no tag, so a rehearsal leaves none.
+      - name: Work out which version this is
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' buildSrc/src/main/kotlin/AppConfig.kt)
+          if [ -z "$version" ]; then
+            echo "Could not read versionName from buildSrc/src/main/kotlin/AppConfig.kt." >&2
+            exit 1
+          fi
+
+          rehearsal=true
+          if [ "$IS_TAG" = "true" ]; then
+            rehearsal=false
+            if [ "$REF_NAME" != "$version" ]; then
+              echo "Tag $REF_NAME does not match AppConfig's versionName $version. The artifacts are" >&2
+              echo "named after AppConfig, so this page would offer Conifer.$version.* files under the" >&2
+              echo "title $REF_NAME. Bump AppConfig first, or tag $version." >&2
+              exit 1
+            fi
+            echo "Release $version."
+          else
+            echo "No tag, so this is a rehearsal of $version from $GITHUB_SHA."
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "rehearsal=$rehearsal" >> "$GITHUB_OUTPUT"
+
       # The page says what the changelog already says about this version, so there is one wording
       # and not two. An entry that isn't there means the tag went out ahead of the changelog, which
       # is worth stopping for rather than publishing a release with nothing written on it.
       - name: Take this version's changelog entry for the notes
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           # Matched as a literal prefix rather than a regular expression: the dots in a version
           # number would each match any character. The heading is either bare or followed by the
@@ -238,8 +274,16 @@ jobs:
       - name: Assemble the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REHEARSAL: ${{ steps.version.outputs.rehearsal }}
         run: |
+          title="Conifer $VERSION"
+          if [ "$REHEARSAL" = "true" ]; then
+            title="$title (rehearsal)"
+            printf '\n_Rehearsal build from `%s`, not a release. Delete this draft when done with it._\n' \
+              "$GITHUB_SHA" >> notes.md
+          fi
+
           state=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null || true)
           if [ "$state" = "false" ]; then
             echo "A published release for $VERSION already exists; refusing to replace it." >&2
@@ -253,5 +297,5 @@ jobs:
 
           gh release create "$VERSION" page/* \
             --draft \
-            --title "Conifer $VERSION" \
+            --title "$title" \
             --notes-file notes.md
