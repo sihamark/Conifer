@@ -136,7 +136,13 @@ done by GitHub Actions; dating, tagging and uploading are still done by hand.
    the desktop distributable on a macOS, a Windows and a Linux runner (there is no cross-compiling —
    each desktop is built on its own machine) and the signed Android APK, AAB and ProGuard mapping on
    a fourth. Each job leaves its output as a downloadable workflow artifact, kept for 90 days.
-   Nothing is published from there.
+
+   A last job then draws the three desktop zips and the APK into a **draft** release page, taking
+   this version's changelog entry as the release notes — which is why step 2 comes before the tag: a
+   version with no `## Version` heading in the changelog fails that job rather than producing a page
+   with nothing written on it. The draft stays invisible until you publish it in step 6. The AAB and
+   the mapping are deliberately left off the page: a bundle cannot be installed from a download, and
+   the mapping is the file that turns the obfuscated build back into readable names.
 
    Signing the Android build needs three repository secrets — `ANDROID_STORE_PASSWORD`,
    `ANDROID_KEY_PASSWORD` and `ANDROID_KEY_ALIAS`. The keystore itself is in the repository; only
@@ -177,6 +183,10 @@ done by GitHub Actions; dating, tagging and uploading are still done by hand.
    Everything under `./releases` goes up over WebDAV, mirroring the folder structure, into
    `Conifer/<versionName>` unless `nextcloud.remoteFolder` says otherwise. APKs are wrapped in a
    `.zip` on the way, because Android browsers refuse to download a raw `.apk`.
+
+6. **Publish the release page.** Open the draft under
+   [Releases](https://github.com/sihamark/Conifer/releases), read the changelog entry as it renders,
+   check the four files are attached, and press Publish.
 
 ---
 

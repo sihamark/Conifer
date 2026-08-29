@@ -74,6 +74,13 @@
     arriving locally by the grace of the filesystem, which is a poor thing to build a release on.
     The workflow now also names the three files it expects, so a copy that quietly drops one
     fails instead of being uploaded
+  - a tagged version gets a release page of its own, assembled by the same workflow: the three
+    desktop zips and the APK to download, and this version's changelog entry as the notes, so what
+    the page says and what the changelog says cannot drift apart. It arrives as a draft — nothing
+    is public until someone has read it — and a tag whose version the changelog has no entry for
+    fails the job rather than producing a page with nothing on it. The bundle and the mapping stay
+    off it: an AAB cannot be installed from a download, and the mapping is the file that turns the
+    obfuscated build back into readable names. Nextcloud still gets everything
   - the readme says how a release is made, which it never did: the version, the date on the
     changelog heading, the tag, where the artifacts are collected and the upload — the steps that
     until now lived only in the habit of the person doing them
