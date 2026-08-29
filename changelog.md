@@ -2,6 +2,10 @@
 
 ## Version 1.2.4
 
+- the day sidebar's rows are a single line again. *Today* had been wrapping beside the current day
+  and leaving that row twice as tall as the rest; where the system spells the short weekday out in
+  full — *sábado*, *Jumamosi* — every row did it. Names with no room left are shortened to *sáb…*
+  now, and the sidebar is a little wider
 - text you have typed but not yet added is kept. Half a sentence in the field used to be gone the
   moment the app was recycled in the background, a desktop window was closed or a browser tab was
   reloaded — it is written down half a second after you stop typing now, and put back the next time

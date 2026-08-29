@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
@@ -150,6 +151,18 @@ private fun DaySidebarItem(
                 text = weekday,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
+                // A fixed column, so that the dates line up down the sidebar rather than each
+                // starting wherever its own weekday happened to end — and fixed means something
+                // has to give when the weekday is longer than it. Wrapping is what it did before,
+                // which cost the row its second line and the sidebar its rhythm.
+                //
+                // Longer than it sounds: the platforms hand back whatever their locale calls the
+                // short weekday, and for a good number of them that is the whole word — `sábado`
+                // in Portuguese as spoken in Portugal, `Jumamosi` in Swahili, against `Sat`, `Sa.`
+                // and `sam.` elsewhere. Shortened, those still read as the day they name; wrapped,
+                // they took every row in the sidebar with them.
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = if (isSelected) {
                     LocalContentColor.current.copy(alpha = 0.75f)
                 } else {
@@ -164,13 +177,31 @@ private fun DaySidebarItem(
                 Text(text = label, style = MaterialTheme.typography.bodySmall)
                 if (isCurrentDate) {
                     Text(
-                        text = " · " + stringResource(Res.string.bits_label_today),
+                        text = stringResource(Res.string.bits_label_today),
                         style = MaterialTheme.typography.labelSmall,
+                        // The row is a single line, and this is what would otherwise break it: the
+                        // marker takes what the date leaves of a fixed-width sidebar, which is not
+                        // much, and text given too little room wraps rather than complain. Wrapped
+                        // here it put its first word on a line of its own and dragged the row to
+                        // twice the height of every other, the date left floating against it.
+                        // Kept to one line, a marker that cannot fit shortens instead — the row
+                        // stays a row, which matters more than the last letters of the word.
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         color = if (isSelected) {
                             LocalContentColor.current
                         } else {
                             MaterialTheme.colorScheme.tertiary
-                        }
+                        },
+                        // Weighted so it is the marker that gives way when the two do not fit, and
+                        // never the date — a shortened date would be a different day.
+                        //
+                        // The gap replaces the "·" this used to be spelled with: the separator cost
+                        // more width than the space between them needs, and it was the space beside
+                        // it that the wrap broke at.
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(start = 5.dp)
                     )
                 }
             }
@@ -241,5 +272,13 @@ internal fun DayDots(
     }
 }
 
-/** Width of the [DaySidebar], as in the mockup. */
-private val SIDEBAR_WIDTH = 216.dp
+/**
+ * Width of the [DaySidebar] — the mockup's 216.dp plus the little the mockup had not counted on.
+ *
+ * A row is the weekday column, the date, the dots, the count badge and the fixed gaps between them,
+ * and on the current day the "Today" marker as well. All of that came to 6.dp more than 216 left
+ * for it, which the marker paid for by wrapping: it was the only part of the row that could give.
+ * Twelve here rather than the six strictly owed, so that a marker a few letters longer than the
+ * English one still fits before [DaySidebarItem] has to shorten it.
+ */
+private val SIDEBAR_WIDTH = 228.dp
