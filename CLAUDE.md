@@ -83,7 +83,8 @@ built by the injected `DatabaseInitializer`) → `BitsRepository` →
 **The bits screen** is split by region across `ui/bits/`, one file per part of the screen:
 `BitsPane` (the multi-pane frame, the main pane and the top bar), `BitsList` (the day-grouped list
 and its scroll position), `BitComposer` (date/time chip, day strip, time slider, text field),
-`DaySidebar` (the two-pane day list), `BitItem`, `PermissionPrompt`, `BitsPaneContract`
+`DaySidebar` (the two-pane day list), `BitItem`, `PermissionPrompt`, `CrashReportPrompt` (the banner
+offering the previous run's crash for reporting, fed by `log/CrashBreadcrumb`), `BitsPaneContract`
 (`BitsPaneState`/`BitsPaneActions`) and `BitsPanePreviews`. Since Kotlin has no package-private,
 anything used across those files is `internal`; `BitsPane` and the contract types are the only
 public API of the package. `DatedBits` lives next to `BitsViewModel`, which builds it.
@@ -105,10 +106,29 @@ committed.
 - **`buildSrc/src/main/kotlin/AppConfig.kt`** is the single source of truth for `versionName`,
   `versionCode`, `minSdk` (30), `targetSdk` (37), `javaVersion` (21), `namespace` (
   `eu.heha.conifer`), and `appName`. Edit there, not in individual build files.
+- **`BuildInfo` is generated, not written.** The `generateBuildInfo` task (`buildSrc`, wired up in
+  `shared/build.gradle.kts`) writes `eu.heha.conifer.BuildInfo` into `commonMain` at build time with
+  the `AppConfig` version, the git commit, whether the tree was modified, and the build time — which
+  is how runtime code gets at the version at all. `buildLabel()` formats it for a log or a report.
 - Versions/plugins are centralized in `gradle/libs.versions.toml`.
 - Opt-ins `kotlin.time.ExperimentalTime` and `kotlin.uuid.ExperimentalUuidApi` are enabled
   project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx
   variants).
 - Logging uses **Napier** (`Napier.d/i/e`), initialized via the `antilog` passed into
-  `ConiferApp.initialize`.
+  `ConiferApp.initialize`. Every call is also mirrored into this run's own log file
+  (`log/FileAntilog`, a new file per start, ten kept).
+- **How a run ended is reported at the next start** (`log/LastRun.kt`). Every start writes a
+  `last-run.json` record beside the logs (`LastRunStore`) naming the log file it is writing. A crash
+  adds a `CrashBreadcrumb` to that record on the crashing thread; an ordinary ending instead writes
+  `--- log closed ---` into the log (`LogClosingInitializer` — a JVM shutdown hook, Android/iOS
+  going to the background, `pagehide` on web). So the next start classifies the previous run as
+  `LastRunEnd.Crashed`, `Vanished` (log stops mid-sentence: killed for memory, a signal, a native
+  crash below Kotlin) or nothing at all, and `ui/bits/RunEndPrompt` offers the bad ones for
+  reporting.
+- What it offers is `log/RunEndReport`: the summary plus the tail of that run's log, read back
+  through `LogTailReader` (which `LogFileInitializer` implements — always by *file name*, never a
+  path, see `logTailFileName`) and handed to the clipboard or to the platform's
+  `ReportShareController` — share sheet on Android/iOS, a folder in the file manager on desktop, a
+  download on web. All four targets have the whole chain; web keeps its logs and record in
+  `localStorage` (`WasmLogFileInitializer`, fewer and smaller — see its KDoc).
 - Gradle configuration cache and build cache are enabled.

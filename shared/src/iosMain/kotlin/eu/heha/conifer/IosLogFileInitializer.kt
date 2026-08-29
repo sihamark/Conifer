@@ -4,11 +4,17 @@
 
 package eu.heha.conifer
 
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.stringWithContentsOfFile
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fputs
@@ -20,6 +26,33 @@ import platform.posix.fputs
  */
 object IosLogFileInitializer : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? {
+        val folder = logFolder() ?: return null
+        pruneOldLogFiles(folder)
+        return PosixLogFileSink("$folder/$fileName")
+    }
+
+    override fun createLastRunStore(): LastRunStore? {
+        val folder = logFolder() ?: return null
+        return PosixLastRunStore("$folder/$LAST_RUN_FILE_NAME")
+    }
+
+    /**
+     * The end of a run's log, for a crash report - a name resolved against the log folder rather
+     * than a path, see [LogTailReader]. Whole file in, tail out: a run log is small, and seeking to
+     * the tail of a UTF-8 file lands mid-character often enough not to bother.
+     */
+    override fun readLogTail(fileName: String, maxChars: Int): String? {
+        if ('/' in fileName) return null
+        val folder = logFolder() ?: return null
+        return NSString.stringWithContentsOfFile(
+            path = "$folder/$fileName",
+            encoding = NSUTF8StringEncoding,
+            error = null,
+        )?.takeLast(maxChars)
+    }
+
+    /** The log folder, created if it isn't there yet; null when it cannot be had at all. */
+    private fun logFolder(): String? {
         val folder = iosDocumentDirectory() + "/logs"
         val created = NSFileManager.defaultManager.createDirectoryAtPath(
             path = folder,
@@ -28,8 +61,7 @@ object IosLogFileInitializer : LogFileInitializer {
             error = null,
         )
         if (!created && !NSFileManager.defaultManager.fileExistsAtPath(folder)) return null
-        pruneOldLogFiles(folder)
-        return PosixLogFileSink("$folder/$fileName")
+        return folder
     }
 }
 
@@ -65,4 +97,27 @@ private class PosixLogFileSink(private val path: String) : LogFileSink {
             fclose(file)
         }
     }
+}
+
+/**
+ * The last-run record as one small file, written through `fopen`/`fputs` for the same reason the log
+ * lines are - it is written by a process that is going down, and the cheapest write is the one most
+ * likely to land. Mode `w` truncates, which is what "one record, the newest" means.
+ *
+ * Reading is a different situation entirely (an ordinary app start), so it goes through Foundation,
+ * which can hand back the whole file as a string in one call. See [LastRunStore] for why
+ * every failure here is swallowed.
+ */
+private class PosixLastRunStore(private val path: String) : LastRunStore {
+    override fun write(text: String) {
+        val file = fopen(path, "w") ?: return
+        try {
+            fputs(text, file)
+        } finally {
+            fclose(file)
+        }
+    }
+
+    override fun read(): String? =
+        NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null)
 }

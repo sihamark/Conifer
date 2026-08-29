@@ -1,8 +1,11 @@
 package eu.heha.conifer
 
 import android.content.Context
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import java.io.File
 
@@ -14,10 +17,42 @@ import java.io.File
  */
 class AndroidLogFileInitializer(private val context: Context) : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? = runCatching {
-        val folder = File(context.applicationContext.filesDir, "logs").also { it.mkdirs() }
+        val folder = logFolder()
         pruneOldLogFiles(folder)
         AndroidLogFileSink(File(folder, fileName))
     }.getOrNull()
+
+    override fun createLastRunStore(): LastRunStore? = runCatching {
+        AndroidLastRunStore(File(logFolder(), LAST_RUN_FILE_NAME))
+    }.getOrNull()
+
+    /**
+     * The end of a run's log, for a crash report - see [LogTailReader] for why this takes a name and
+     * resolves it here rather than taking a path. The whole file is read and then cut: a run log is
+     * small, and seeking to the tail of a UTF-8 file lands mid-character often enough not to bother.
+     */
+    override fun readLogTail(fileName: String, maxChars: Int): String? = runCatching {
+        val folder = logFolder()
+        File(folder, fileName)
+            .takeIf { it.isFile && it.parentFile?.canonicalFile == folder.canonicalFile }
+            ?.readText()
+            ?.takeLast(maxChars)
+    }.getOrNull()
+
+    private fun logFolder(): File =
+        File(context.applicationContext.filesDir, "logs").also { it.mkdirs() }
+}
+
+/**
+ * The last-run record as one small file in the log folder, replaced whole on every write - see
+ * [LastRunStore] for why it swallows its own failures rather than reporting them.
+ */
+private class AndroidLastRunStore(private val file: File) : LastRunStore {
+    override fun write(text: String) {
+        runCatching { file.writeText(text) }
+    }
+
+    override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
 }
 
 /**

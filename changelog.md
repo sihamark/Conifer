@@ -2,6 +2,28 @@
 
 ## Version 1.2.4
 
+- the app now says when the last run ended badly. A crash was already being written down, into a
+  file nobody was ever told about — the next start now says so on screen instead: when it happened
+  and what the error was. It also notices the endings that leave nothing behind at all, where the
+  app was closed by the system, killed for memory or stopped by something below it: the log now says
+  goodbye whenever the app is put away, so one that simply stops means something. *Share report*
+  hands the whole thing to the share sheet on a phone, drops it in a folder on the desktop or
+  downloads it in a browser, and *Copy details* puts it on the clipboard instead: the build, what
+  went wrong, and the log of that run — the part that says what the app had been doing — and nothing
+  you have written. The notice stays until you dismiss it
+- the log says which build wrote it. Its second line now names the version, the commit the app was
+  built from and when it was built — so a log sent in can be lined up against what was actually
+  shipped, instead of against a version number that covers a month of changes. A build made on
+  someone's own machine from work in progress says so, since its commit describes source that exists
+  nowhere else
+- a crash is written down. A run that ended badly used to stop mid-sentence: the log said what the
+  app had been doing and nothing said that it had died, so a log handed over afterwards had no
+  answer for the one question worth asking. Now the error and its whole stack trace are the last
+  thing that file gets, whichever part of the app it came out of — a thread, a background job, the
+  screen itself. It goes to disk on the spot rather than queueing up behind the lines still in
+  flight, because an app on its way out has no later. Nothing about the crash itself changes: it
+  ends the same way it ended before, and the report your phone offers to send, the trace on the
+  desktop console and the crash log on an iPhone are all still made
 - a bit can be given an exact time. The slider moves in quarter hours, which is the right size for
   *about now* and the wrong one for *seven minutes past* — the time beside it opens a proper clock
   now, and the minute you set there is the minute the bit gets. It is your system's clock: twelve or

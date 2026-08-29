@@ -13,7 +13,10 @@ object IosConiferApp {
             credentialsInitializer = IosCredentialsInitializer,
             browserOpener = IosBrowserOpener,
             clipboardController = IosClipboardController,
-            logFileInitializer = IosLogFileInitializer
+            reportShareController = IosReportShareController,
+            logFileInitializer = IosLogFileInitializer,
+            uncaughtErrorInitializer = IosUncaughtErrorInitializer,
+            logClosingInitializer = IosLogClosingInitializer
         )
     }
 }

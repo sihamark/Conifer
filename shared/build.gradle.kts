@@ -130,6 +130,28 @@ kotlin {
     }
 }
 
+// Asked on every build, and only ever answered from git itself - see GitCommit for why neither the
+// configuration cache nor a task action is where this may be read.
+private val gitParameters: GitParameters.() -> Unit = {
+    workingDirectory.set(rootProject.layout.projectDirectory)
+}
+val generateBuildInfo = tasks.register<GenerateBuildInfo>("generateBuildInfo") {
+    description = "Generates the BuildInfo object with the version, git commit and build time."
+    group = "build"
+    packageName.set(AppConfig.namespace)
+    versionName.set(AppConfig.versionName)
+    versionCode.set(AppConfig.versionCode)
+    commit.set(providers.of(GitCommit::class) { parameters(gitParameters) })
+    hasLocalChanges.set(providers.of(GitIsModified::class) { parameters(gitParameters) })
+    outputDirectory.set(layout.buildDirectory.dir("generated/buildInfo/kotlin"))
+}
+
+// commonMain, so every target gets the same BuildInfo. The task's output directory carries the task
+// with it, which is what makes each platform's compilation wait for the file to be written.
+kotlin.sourceSets.commonMain.configure {
+    kotlin.srcDir(generateBuildInfo.flatMap { it.outputDirectory })
+}
+
 // The generated Compose resources accessor (`Res`) is consumed by the standalone
 // :desktopApp module, so it must be public. The package is pinned so it stays stable
 // regardless of the module name.

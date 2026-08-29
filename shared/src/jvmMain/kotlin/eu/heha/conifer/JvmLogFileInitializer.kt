@@ -1,17 +1,59 @@
 package eu.heha.conifer
 
+import eu.heha.conifer.log.LAST_RUN_FILE_NAME
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import java.io.File
 
 /** Log files land in `logs/` next to the desktop app's `data/` folder (see [jvmDataFolder]). */
 object JvmLogFileInitializer : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? = runCatching {
-        val folder = File(jvmDataFolder(), "logs").also { it.mkdirs() }
+        val folder = logFolder()
         pruneOldLogFiles(folder)
         JvmLogFileSink(File(folder, fileName))
     }.getOrNull()
+
+    override fun createLastRunStore(): LastRunStore? = runCatching {
+        FileLastRunStore(File(logFolder(), LAST_RUN_FILE_NAME))
+    }.getOrNull()
+
+    override fun readLogTail(fileName: String, maxChars: Int): String? =
+        readLogTail(logFolder(), fileName, maxChars)
+
+    private fun logFolder(): File = File(jvmDataFolder(), "logs").also { it.mkdirs() }
+}
+
+/**
+ * The end of [fileName] in [folder], for a crash report - see [LogTailReader] for why this is a name
+ * in a known folder rather than a path.
+ *
+ * The whole file is read and then cut. A run log is small (a handful of lines per sync round), and
+ * seeking to the tail of a UTF-8 file lands mid-character often enough that the arithmetic to avoid
+ * it would outweigh what it saves here.
+ */
+internal fun readLogTail(folder: File, fileName: String, maxChars: Int): String? = runCatching {
+    File(folder, fileName)
+        .takeIf { it.isFile && it.parentFile?.canonicalFile == folder.canonicalFile }
+        ?.readText()
+        ?.takeLast(maxChars)
+}.getOrNull()
+
+/**
+ * The last-run record as one small file, replaced whole on every write - see [LastRunStore]
+ * for why it swallows its own failures rather than reporting them.
+ *
+ * Internal rather than private so a test can point one at a temporary file; the object above is the
+ * only production caller, and it always names [LAST_RUN_FILE_NAME] in the log folder.
+ */
+internal class FileLastRunStore(private val file: File) : LastRunStore {
+    override fun write(text: String) {
+        runCatching { file.writeText(text) }
+    }
+
+    override fun read(): String? = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
 }
 
 /**

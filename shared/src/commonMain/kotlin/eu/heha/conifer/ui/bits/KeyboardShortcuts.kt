@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -256,6 +257,13 @@ internal fun ShortcutsOverlay(chord: ShortcutChord, onDismiss: () -> Unit) {
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    FilledTonalButton(
+                        {
+                            error("this is a debug crash, build to test the log test")
+                        }
+                    ) {
+                        Text("debug crash")
+                    }
                     shortcutGroups(chord).forEachIndexed { index, group ->
                         if (index > 0) Spacer(Modifier.height(16.dp))
                         Text(

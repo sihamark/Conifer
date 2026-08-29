@@ -1,6 +1,8 @@
 package eu.heha.conifer.ui.bits
 
 import eu.heha.conifer.PermissionRationale
+import eu.heha.conifer.ReportShareController
+import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.now
@@ -46,6 +48,14 @@ internal const val DAY_LIST_DAYS = 30
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
+    /** Whether this platform has somewhere to send a crash report - see [ReportShareController]. */
+    val isSharePossible: Boolean = false,
+    /**
+     * How the previous run ended, where that is worth reporting ([RunEndPrompt]); null when it ended
+     * the way runs are supposed to. Worked out once at startup - see
+     * [eu.heha.conifer.log.RunEndReports].
+     */
+    val lastRunEnd: LastRunEnd? = null,
     val newBitText: String = "",
     /**
      * The day the list is filtered to; null shows every day. Set by the day lists — the composer's
@@ -141,6 +151,12 @@ class BitsPaneActions(
     val onSelectTime: (LocalTime) -> Unit = {},
     val onResetToNow: () -> Unit = {},
     val onClickCopyBitsOfDateToClipboard: (LocalDate) -> Unit = {},
+    /** Copies the previous run's crash report to the clipboard, and leaves the banner up. */
+    val onClickCopyRunEndReport: () -> Unit = {},
+    /** Hands that report to the platform's share sheet (or file manager), banner still up. */
+    val onClickShareRunEndReport: () -> Unit = {},
+    /** Takes the crash banner down and forgets the crash it reported. */
+    val onDismissRunEndReport: () -> Unit = {},
     val onClickEditBit: (Bit) -> Unit = {},
     val onCancelEdit: () -> Unit = {},
     val onDeleteBit: (Bit) -> Unit = {},

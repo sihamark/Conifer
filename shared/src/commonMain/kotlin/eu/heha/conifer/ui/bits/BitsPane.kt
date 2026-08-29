@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
@@ -398,6 +399,23 @@ private fun Bits(
             // whole pane.
             contentPadding = PaddingValues(horizontal = sideInset),
             modifier = Modifier.fillMaxSize()
+        )
+        // Under the floating bar, and following it out of the way when it goes — the same inset the
+        // list's own leading spacer keeps.
+        val crashPromptTopInset by animateDpAsState(
+            targetValue = if (isTopBarVisible) TopAppBarDefaults.TopAppBarExpandedHeight else 0.dp,
+            label = "crashPromptTopInset"
+        )
+        // The crash notice floats over the top of the list, like the bar above it, rather than
+        // scrolling with the bits: the list opens anchored to its newest bit, so a banner among the
+        // items would sit far above the fold and never be seen by the one person it is for. It
+        // travels with the bar as that comes and goes, and is gone for good once dismissed.
+        RunEndPromptItem(
+            state = state,
+            actions = actions,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = crashPromptTopInset, start = paneInset, end = paneInset)
         )
         val bitsCount = visibleBitsByDate.sumOf { it.bits.size }
         Topbar(

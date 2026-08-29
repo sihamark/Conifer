@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
+import eu.heha.conifer.ReportShareController
+import eu.heha.conifer.log.RunEndReports
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.prefs.ComposerDraft
@@ -18,10 +20,12 @@ import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -33,7 +37,9 @@ class BitsViewModel(
     private val repository: BitsRepository,
     private val dateTimeFormats: DateTimeFormats,
     private val draftPrefs: DraftPrefs,
-    private val clipboardController: ClipboardController? = null
+    private val clipboardController: ClipboardController? = null,
+    private val reportShareController: ReportShareController? = null,
+    private val runEndReports: RunEndReports = RunEndReports()
 ) : ViewModel() {
 
     /** Collection of the currently bound handler, see [bindPermissionHandler]. */
@@ -52,7 +58,11 @@ class BitsViewModel(
 
     var state by mutableStateOf(
         BitsPaneState(
-            isCopyPossible = clipboardController != null
+            isCopyPossible = clipboardController != null,
+            isSharePossible = reportShareController != null,
+            // Straight into the first state the screen is ever handed: the crash it reports is
+            // already on disk before this app run started, so there is nothing to wait for.
+            lastRunEnd = runEndReports.lastEnd
         )
     )
         private set
@@ -420,6 +430,57 @@ class BitsViewModel(
                 clipboardController.copyToClipboard(textToCopy)
             }
         }
+    }
+
+    /**
+     * Puts the report about the previous run's ending on the clipboard - what is known about it and
+     * the end of that run's log file (see [RunEndReports.report]).
+     *
+     * Leaves the banner up: a report copied is not a report sent, and the one thing worse than
+     * pasting it twice is losing it to a tap. Dismissing is its own action.
+     */
+    fun copyRunEndReportToClipboard() {
+        val clipboardController = clipboardController ?: return
+        viewModelScope.launch {
+            val report = runEndReport() ?: return@launch
+            clipboardController.copyToClipboard(report)
+        }
+    }
+
+    /**
+     * Hands the report to the platform's own way of sending something - a share sheet, a folder in
+     * the file manager (see [ReportShareController]).
+     *
+     * Falls back to the clipboard where the platform would not take it, since a report the user
+     * asked to send and which then went nowhere is the worst of the outcomes available here. The
+     * banner stays up either way, so the offer is still there to try again.
+     */
+    fun shareRunEndReport() {
+        val reportShareController = reportShareController ?: return
+        viewModelScope.launch {
+            val report = runEndReport() ?: return@launch
+            val fileName = runEndReports.reportFileName() ?: return@launch
+            val isShared = withContext(Dispatchers.Default) {
+                reportShareController.share(fileName, report)
+            }
+            if (!isShared) {
+                Napier.w { "the report was not taken for sharing - copying it instead" }
+                clipboardController?.copyToClipboard(report)
+            }
+        }
+    }
+
+    /** The report as text. Off the main thread: it reads the log file of the run that ended. */
+    private suspend fun runEndReport(): String? =
+        withContext(Dispatchers.Default) { runEndReports.report() }
+
+    /**
+     * Takes the banner down for good: the ending goes out of the stored record with it, so the next
+     * start is quiet again. The log file it pointed at is untouched and is pruned in its own time.
+     */
+    fun dismissRunEndReport() {
+        runEndReports.forget()
+        state = state.copy(lastRunEnd = null)
     }
 }
 

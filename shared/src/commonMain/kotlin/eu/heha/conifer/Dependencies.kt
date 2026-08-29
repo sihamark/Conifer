@@ -3,7 +3,10 @@ package eu.heha.conifer
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import eu.heha.conifer.auth.Credentials
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LogFileSink
+import eu.heha.conifer.log.LogTailReader
+import eu.heha.conifer.log.UncaughtError
 import eu.heha.conifer.model.database.AppDatabase
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.datetime.LocalDate
@@ -102,7 +105,29 @@ interface ClipboardController {
     fun copyToClipboard(text: String)
 }
 
-interface LogFileInitializer {
+interface ReportShareController {
+    /**
+     * Offers [text] to whatever this platform sends things with - a share sheet on Android and iOS,
+     * a file in a folder the user can see on desktop - under the file name [fileName].
+     *
+     * The one thing it is asked for is a crash report ([eu.heha.conifer.log.crashReportText]), which
+     * is too long to read on screen and belongs in a mail, a chat or an issue. Implementations write
+     * it out as a file rather than as text in an intent: a share sheet's text is meant for a
+     * sentence, and every target on the other side handles an attachment better than a wall of log.
+     *
+     * Returns whether the platform took it - `false` where there is no sheet to show, no window to
+     * show it from, or no folder to write to, which leaves the caller its clipboard to fall back on.
+     * Called from a background thread, so an implementation that needs the main one asks for it.
+     */
+    fun share(fileName: String, text: String): Boolean
+}
+
+/**
+ * Where this platform keeps the app's log files: it opens them ([createLogFile]), reads them back
+ * ([LogTailReader], for the report about a run that ended badly), and holds the record of the last
+ * run beside them ([createLastRunStore]). One interface, because all three are the same folder.
+ */
+interface LogFileInitializer : LogTailReader {
     /**
      * Opens [fileName] for appending in this platform's log folder, after deleting all but the
      * newest [eu.heha.conifer.log.MAX_LOG_FILES] files already there (see
@@ -113,6 +138,51 @@ interface LogFileInitializer {
      * from starting. Implementations therefore swallow their own failures rather than throwing.
      */
     fun createLogFile(fileName: String): LogFileSink?
+
+    /**
+     * Opens the last-run record ([eu.heha.conifer.log.LAST_RUN_FILE_NAME]) in the same folder as the
+     * log files, creating nothing until it is written to.
+     *
+     * Here rather than in an interface of its own because the record is the log folder's other file:
+     * whoever knows where a log may be written is exactly who knows where this may be, and a
+     * platform that has nowhere for the one has nowhere for the other. Returns `null` on the same
+     * terms as [createLogFile].
+     */
+    fun createLastRunStore(): LastRunStore?
+}
+
+interface LogClosingInitializer {
+    /**
+     * Installs this platform's notice that the app has reached a point where being killed is
+     * ordinary - a desktop process shutting down, a phone app going to the background - and calls
+     * [closeLog] there, [reopenLog] when the app comes back from it.
+     *
+     * That notice is the whole difference between "the run ended" and "the run vanished". A crash
+     * writes itself down ([eu.heha.conifer.log.UncaughtError]), but the endings that leave nothing
+     * behind - killed for memory, killed outright, a native crash below Kotlin, a machine losing
+     * power - can only be told from an ordinary quit by whether the log says goodbye.
+     *
+     * Called on whatever thread the platform gives the notice on, and possibly with very little time
+     * left, so implementations do the least they can: both callbacks write one line and return.
+     */
+    fun installHandler(closeLog: () -> Unit, reopenLog: () -> Unit)
+}
+
+interface UncaughtErrorInitializer {
+    /**
+     * Installs this platform's hook for errors that nothing caught - an exception off the end of any
+     * thread, an unhandled coroutine failure, a throw out of a composable - and calls
+     * [report] with each one.
+     *
+     * Called once at startup. Implementations report and then hand the error on to whatever handled
+     * it before, unchanged: the app is not being rescued here, it is being written down on its way
+     * out (see [eu.heha.conifer.log.logUncaughtError]), and a crash the platform stops reporting is
+     * a crash that stops reaching a crash dialog, stderr or an iOS crash report.
+     *
+     * [report] is called on the thread that failed, at a point where the app may have seconds to
+     * live, so implementations must call it before doing anything slower.
+     */
+    fun installHandler(report: (UncaughtError) -> Unit)
 }
 
 interface BrowserOpener {
