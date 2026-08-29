@@ -3,6 +3,7 @@ package eu.heha.conifer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.heha.conifer.ClipboardController
@@ -10,12 +11,16 @@ import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.Bit
+import eu.heha.conifer.prefs.ComposerDraft
+import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.ui.bits.BitsPaneState
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.datetime.LocalDate
@@ -27,6 +32,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class BitsViewModel(
     private val repository: BitsRepository,
     private val dateTimeFormats: DateTimeFormats,
+    private val draftPrefs: DraftPrefs,
     private val clipboardController: ClipboardController? = null
 ) : ViewModel() {
 
@@ -79,6 +85,83 @@ class BitsViewModel(
                 }
             }
             launch { trackCurrentDateTime() }
+            // Restoring reads what saving would overwrite, so the two share a coroutine and run in
+            // that order — never a save of the empty composer landing on top of the stored draft.
+            launch {
+                restoreDraft()
+                saveDraftAsItChanges()
+            }
+        }
+    }
+
+    /**
+     * Puts the stored draft back into the composer, if there is one — see [DraftPrefs].
+     *
+     * Leaves the composer alone once anything has been typed into it: reading the draft is
+     * asynchronous, and the user is faster than a cold DataStore more often than one would think.
+     * Losing a draft to that is a great deal better than overwriting the sentence they are in the
+     * middle of with one from yesterday.
+     */
+    private suspend fun restoreDraft() = catchingDraftFailure {
+        val draft = draftPrefs.draft() ?: return@catchingDraftFailure
+        if (state.newBitText.isNotEmpty() || editingBit != null) {
+            Napier.d { "not restoring the draft, the composer is already in use" }
+            return@catchingDraftFailure
+        }
+        // An edit whose bit is gone — deleted here or on another device while the app was away —
+        // becomes a new bit, keeping the text. The alternative is throwing away what was written
+        // because of something the user did to a different bit entirely.
+        val edited = draft.editingBitId?.let { repository.getBit(it) }
+        editingBit = edited
+        // What the edit would be restored *to* was not stored: it is the composer the user had
+        // before an edit they may well have forgotten starting. Saving the restored edit therefore
+        // hands the composer back to the clock, as an edit started and finished right now would.
+        composerSelectionBeforeEdit = ComposerSelection().takeIf { edited != null }
+        Napier.d { "restored draft, editing ${edited?.id}" }
+        state = state.copy(
+            newBitText = draft.text,
+            editingBitId = edited?.id,
+            composerDate = draft.composerDate,
+            composerTime = draft.composerTime
+        )
+    }
+
+    /**
+     * Mirrors the composer into [DraftPrefs] from here on, [DRAFT_SAVE_DELAY] after it last
+     * changed — a keystroke is not worth a write of its own, and a pause in typing is exactly when
+     * a background app is likely to be recycled. [collectLatest] is the debounce: every further
+     * change cancels the wait, so only the composer that stood still gets written.
+     *
+     * No `distinctUntilChanged`: [snapshotFlow] is already one, emitting only when what its block
+     * returns is unequal to what it last returned.
+     */
+    private suspend fun saveDraftAsItChanges() {
+        snapshotFlow { state.toDraft() }
+            .collectLatest { draft ->
+                delay(DRAFT_SAVE_DELAY)
+                catchingDraftFailure { draftPrefs.save(draft) }
+            }
+    }
+
+    /**
+     * Runs [block] — reading or writing the draft — and lets it fail no further than a log line.
+     *
+     * The draft is stored by the same machinery as everything else, and that machinery can fail on
+     * its own terms: a preferences file that cannot be read, a browser that will not hand out
+     * `localStorage`, a disk with nothing left on it. The coroutine doing this work is a sibling of
+     * the ones feeding the bits list and the clock, so an exception let through here would cancel
+     * all three and leave a frozen screen behind. Whatever the draft is worth, it is not worth
+     * that: a draft that cannot be read is one the user has lost, and no more than that.
+     */
+    private suspend fun catchingDraftFailure(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            // Not a failure: the debounce cancels the save in flight on every further keystroke,
+            // and swallowing this would leave the coroutine that was cancelled running.
+            throw e
+        } catch (e: Exception) {
+            Napier.e(e) { "the composer's draft could not be read or written" }
         }
     }
 
@@ -147,6 +230,10 @@ class BitsViewModel(
                 repository.add(newBit)
                 submittedBitId = newBit.id
             }
+            // Cleared here rather than left to the debounced save below: the text is a bit now, and
+            // being killed in the half second in between would otherwise bring it back as a draft
+            // of a bit that already exists.
+            catchingDraftFailure { draftPrefs.save(null) }
             // A selection the user made by hand for new bits is kept, so several bits can be
             // entered for the same date and time in a row. An edit's selection was loaded from the
             // bit, so it gives way to whatever the composer was set to before the edit.
@@ -213,6 +300,8 @@ class BitsViewModel(
     /** Leaves edit mode without saving, putting the composer back the way the edit found it. */
     fun cancelEdit() {
         editingBit = null
+        // As in onClickAdd: the text was dropped on purpose, so it should not outlive the decision.
+        viewModelScope.launch { catchingDraftFailure { draftPrefs.save(null) } }
         val restored = composerSelectionBeforeEdit ?: ComposerSelection()
         composerSelectionBeforeEdit = null
         state = state.copy(
@@ -333,6 +422,25 @@ class BitsViewModel(
         }
     }
 }
+
+/**
+ * How long the composer has to stand still before it is written to [DraftPrefs]. Long enough that
+ * typing is not a stream of writes, short enough that a pause counts as saved.
+ */
+private val DRAFT_SAVE_DELAY = 500.milliseconds
+
+/**
+ * The composer as [DraftPrefs] stores it, or null when there is nothing worth storing — blank text
+ * is not a draft, and a date or time on its own is a selection the user can see on screen rather
+ * than something to be restored days later.
+ */
+private fun BitsPaneState.toDraft(): ComposerDraft? =
+    ComposerDraft(
+        text = newBitText,
+        editingBitId = editingBitId,
+        composerDate = composerDate,
+        composerTime = composerTime
+    ).takeIf { newBitText.isNotBlank() }
 
 /**
  * What the composer is set to date a bit with — null in either field meaning "whatever the clock

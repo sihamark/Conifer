@@ -6,10 +6,11 @@ import eu.heha.conifer.CredentialsInitializer
 import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.Platform
-import eu.heha.conifer.SyncPrefsInitializer
+import eu.heha.conifer.PreferencesInitializer
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.net.coniferUserAgent
+import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncCoordinator
 import eu.heha.conifer.ui.BitsViewModel
@@ -26,7 +27,8 @@ import org.koin.dsl.module
  */
 val coreModule = module {
     singleOf(::DatabaseController)
-    single { SyncPrefs(get<SyncPrefsInitializer>().createSyncPrefsStore()) }
+    single { SyncPrefs(get<PreferencesInitializer>().createStore(SyncPrefs.STORE_FILE_NAME)) }
+    single { DraftPrefs(get<PreferencesInitializer>().createStore(DraftPrefs.STORE_FILE_NAME)) }
     single { get<CredentialsInitializer>().createCredentials() }
     singleOf(::BitsRepository)
     // Not singleOf(::SyncCoordinator): its trailing `loginFlow` parameter has a default value
@@ -42,6 +44,7 @@ val coreModule = module {
         BitsViewModel(
             repository = get(),
             dateTimeFormats = get(),
+            draftPrefs = get(),
             clipboardController = getOrNull()
         )
     }
@@ -64,7 +67,7 @@ fun platformModule(
     platform: Platform,
     dateTimeFormats: DateTimeFormats,
     databaseInitializer: DatabaseInitializer,
-    syncPrefsInitializer: SyncPrefsInitializer,
+    preferencesInitializer: PreferencesInitializer,
     credentialsInitializer: CredentialsInitializer,
     browserOpener: BrowserOpener,
     clipboardController: ClipboardController?
@@ -72,7 +75,7 @@ fun platformModule(
     single { platform }
     single { dateTimeFormats }
     single { databaseInitializer }
-    single { syncPrefsInitializer }
+    single { preferencesInitializer }
     single { credentialsInitializer }
     single { browserOpener }
     clipboardController?.let { controller -> single { controller } }

@@ -2,6 +2,13 @@
 
 ## Version 1.2.4
 
+- text you have typed but not yet added is kept. Half a sentence in the field used to be gone the
+  moment the app was recycled in the background, a desktop window was closed or a browser tab was
+  reloaded — it is written down half a second after you stop typing now, and put back the next time
+  the screen opens. The date and time you had picked come back with it, and an edit you were in the
+  middle of comes back as that same edit rather than as a new bit. Adding the bit or cancelling the
+  edit drops the draft, since by then you have said what you wanted done with it. It stays on the
+  device: a draft is not a bit yet, so it is neither synced nor visible anywhere else
 - on macOS the shortcuts have moved off ⌥ and onto **⌃⌥**: ⌃⌥←/→ for the day, ⌃⌥↑/↓ for the time,
   and likewise ⌃⌥Home, ⌃⌥0 and ⌃⌥H. ⌥←/→ is how that platform has moved and selected by word for as
   long as it has existed, and the screen was quietly swallowing it — it belongs to the text field

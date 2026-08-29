@@ -11,7 +11,7 @@ import kotlin.uuid.Uuid
 
 /**
  * Global, non-secret sync state (Nextcloud sync spec §3.2), backed by a Preferences DataStore
- * created per platform via `SyncPrefsInitializer`. Credentials never live here — they go into
+ * created per platform via `PreferencesInitializer`. Credentials never live here — they go into
  * the encrypted secret store (added with the login flow).
  */
 class SyncPrefs(private val store: DataStore<Preferences>) {

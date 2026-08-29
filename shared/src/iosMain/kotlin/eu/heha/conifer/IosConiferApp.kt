@@ -9,7 +9,7 @@ object IosConiferApp {
             platform = IosPlatform,
             dateTimeFormats = IosDateTimeFormats(),
             databaseInitializer = IosDatabaseInitializer,
-            syncPrefsInitializer = IosSyncPrefsInitializer,
+            preferencesInitializer = IosPreferencesInitializer,
             credentialsInitializer = IosCredentialsInitializer,
             browserOpener = IosBrowserOpener,
             clipboardController = IosClipboardController,
