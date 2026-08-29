@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.7
+## Version 1.2.7 (30.08.2026)
 
 - the desktop app keeps the key to your sync password in the macOS Keychain again, as it always
   meant to. The step that trims the release build for packaging had taken out the parts of the
