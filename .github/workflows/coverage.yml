@@ -1,0 +1,67 @@
+name: Coverage
+
+# Runs the JVM test suite and refreshes the coverage badge in .github/badges.
+# Report-only: nothing here fails a build on a coverage number.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The Compose desktop UI tests in jvmTest go through skiko, which wants a display.
+      - name: Ensure a virtual display is available
+        run: command -v xvfb-run || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+
+      - name: Run the JVM tests with coverage
+        run: xvfb-run --auto-servernum ./gradlew :shared:jvmCoverageReport --stacktrace
+
+      - name: Keep the full report as an artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: shared/build/reports/jacoco/jvmCoverageReport/
+          retention-days: 14
+
+      - name: Generate the badges
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          jacoco-csv-file: shared/build/reports/jacoco/jvmCoverageReport/jvmCoverageReport.csv
+          badges-directory: .github/badges
+          generate-coverage-badge: true
+          generate-branches-badge: true
+
+      # Pushes made with the built-in GITHUB_TOKEN do not start another workflow run, so this
+      # cannot loop back into itself.
+      - name: Commit the badges if they moved
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet .github/badges; then
+            echo "Coverage unchanged, nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/badges
+          git commit -m "update coverage badge [skip ci]"
+          git push

@@ -32,13 +32,28 @@
   writing to instead. The sync popover answers to Esc as well now: it had been the one thing on
   screen the key did nothing to at all, neither closing it nor reaching past it. The sync settings
   sheet still wants its own Close button or a tap outside
-- nothing changed about how the day lists behave: the actions that bring them home, and the date
-  steps and skips that move between days, now each say what they do in one state change (`movedTo`,
-  `withDayListsHome`) instead of spelling it out at every call. The view model's side of bringing
-  the
-  days home has tests of its own, and the four view model tests share one main-thread harness —
-  which
-  also closes a teardown race that could fail whichever test ran next
+  - nothing changed about how the day lists behave: the actions that bring them home, and the date
+    steps and skips that move between days, now each say what they do in one state change
+    (`movedTo`, `withDayListsHome`) instead of spelling it out at every call. The view model's
+    side of bringing the days home has tests of its own, and the four view model tests share one
+    main-thread harness — which also closes a teardown race that could fail whichever test ran
+    next
+- test coverage is measured now. `./gradlew :shared:jvmCoverageReport` runs the JVM tests and
+  writes a JaCoCo report covering commonMain and jvmMain together, which is where all but a handful
+  of the tests live anyway. Kover, the usual choice for a Kotlin Multiplatform project, cannot be
+  applied here: it demands the project-level `android` extension that the new KMP library plugin
+  never creates. Generated code is left out of the count — Room's implementations, `BuildInfo`, the
+  Compose resource accessor, the compiler's lambda holders and the previews, none of which anyone
+  writes or would test. It reports and nothing more; no build fails over a number. A GitHub Actions
+  workflow runs the same task on `main` and on every pull request, keeps the full report as an
+  artifact, and refreshes the coverage badges the readme shows
+  - the targets that report cannot see are tested on their own: a second workflow runs the browser
+    tests on the web target and the shared tests on an iOS simulator, and the Android target now
+    runs them too. Enabling `withHostTest` on the Android library gives `commonTest` a run against
+    the stubbed `android.jar` rather than a real JDK, which is where common code reaching for a JVM
+    API that Android has not got would show up — no emulator involved; the instrumented variant is
+    deliberately left off. 126 tests, and nothing that only passes because a desktop JVM was
+    underneath them
 
 ## Version 1.2.6 (22.08.2026)
 
