@@ -9,6 +9,6 @@ import java.io.File
 object JvmPreferencesInitializer : PreferencesInitializer {
     override fun createStore(fileName: String): DataStore<Preferences> =
         PreferenceDataStoreFactory.createWithPath {
-            File(jvmDataFolder(), fileName).toOkioPath()
+            File(jvmDataFolder, fileName).toOkioPath()
         }
 }

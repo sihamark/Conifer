@@ -1,14 +1,14 @@
 package eu.heha.conifer
 
 import eu.heha.conifer.log.LAST_RUN_FILE_NAME
-import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LOG_FILE_PREFIX
+import eu.heha.conifer.log.LastRunStore
 import eu.heha.conifer.log.LogFileSink
 import eu.heha.conifer.log.LogTailReader
 import eu.heha.conifer.log.MAX_LOG_FILES
 import java.io.File
 
-/** Log files land in `logs/` next to the desktop app's `data/` folder (see [jvmDataFolder]). */
+/** Log files land in `logs/` inside the desktop app's own folder (see [jvmDataFolder]). */
 object JvmLogFileInitializer : LogFileInitializer {
     override fun createLogFile(fileName: String): LogFileSink? = runCatching {
         val folder = logFolder()
@@ -23,7 +23,7 @@ object JvmLogFileInitializer : LogFileInitializer {
     override fun readLogTail(fileName: String, maxChars: Int): String? =
         readLogTail(logFolder(), fileName, maxChars)
 
-    private fun logFolder(): File = File(jvmDataFolder(), "logs").also { it.mkdirs() }
+    private fun logFolder(): File = File(jvmDataFolder, "logs").also { it.mkdirs() }
 }
 
 /**
