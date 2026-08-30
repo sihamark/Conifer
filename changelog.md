@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 1.2.6
+
+- a nudged time can be handed back to the clock with a key of its own. Alt+N does for the time what
+  Alt+T does for the day, so a time moved up or down while writing goes back to following the clock
+  without giving up the day you were writing to (Ctrl+Alt+N on a Mac, like the rest of them)
+- today and now are on letters, not only on Home and End. Going back to today was Alt+Home, and a
+  Mac laptop has no Home key — it is fn+← there, which with the shortcut's own keys held down is no
+  shortcut at all. T for today and N for now work on any keyboard; Home and End keep working where
+  there are such keys
+
 ## Version 1.2.5 (16.08.2026)
 
 - sync now follows the app rather than the clock. It used to run every five minutes for as long as

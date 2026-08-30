@@ -52,8 +52,13 @@ launchers.
   composer will stamp on the bit: `↑/↓` the time by one slider slot, `←/→` the day — left is older,
   matching the strip's `reverseLayout` — with `Alt+PageUp/PageDown` as a synonym for the day pair
   (`Alt+←/→` is word-jump on macOS). `Shift+Alt+←/→` skips to the nearest day that has bits,
-  `Alt+Home` returns to today and `Alt+0` shows all days (keeping a chosen time, as the day lists'
-  "All days" does). `Esc` cancels an edit, or failing that resets the selection — the filter, the
+  `Alt+T`/`Alt+Home` return to today, `Alt+N`/`Alt+End` hand the time back to the clock without
+  touching either day (`resetTime`, the time's counterpart of `selectToday`) and `Alt+0` shows all
+  days (keeping a chosen time, as the day lists' "All days" does). Those two have a letter each
+  because Apple's laptops have no Home/End keys at all — there they are `fn`+`←/→`, which with the
+  chord on top is unusable — so, as with `Alt+H`, the letter is the spelling that works on every
+  keyboard and is the one the overlay lists first. `Esc` cancels an edit, or failing that resets the
+  selection — the filter, the
   composer date *and* a nudged time, so one press puts the clock back in charge of both
   (`resetSelection`; a nudged time alone is enough to arm it, see `BitsPaneState.hasSelection`). The
   day keys are clamped to `DAY_LIST_DAYS` so the selected day is always one a day

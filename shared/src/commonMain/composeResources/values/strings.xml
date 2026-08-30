@@ -54,6 +54,7 @@
     <string name="shortcuts_save">Save the bit</string>
     <string name="shortcuts_line_break">Start a new line in it</string>
     <string name="shortcuts_time">Move its time by 15 minutes</string>
+    <string name="shortcuts_now">Back to the current time</string>
     <string name="shortcuts_day">Move its day, one day at a time</string>
     <string name="shortcuts_day_with_bits">Jump to the nearest day that has bits</string>
     <string name="shortcuts_today">Back to today</string>

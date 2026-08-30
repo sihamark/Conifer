@@ -225,6 +225,49 @@ class BitsPaneShortcutsTest {
     }
 
     @Test
+    fun todayAndNowAreOnLettersToo() = runComposeUiTest {
+        var todays = 0
+        var times = 0
+        setContent {
+            ShortcutPane(
+                actions = BitsPaneActions(
+                    onSelectToday = { todays++ },
+                    onResetTime = { times++ }
+                )
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.T) } }
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.N) } }
+
+        assertEquals(1, todays, "Home is missing from every Apple laptop; T has to do the same")
+        assertEquals(1, times, "and N the same as End")
+    }
+
+    @Test
+    fun altEndHandsTheTimeBackToTheClockWithoutTouchingTheDay() = runComposeUiTest {
+        var times = 0
+        var todays = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(
+                    composerDate = LocalDate(2026, 8, 4),
+                    composerTime = LocalTime(9, 30)
+                ),
+                actions = BitsPaneActions(
+                    onResetTime = { times++ },
+                    onSelectToday = { todays++ }
+                )
+            )
+        }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.MoveEnd) } }
+
+        assertEquals(1, times)
+        assertEquals(0, todays, "the time's key is not the day's: yesterday keeps being yesterday")
+    }
+
+    @Test
     fun escapeEndsAnEditBeforeItTouchesTheSelection() = runComposeUiTest {
         var cancelled = 0
         var reset = 0
