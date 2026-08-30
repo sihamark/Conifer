@@ -506,7 +506,13 @@ internal fun NewBitText(
             keyboardActions = KeyboardActions { onClickAdd() },
             // Long bits wrap into the room the window has to spare instead of scrolling sideways
             // through a one-line slot; see [currentComposerMaxLines] for how far that goes.
-            singleLine = maxLines == 1,
+            //
+            // Never a single-line field, not even at one line: it would scroll sideways where a
+            // taller one scrolls down, and the field saves that direction with the scroller it
+            // kept. Turning the screen with the keyboard up restores a one-line field into a
+            // two-line budget, and a scroller restored the wrong way round throws. At one line the
+            // two look the same anyway — same height, same place for the text.
+            singleLine = false,
             maxLines = maxLines,
             modifier = Modifier
                 .fillMaxWidth()

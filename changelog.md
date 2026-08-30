@@ -1,7 +1,13 @@
 # Changelog
 
-## Version 1.2.4
+## Version 1.2.4 (13.08.2026)
 
+- turning the screen with the keyboard up no longer takes the app down with it. The new-bit field is
+  given as many lines as the room left over affords it, so a screen put away lying down and picked
+  up standing has the field come back a different size than it went — and a field of one line
+  scrolls sideways where a taller one scrolls down, so it came back scrolling the wrong way, which
+  was enough to end the run. It scrolls down now whatever its size: a one-line field looks exactly
+  as it did, and a bit too long for the width wraps rather than running off the end
 - opening the keyboard no longer pushes the newest bits out of sight. The composer grows by the
   height of the keyboard and takes that room off the list, and the list stayed where it was — so the
   bits at the bottom, the ones you had just been reading and had just written, slid behind it. The
