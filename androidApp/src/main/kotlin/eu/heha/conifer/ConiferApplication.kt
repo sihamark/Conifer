@@ -17,7 +17,7 @@ class ConiferApplication : Application() {
             reportShareController = AndroidReportShareController(this),
             logFileInitializer = AndroidLogFileInitializer(this),
             uncaughtErrorInitializer = AndroidUncaughtErrorInitializer,
-            logClosingInitializer = AndroidLogClosingInitializer(this)
+            appPresenceInitializer = AndroidAppPresenceInitializer(this)
         )
     }
 }

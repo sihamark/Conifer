@@ -151,21 +151,24 @@ interface LogFileInitializer : LogTailReader {
     fun createLastRunStore(): LastRunStore?
 }
 
-interface LogClosingInitializer {
+interface AppPresenceInitializer {
     /**
-     * Installs this platform's notice that the app has reached a point where being killed is
-     * ordinary - a desktop process shutting down, a phone app going to the background - and calls
-     * [closeLog] there, [reopenLog] when the app comes back from it.
+     * Installs this platform's notice that the app has been put away - a desktop process shutting
+     * down, a phone app going to the background, a browser tab hidden - and calls [onPutAway] there,
+     * [onBroughtBack] when it comes back.
      *
-     * That notice is the whole difference between "the run ended" and "the run vanished". A crash
-     * writes itself down ([eu.heha.conifer.log.UncaughtError]), but the endings that leave nothing
-     * behind - killed for memory, killed outright, a native crash below Kotlin, a machine losing
-     * power - can only be told from an ordinary quit by whether the log says goodbye.
+     * Two things live off this notice. It is the whole difference between "the run ended" and "the
+     * run vanished": a crash writes itself down ([eu.heha.conifer.log.UncaughtError]), but the
+     * endings that leave nothing behind - killed for memory, killed outright, a native crash below
+     * Kotlin, a machine losing power - can only be told from an ordinary quit by whether the app
+     * said goodbye first. And it is what [AppPresence] reports, so that work only worth doing for
+     * somebody who is looking can stop when nobody is.
      *
      * Called on whatever thread the platform gives the notice on, and possibly with very little time
-     * left, so implementations do the least they can: both callbacks write one line and return.
+     * left, so implementations do the least they can: the callbacks write one log line and one small
+     * file ([eu.heha.conifer.log.writeLogClosed]) and return.
      */
-    fun installHandler(closeLog: () -> Unit, reopenLog: () -> Unit)
+    fun installHandler(onPutAway: () -> Unit, onBroughtBack: () -> Unit)
 }
 
 interface UncaughtErrorInitializer {

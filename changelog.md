@@ -1,5 +1,23 @@
 # Changelog
 
+## Version 1.2.5
+
+- sync now follows the app rather than the clock. It used to run every five minutes for as long as
+  the app had a process — which on a phone is long after you have put it away, so it kept syncing,
+  and kept the phone awake for it, for bits nobody was reading. It syncs when you come back to the
+  app instead, and every five minutes while you are in it. Coming back within those five minutes
+  costs nothing, so turning the phone or glancing at another app does not start a round
+- the app no longer says it went away unannounced when it was simply put away. It says goodbye in
+  its log on leaving the screen, but a phone app put away is not stopped — its sync kept writing
+  afterwards, burying the goodbye. That is noted where nothing can write over it now, so the notice
+  means what it says again
+- the bits of the day you left no longer stay standing behind the ones you picked. Opening the app
+  and landing on a day sometimes left the previous list showing through underneath it — a second
+  screenful of bits from other days, sitting still while the real list scrolled over them, until
+  something emptied the list and swept them away. They were the bits on their way out: a bit leaving
+  the list used to fade rather than go, and a whole list leaving at once left one of those fades
+  hanging. A bit that goes is gone at once now, and the ones below it slide up into its place
+
 ## Version 1.2.4 (13.08.2026)
 
 - turning the screen with the keyboard up no longer takes the app down with it. The new-bit field is

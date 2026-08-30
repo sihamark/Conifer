@@ -49,8 +49,53 @@ class LastRunTest {
     }
 
     /**
-     * The marker has to be the *last* line. It is written whenever being killed becomes ordinary - a
-     * phone app going to the background - so a run that came back and then died has lines after it.
+     * A phone app that has been put away keeps its process and goes on logging in the background, so
+     * the goodbye is rarely the last thing in the log. What was said is what counts.
+     */
+    @Test
+    fun saysNothingAboutARunThatSaidGoodbyeAndThenCarriedOnInTheBackground() {
+        val record = LastRunRecord(runningLogFile = LOG_NAME, isLogClosed = true)
+
+        assertNull(lastRunEnd(record, READER))
+    }
+
+    /** Coming back takes the goodbye back: being killed while on screen means something again. */
+    @Test
+    fun reportsARunThatCameBackAndThenStoppedForGood() {
+        val record = LastRunRecord(runningLogFile = LOG_NAME, isLogClosed = false)
+
+        assertIs<LastRunEnd.Vanished>(lastRunEnd(record, READER))
+    }
+
+    /** Saying goodbye and taking it back leaves the rest of the record alone. */
+    @Test
+    fun notesTheGoodbyeWithoutLosingTheRestOfTheRecord() {
+        val store = InMemoryLastRunStore()
+        writeLastRun(store, LastRunRecord(runningLogFile = LOG_NAME, vanish = VANISH))
+
+        writeLogClosed(store, true)
+        val closed = readLastRun(store)
+        writeLogClosed(store, false)
+        val reopened = readLastRun(store)
+
+        assertEquals(LastRunRecord(LOG_NAME, null, VANISH, isLogClosed = true), closed)
+        assertEquals(LastRunRecord(LOG_NAME, null, VANISH, isLogClosed = false), reopened)
+    }
+
+    /** Nothing to note it in yet - the first start writes the record, and nothing precedes that. */
+    @Test
+    fun leavesAnEmptyStoreEmptyWhenTheLogCloses() {
+        val store = InMemoryLastRunStore()
+
+        writeLogClosed(store, true)
+
+        assertNull(readLastRun(store))
+        assertEquals(0, store.writes)
+    }
+
+    /**
+     * The fallback, for a record written before the goodbye was noted in it: the marker as the
+     * *last* line, which a run that came back and carried on no longer has.
      */
     @Test
     fun reportsARunThatCameBackAndThenStopped() {
@@ -117,6 +162,8 @@ class LastRunTest {
 
     private companion object {
         const val LOG_NAME = "conifer-2026-07-28_143201.log"
+
+        val VANISH = VanishedRun(logFile = LOG_NAME, startedAtEpochMillis = 0)
 
         /** A log that stops mid-sentence, which is what a killed run leaves behind. */
         val READER = LogTailReader { _, _ -> "12:00:00.000 I  pull: 3 buckets changed\n" }

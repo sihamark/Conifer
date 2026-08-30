@@ -44,7 +44,7 @@ fun main() = application {
         reportShareController = JvmReportShareController,
         logFileInitializer = JvmLogFileInitializer,
         uncaughtErrorInitializer = JvmUncaughtErrorInitializer,
-        logClosingInitializer = JvmLogClosingInitializer
+        appPresenceInitializer = JvmAppPresenceInitializer
     )
     Window(
         onCloseRequest = ::exitApplication,

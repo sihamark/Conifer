@@ -30,7 +30,7 @@ interface LogFileSink {
 
 /**
  * The last line of a log file whose run ended the way runs are supposed to - see
- * [eu.heha.conifer.LogClosingInitializer] for when that is, and [lastRunEndedQuietly] for what its
+ * [eu.heha.conifer.AppPresenceInitializer] for when that is, and [lastRunEndedQuietly] for what its
  * absence is then taken to mean.
  */
 const val LOG_CLOSED_MARKER = "--- log closed ---"
