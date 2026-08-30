@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.5
+## Version 1.2.5 (16.08.2026)
 
 - sync now follows the app rather than the clock. It used to run every five minutes for as long as
   the app had a process — which on a phone is long after you have put it away, so it kept syncing,
@@ -22,6 +22,11 @@
   *Dismiss* had been pushed off the bottom of the window and it could neither be sent nor got rid
   of. It now shows as much of the error as the window can spare; the report still carries the whole
   of it
+- picking an exact time no longer takes the desktop app down with it. The dialog opens on its typed
+  fields wherever there is a keyboard, which on the desktop is always, and in the packaged app those
+  fields could not run at all: the step that trims the app for release had rewritten Material's own
+  code into something the Java runtime refused. It is left alone now, and the app is no larger for
+  it
 - the shortcuts card no longer offers a *debug crash* button. It is there to end the run on purpose,
   which is how the notice above gets tried out, and it now shows up only in a build being worked on
 

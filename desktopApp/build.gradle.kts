@@ -40,6 +40,11 @@ compose.desktop {
         mainClass = "eu.heha.conifer.MainKt"
 
         buildTypes.release.proguard {
+            // Shrink, but do not optimize: the optimizer rewrote material3's TimePickerTextField
+            // into bytecode the JVM verifier refuses, so the release build died with a VerifyError
+            // whenever the exact-time picker was opened. Shrinking is what keeps the size down and
+            // what the rules below are for; the optimizer only ever bought a little more of it.
+            optimize.set(false)
             configurationFiles.from(project.file("compose-desktop.pro"))
         }
 
