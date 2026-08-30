@@ -108,8 +108,8 @@ Run them with:
 
 ### Releasing
 
-A release is a version tag, the artifacts built from it, and an upload to Nextcloud. The building is
-done by GitHub Actions; dating, tagging and uploading are still done by hand.
+A release is a version tag. Everything the tag sets off is done by GitHub Actions; dating the
+changelog, pushing the tag and pressing Publish are what is left by hand.
 
 1. **Check the version.** `versionName` and `versionCode` in
    [buildSrc/src/main/kotlin/AppConfig.kt](./buildSrc/src/main/kotlin/AppConfig.kt) are bumped when
@@ -137,64 +137,67 @@ done by GitHub Actions; dating, tagging and uploading are still done by hand.
 
    Pushing it starts the [Release artifacts](./.github/workflows/release.yml) workflow, which builds
    the desktop distributable on a macOS, a Windows and a Linux runner (there is no cross-compiling —
-   each desktop is built on its own machine) and the signed Android APK, AAB and ProGuard mapping on
-   a fourth. Each job leaves its output as a downloadable workflow artifact, kept for 90 days.
+   each desktop is built on its own machine) and the signed Android APK and AAB, the ProGuard
+   mapping and a debug APK on a fourth. Each job leaves its output as a downloadable workflow
+   artifact, kept for 90 days.
 
-   A last job then draws the three desktop zips and the APK into a **draft** release page, taking
-   this version's changelog entry as the release notes — which is why step 2 comes before the tag: a
-   version with no `## Version` heading in the changelog fails that job rather than producing a page
-   with nothing written on it. The draft stays invisible until you publish it in step 6. The AAB and
-   the mapping are deliberately left off the page: a bundle cannot be installed from a download, and
-   the mapping is the file that turns the obfuscated build back into readable names.
+   A last job then does two things with them. It draws the three desktop zips and the release APK
+   into a **draft** release page, taking this version's changelog entry as the release notes — which
+   is why step 2 comes before the tag: a version with no `## Version` heading in the changelog fails
+   that job rather than producing a page with nothing written on it. And it uploads *everything*,
+   the AAB, the mapping and the debug APK included, to the Nextcloud folder the
+   `NEXTCLOUD_REMOTE_FOLDER` secret names, through the same `uploadReleasesToNextcloud` task a
+   release has always used. What the page leaves
+   off it leaves off deliberately: a bundle cannot be installed from a download, the mapping is the
+   file that turns the obfuscated build back into readable names, and the debug APK is signed with a
+   throwaway key the runner generates on the spot, so it will not install over a build from anywhere
+   else.
 
-   Signing the Android build needs three repository secrets — `ANDROID_STORE_PASSWORD`,
-   `ANDROID_KEY_PASSWORD` and `ANDROID_KEY_ALIAS`. The keystore itself is in the repository; only
-   those three are not.
+   Seven repository secrets are needed. `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_PASSWORD` and
+   `ANDROID_KEY_ALIAS` sign the Android build — the keystore itself is in the repository, only those
+   three are not — and `NEXTCLOUD_URL`, `NEXTCLOUD_USERNAME`, `NEXTCLOUD_PASSWORD` and
+   `NEXTCLOUD_REMOTE_FOLDER` reach the upload, the password best being a Nextcloud *app password*
+   rather than the account one. Each is written into a git-ignored properties file for the build and
+   deleted again afterwards. The remote folder is a secret like the others and required like them:
+   `NextcloudConfig` would otherwise fall back to `Conifer/<versionName>`, which is not where these
+   releases go, and an upload to the wrong folder succeeds without complaining.
 
    Not built by the workflow: iOS, which needs an Xcode signing identity of its own, and the web
    bundle.
 
-4. **Collect the artifacts into `./releases`.** The folder is git-ignored and the upload in the next
-   step sends *everything* under it, so clear out what an earlier version left behind first.
-   Download the workflow artifacts and unpack them so the folder looks like this:
-
-   ```
-   releases/
-     android/   Conifer.1.2.7.12.apk, .aab, .mapping.txt
-     desktop/   Conifer.1.2.7.macos.zip, .windows.zip, .linux.zip
-   ```
-
-   The same layout can be produced locally, which is what to do when the CI is not an option — with
-   the caveat that a local run only builds the desktop for the machine it runs on:
-
-   ```shell
-   ./gradlew :desktopApp:buildDesktopRelease :androidApp:prepareAndroidRelease
-   ```
-
-   `prepareAndroidRelease` reads the signing passwords from a git-ignored
-   `androidApp/keystore/keystore.properties`. Add `:androidApp:prepareAndroidDebug` for a debug APK
-   alongside the release one; the workflow does not build one.
-
-5. **Upload.** Copy [nextcloud.properties.example](./nextcloud.properties.example) to
-   `nextcloud.properties` (git-ignored) and fill in the server, the account and an app password.
-   Then:
-
-   ```shell
-   ./gradlew uploadReleasesToNextcloud
-   ```
-
-   Everything under `./releases` goes up over WebDAV, mirroring the folder structure, into
-   `Conifer/<versionName>` unless `nextcloud.remoteFolder` says otherwise. APKs are wrapped in a
-   `.zip` on the way, because Android browsers refuse to download a raw `.apk`.
-
-6. **Publish the release page.** Open the draft under
+4. **Publish the release page.** Open the draft under
    [Releases](https://github.com/sihamark/Conifer/releases), read the changelog entry as it renders,
    check the four files are attached, and press Publish.
 
 To try the whole chain out without tagging anything, run the workflow by hand from the Actions tab
 (**Release artifacts** → *Run workflow*). It builds everything the same way and assembles the same
-page from `AppConfig`'s version, titled *rehearsal* and saying so in the notes. A draft creates no
-tag, so nothing is left behind but the draft itself — delete it when you have seen what you needed.
+page from `AppConfig`'s version, titled *rehearsal* and saying so in the notes. It does not upload:
+a rehearsal has no business writing into the folder of a version nobody has released. A draft
+creates no tag, so nothing is left behind but the draft itself — delete it when you have seen what
+you needed.
+
+#### Building a release by hand
+
+When the CI is not an option, the same artifacts can be produced locally — with the caveat that a
+local run only builds the desktop for the machine it runs on:
+
+```shell
+./gradlew :desktopApp:buildDesktopRelease :androidApp:prepareAndroidRelease :androidApp:prepareAndroidDebug
+```
+
+That fills `./releases` with a `desktop/` and an `android/` folder, reading the signing passwords
+from a git-ignored `androidApp/keystore/keystore.properties`. To upload it, copy
+[nextcloud.properties.example](./nextcloud.properties.example) to `nextcloud.properties` (also
+git-ignored), fill in the server, the account and an app password, and run:
+
+```shell
+./gradlew uploadReleasesToNextcloud
+```
+
+Everything under `./releases` goes up over WebDAV, mirroring the folder structure, into
+`Conifer/<versionName>` unless `nextcloud.remoteFolder` says otherwise. APKs are wrapped in a `.zip`
+on the way, because Android browsers refuse to download a raw `.apk`. The folder is git-ignored and
+the upload sends *everything* under it, so clear out what an earlier version left behind first.
 
 ---
 

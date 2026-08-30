@@ -1,5 +1,27 @@
 # Changelog
 
+## Version 1.2.8
+
+- a release now reaches Nextcloud without anyone carrying it there. The workflow already built
+  everything a release is made of and left it as artifacts to be downloaded and uploaded again by
+  hand; it now puts the whole set — the signed APK and the bundle, the ProGuard mapping, the three
+  desktop distributables — into the shared folder itself, through the same
+  `uploadReleasesToNextcloud` task that has always done it, rather than a second copy of the same
+  WebDAV calls written out in the workflow. The task knows things worth not knowing twice: that an
+  APK has to be wrapped in a zip on the way, because a browser on Android refuses to download a raw
+  one, and that the folder to put it all in is spelled out rather than derived — the fallback it
+  would otherwise use names a folder these releases have never gone to, and an upload to the wrong
+  place is the one kind that succeeds quietly
+  - a debug APK is built alongside the signed one and goes up with the rest, which the workflow had
+    not built at all. It stays off the public release page, and not only for tidiness: nothing
+    declares a signing key for the debug build, so it is signed with the throwaway one the build
+    tools invent when they find none — a different key on every runner, which Android will refuse
+    to install over a build from anywhere else. As something to hand someone from the shared folder
+    it is fine; as a public download it would be a stream of failed installs
+  - a rehearsal uploads nothing. It builds and assembles its page as before, but writing its files
+    into the folder of a version nobody has released, indistinguishable from the real ones once
+    they arrive, is not something to find out about later
+
 ## Version 1.2.7 (30.08.2026)
 
 - the desktop app keeps the key to your sync password in the macOS Keychain again, as it always

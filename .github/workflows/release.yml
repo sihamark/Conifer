@@ -1,10 +1,11 @@
 name: Release artifacts
 
 # Builds what a release consists of: the desktop distributable for each of the three desktops, and
-# the signed Android APK and AAB. Every job leaves its output as a workflow artifact, and a last job
-# draws the three desktop zips and the APK together into a draft release page carrying this version's
-# changelog entry. Nothing becomes public on its own: the draft is published by hand, and the AAB and
-# the mapping stay artifacts for the release process to collect (see "Releasing" in the readme).
+# the signed Android APK and AAB, the mapping and a debug APK. Every job leaves its output as a
+# workflow artifact, and a last job then does two things with them: it draws the three desktop zips
+# and the release APK into a draft release page carrying this version's changelog entry, and it
+# uploads all of it to Nextcloud. Nothing becomes public on its own - the draft is published by hand
+# (see "Releasing" in the readme).
 #
 # Runs on a pushed version tag - bare and three-part, the way every tag in this repository is
 # written - which is the point in the release process where the version is already in AppConfig
@@ -125,9 +126,13 @@ jobs:
           PROPS
 
       # prepareAndroidRelease assembles and bundles, then copies the APK, the AAB and the ProGuard
-      # mapping into ./releases/android under the version from AppConfig.
-      - name: Build the signed release
-        run: ./gradlew :androidApp:prepareAndroidRelease --stacktrace
+      # mapping into ./releases/android under the version from AppConfig. prepareAndroidDebug adds a
+      # debug APK beside them, named with a -D. It is signed with the debug keystore AGP generates
+      # when there isn't one, which on a runner is made fresh every time - so a debug build from
+      # here will not install over one built anywhere else. It goes to Nextcloud, never to the
+      # release page.
+      - name: Build the signed release and a debug APK
+        run: ./gradlew :androidApp:prepareAndroidRelease :androidApp:prepareAndroidDebug --stacktrace
 
       # Whatever the outcome, the file holding the passwords does not outlive the job's build steps.
       - name: Remove the keystore properties
@@ -145,13 +150,16 @@ jobs:
       # if-no-files-found only fires when nothing at all arrived, so a copy that silently dropped
       # two of the three files still went green. Name what has to be there. This runs after the
       # upload on purpose: a partial artifact is worth having when it is time to work out why.
-      - name: Check all three artifacts are there
+      - name: Check all four artifacts are there
         run: |
           ls -lh releases/android/
           missing=""
-          for ext in apk aab mapping.txt; do
+          for ext in aab mapping.txt; do
             ls releases/android/*."$ext" >/dev/null 2>&1 || missing="$missing .$ext"
           done
+          # The debug APK carries a -D before the version code; the release one is the other.
+          ls releases/android/*-D.*.apk >/dev/null 2>&1 || missing="$missing debug .apk"
+          ls releases/android/*.apk 2>/dev/null | grep -qv -- '-D\.' || missing="$missing release .apk"
           if [ -n "$missing" ]; then
             echo "Missing from releases/android:$missing" >&2
             exit 1
@@ -257,12 +265,15 @@ jobs:
       - name: Gather the files the page offers
         run: |
           mkdir -p page
-          find artifacts -type f \( -name '*.zip' -o -name '*.apk' \) -exec cp {} page/ \;
+          find artifacts -type f \
+            \( -name '*.zip' -o \( -name '*.apk' -a ! -name '*-D.*.apk' \) \) \
+            -exec cp {} page/ \;
           ls -lh page/
 
-          # Three desktops and one APK. The AAB and the mapping stay behind as workflow artifacts:
-          # a bundle cannot be installed from a download, and the mapping is the file that turns the
-          # obfuscated build back into readable names.
+          # Three desktops and one APK. What is left off the page still goes to Nextcloud below: a
+          # bundle cannot be installed from a download, the mapping is the file that turns the
+          # obfuscated build back into readable names, and the debug APK is signed with a key this
+          # runner made up on the spot - offering it publicly would only produce install failures.
           count=$(find page -type f | wc -l)
           if [ "$count" -ne 4 ]; then
             echo "Expected 4 files for the release page, found $count." >&2
@@ -299,3 +310,68 @@ jobs:
             --draft \
             --title "$title" \
             --notes-file notes.md
+
+      # Nextcloud gets all of it, not only what the page offers. The upload goes through the same
+      # Gradle task the release process has always used rather than a handful of PUTs written out
+      # again here: it is the task that knows an APK has to be wrapped in a zip on the way, because
+      # Android browsers refuse to download a raw .apk, and a second copy of that rule would drift
+      # from the first without anyone noticing until a download failed on someone's phone.
+      #
+      # A rehearsal skips all of this. It would otherwise write its files into the folder of a
+      # version that has not been released, with nothing to tell them apart from the real ones.
+      - name: Put the artifacts back under ./releases
+        if: steps.version.outputs.rehearsal == 'false'
+        run: |
+          mkdir -p releases/android releases/desktop
+          cp artifacts/android/* releases/android/
+          cp artifacts/desktop-*/* releases/desktop/
+          find releases -type f | sort
+
+      - name: Set up Java for the upload task
+        if: steps.version.outputs.rehearsal == 'false'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle for the upload task
+        if: steps.version.outputs.rehearsal == 'false'
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Upload everything to Nextcloud
+        if: steps.version.outputs.rehearsal == 'false'
+        env:
+          NEXTCLOUD_URL: ${{ secrets.NEXTCLOUD_URL }}
+          NEXTCLOUD_USERNAME: ${{ secrets.NEXTCLOUD_USERNAME }}
+          NEXTCLOUD_PASSWORD: ${{ secrets.NEXTCLOUD_PASSWORD }}
+          NEXTCLOUD_REMOTE_FOLDER: ${{ secrets.NEXTCLOUD_REMOTE_FOLDER }}
+        run: |
+          # NextcloudConfig.loadOrNull returns nothing when the file is absent and the task then
+          # fails with its own message, which would not say which secret was the missing one.
+          missing=""
+          [ -n "$NEXTCLOUD_URL" ] || missing="$missing NEXTCLOUD_URL"
+          [ -n "$NEXTCLOUD_USERNAME" ] || missing="$missing NEXTCLOUD_USERNAME"
+          [ -n "$NEXTCLOUD_PASSWORD" ] || missing="$missing NEXTCLOUD_PASSWORD"
+          [ -n "$NEXTCLOUD_REMOTE_FOLDER" ] || missing="$missing NEXTCLOUD_REMOTE_FOLDER"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing" >&2
+            exit 1
+          fi
+
+          # remoteFolder is a secret like the rest, and a required one. NextcloudConfig treats it
+          # as optional and falls back to Conifer/<versionName>, which is not where these releases
+          # have ever gone - and an upload to the wrong folder succeeds quietly, which is the one
+          # failure nobody would notice. So it is checked above rather than defaulted here.
+          cat > nextcloud.properties <<PROPS
+          nextcloud.url=$NEXTCLOUD_URL
+          nextcloud.username=$NEXTCLOUD_USERNAME
+          nextcloud.password=$NEXTCLOUD_PASSWORD
+          nextcloud.remoteFolder=$NEXTCLOUD_REMOTE_FOLDER
+          PROPS
+
+          ./gradlew uploadReleasesToNextcloud --stacktrace
+
+      # As with the keystore: the file holding the password does not outlive the job.
+      - name: Remove the Nextcloud credentials
+        if: always()
+        run: rm -f nextcloud.properties
