@@ -17,6 +17,13 @@
   something emptied the list and swept them away. They were the bits on their way out: a bit leaving
   the list used to fade rather than go, and a whole list leaving at once left one of those fades
   hanging. A bit that goes is gone at once now, and the ones below it slide up into its place
+- the notice about the last run's error no longer takes over the screen. An error is as long as it
+  cares to be, and the notice grew to fit whatever it was handed — until *Share report* and
+  *Dismiss* had been pushed off the bottom of the window and it could neither be sent nor got rid
+  of. It now shows as much of the error as the window can spare; the report still carries the whole
+  of it
+- the shortcuts card no longer offers a *debug crash* button. It is there to end the run on purpose,
+  which is how the notice above gets tried out, and it now shows up only in a build being worked on
 
 ## Version 1.2.4 (13.08.2026)
 

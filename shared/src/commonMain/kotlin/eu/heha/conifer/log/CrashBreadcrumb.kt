@@ -26,6 +26,7 @@ data class CrashBreadcrumb(
     val origin: String,
     /** The exception's class, `null` where the platform reported the crash in words instead. */
     val type: String? = null,
+    /** The exception's message, cut to [MAX_CRASH_MESSAGE_CHARS]. */
     val message: String? = null,
     /** The top [MAX_CRASH_FRAMES] stack frames, which is as much as names the fault. */
     val frames: List<String> = emptyList(),
@@ -43,6 +44,19 @@ data class CrashBreadcrumb(
 internal const val MAX_CRASH_FRAMES = 8
 
 /**
+ * How much of the message the breadcrumb keeps. A message is usually a sentence, but nothing obliges
+ * it to be one - a `VerifyError` arrives with kilobytes of stackmap dump - and the same two reasons
+ * that bound the frames bound this: it is written by a process with seconds to live, and it is read
+ * back at the next start by the one that has to say what happened.
+ *
+ * Enough to name the fault, which is all the banner and the report's header line want of it. The
+ * whole of it is in the log file either way, since the crash goes through `Napier.e` with the
+ * throwable and [FileAntilog] writes the trace out in full - and so it is in the report, which
+ * carries that log.
+ */
+internal const val MAX_CRASH_MESSAGE_CHARS = 500
+
+/**
  * The breadcrumb for [error], with the same redaction every log line goes through ([redactSecrets]):
  * an exception message quoting the request that failed is as capable of carrying a token here as it
  * is there, and this one is built to be handed to somebody else.
@@ -58,10 +72,17 @@ internal fun crashBreadcrumb(
     origin = error.origin,
     type = error.throwable?.let { it::class.simpleName },
     // The platform's own wording where there is no throwable to ask (see UncaughtError.message).
-    message = (error.throwable?.message ?: error.message)?.let { redactSecrets(it) },
+    // Redacted before it is cut, so that a secret cannot survive by being half of one.
+    message = (error.throwable?.message ?: error.message)
+        ?.let { redactSecrets(it) }
+        ?.cutTo(MAX_CRASH_MESSAGE_CHARS),
     frames = error.throwable?.topFrames().orEmpty(),
     logFile = logFile,
 )
+
+/** As much of this as [max] allows, saying so where the rest was left behind. */
+private fun String.cutTo(max: Int): String =
+    if (length <= max) this else take(max).trimEnd() + "…"
 
 /**
  * The top frames of this throwable's trace, as text.

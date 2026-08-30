@@ -75,6 +75,34 @@ class CrashBreadcrumbTest {
     }
 
     /**
+     * A message is under no obligation to be a sentence: a `VerifyError` arrives with kilobytes of
+     * stackmap dump. The same reasoning that bounds the frames bounds this - the write happens on a
+     * thread that is on its way out, and what it writes is read back at the next start - and the
+     * whole of it is in the log file regardless.
+     */
+    @Test
+    fun keepsOnlyTheBeginningOfAMessageWithNoEndToIt() {
+        val dump = "locals: { 'androidx/compose/ui/Modifier', ".repeat(200)
+        val breadcrumb = crashBreadcrumb(
+            error = UncaughtError(origin = "main", throwable = IllegalStateException(dump)),
+            at = AT,
+            logFile = null,
+            buildLabel = BUILD_LABEL,
+        )
+
+        val message = breadcrumb.message.orEmpty()
+        assertTrue(
+            message.length <= MAX_CRASH_MESSAGE_CHARS + 1,
+            "expected at most $MAX_CRASH_MESSAGE_CHARS characters, got ${message.length}"
+        )
+        // Cut, and saying so: a message that merely stopped would read as one that ended.
+        assertTrue(message.endsWith("…"), "the cut is not marked: $message")
+        assertContains(message, "androidx/compose/ui/Modifier")
+        // A message that fits is left exactly as it is.
+        assertEquals("boom", breadcrumb().message)
+    }
+
+    /**
      * The breadcrumb is built to be handed to somebody else, so it goes through the same redaction as
      * every log line ([redactSecrets]) - an exception message quoting the request that failed can
      * carry a token here just as well as there.

@@ -92,6 +92,9 @@ fun BitsPane(
     // How tall the text field may grow; also not part of BitsLayout, since it is the height left
     // over that decides it and not how the panes are arranged. Overridable like the layout.
     composerMaxLines: Int = currentComposerMaxLines(),
+    // How much of the last run's error the banner shows, decided by the same leftover height and for
+    // the same reason: every line it takes is one the bits behind it lose. Overridable like the rest.
+    runEndMaxLines: Int = currentRunEndMaxLines(),
     // Whether this device is one that comes with a keyboard, which decides whether the shortcuts are
     // advertised — see Platform.hasHardwareKeyboard, which is what BitsRoute passes. Defaulted rather
     // than injected here so that a preview or a test is a plain composable with nothing behind it,
@@ -102,7 +105,11 @@ fun BitsPane(
     // rather than of this screen — see ShortcutChord, and BitsRoute for who decides it. Defaulted to
     // the answer that holds everywhere but Apple's platforms, for the same reason as above: a
     // preview or a test is a plain composable with nothing behind it.
-    shortcutChord: ShortcutChord = ShortcutChord.Alt
+    shortcutChord: ShortcutChord = ShortcutChord.Alt,
+    // Whether this is a build somebody is working on, which decides whether the shortcuts card
+    // carries the tools for breaking the app on purpose — see ShortcutsOverlay. Defaulted to the
+    // quieter answer for the same reason as the two above.
+    isDebug: Boolean = false
 ) {
     Scaffold(contentWindowInsets = WindowInsets()) { innerPadding ->
         // Somewhere for the key events to go when the text field hasn't got them. A key event is
@@ -190,6 +197,7 @@ fun BitsPane(
                 syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 composerMaxLines = composerMaxLines,
+                runEndMaxLines = runEndMaxLines,
                 focusRequester = focusRequester,
                 isKeyboardPresent = isKeyboardPresent,
                 onClickShortcuts = { isShortcutsOverlayOpen = true },
@@ -222,7 +230,8 @@ fun BitsPane(
         if (isShortcutsOverlayOpen) {
             ShortcutsOverlay(
                 chord = shortcutChord,
-                onDismiss = { isShortcutsOverlayOpen = false }
+                onDismiss = { isShortcutsOverlayOpen = false },
+                isDebug = isDebug
             )
         }
     }
@@ -239,6 +248,7 @@ private fun MainPane(
     syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     composerMaxLines: Int,
+    runEndMaxLines: Int,
     focusRequester: FocusRequester,
     isKeyboardPresent: Boolean,
     onClickShortcuts: () -> Unit,
@@ -271,6 +281,7 @@ private fun MainPane(
                 syncPresentation = syncPresentation,
                 isTopBarVisible = isTopBarVisible,
                 paneInset = paneInset,
+                runEndMaxLines = runEndMaxLines,
                 // Beside the composer the bits reach the bottom of the window themselves, so they
                 // have to keep clear of the keyboard; stacked, the composer under them does it.
                 modifier = if (isSideBySide) {
@@ -379,6 +390,7 @@ private fun Bits(
     syncPresentation: SyncPresentation,
     isTopBarVisible: Boolean,
     paneInset: Dp,
+    runEndMaxLines: Int,
     isKeyboardPresent: Boolean,
     onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
@@ -413,6 +425,7 @@ private fun Bits(
         RunEndPromptItem(
             state = state,
             actions = actions,
+            summaryMaxLines = runEndMaxLines,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = crashPromptTopInset, start = paneInset, end = paneInset)
@@ -592,24 +605,64 @@ private fun currentSyncPresentation(): SyncPresentation {
  *   phone with an open keyboard falls into is sized for the composer at its tallest;
  * - above it — a maximized desktop or web window, a tablet, an unfolded foldable — more.
  *
- * The window's own size class is deliberately not used: it is measured edge to edge, so it reads
- * the same with the keyboard covering half the screen as without, which is the one moment the room
- * is scarce. The breakpoints behind it are still the right places to change behaviour, so they are
- * applied to the remaining height instead.
+ * See [currentAvailableHeight] for why the window's own size class is not what decides it.
  *
  * A bit is usually one short line, so most of the time none of this is visible; it only decides how
  * much of a long one can be read back before submitting it.
  */
 @Composable
 private fun currentComposerMaxLines(): Int {
-    val density = LocalDensity.current
-    val imeHeight = with(density) { WindowInsets.ime.getBottom(density).toDp() }
-    val availableHeight = LocalWindowInfo.current.containerDpSize.height - imeHeight
+    val availableHeight = currentAvailableHeight()
     return when {
         availableHeight < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp -> 1
         availableHeight < WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND.dp -> 2
         else -> 5
     }
+}
+
+/**
+ * How many lines of the last run's error the banner shows before it ellipses — the same budget as
+ * the composer's, over the same height and for the same reason: the banner floats over the top of
+ * the bits (see `Bits`), so every line it takes is one the bits behind it lose. An error is under no
+ * obligation to be short — the one that prompted this was a `VerifyError` naming every local in the
+ * frame — and unbounded it would push its own buttons off the bottom of the window.
+ *
+ * - under the medium breakpoint (a phone in landscape, a small foldable cover) [RUN_END_SUMMARY_MIN_LINES],
+ *   which is the type and the beginning of the message;
+ * - up to the expanded breakpoint (a phone held upright, a small desktop window) four;
+ * - above it — a maximized desktop or web window, a tablet — eight, still well short of half the
+ *   window.
+ *
+ * Cutting it costs nothing: what the banner is for is handing the whole thing over, and the report
+ * carries the error in full along with the log around it (see [eu.heha.conifer.log.runEndReportText]).
+ */
+@Composable
+private fun currentRunEndMaxLines(): Int {
+    val availableHeight = currentAvailableHeight()
+    return when {
+        availableHeight < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp ->
+            RUN_END_SUMMARY_MIN_LINES
+
+        availableHeight < WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND.dp -> 4
+        else -> 8
+    }
+}
+
+/**
+ * The height the screen's contents actually have to share: the window minus whatever the keyboard
+ * has taken.
+ *
+ * The window's own size class is deliberately not used: it is measured edge to edge, so it reads the
+ * same with the keyboard covering half the screen as without, which is the one moment the room is
+ * scarce. The breakpoints behind it are still the right places to change behaviour, so they are
+ * applied to this instead — see [currentComposerMaxLines] and [currentRunEndMaxLines], which is
+ * every decision made this way and the reason it is measured in one place.
+ */
+@Composable
+private fun currentAvailableHeight(): Dp {
+    val density = LocalDensity.current
+    val imeHeight = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+    return LocalWindowInfo.current.containerDpSize.height - imeHeight
 }
 
 @Composable

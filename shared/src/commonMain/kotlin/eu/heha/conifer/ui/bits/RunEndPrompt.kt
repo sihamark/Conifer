@@ -17,10 +17,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.run_end_action_copy
@@ -42,6 +40,13 @@ import org.jetbrains.compose.resources.stringResource
 internal fun RunEndPromptItem(
     state: BitsPaneState,
     actions: BitsPaneActions,
+    /**
+     * How many lines of the error to show; see `currentRunEndMaxLines`, which is what decides it
+     * in the app. Defaulted to the count the shortest window gets, for the same reason
+     * [BitsAndComposer]'s field defaults to one line: a preview or a test is a plain composable with
+     * nothing behind it, and the tightest layout is the one worth having by default.
+     */
+    summaryMaxLines: Int = RUN_END_SUMMARY_MIN_LINES,
     modifier: Modifier = Modifier
 ) {
     val lastRunEnd = state.lastRunEnd
@@ -51,6 +56,7 @@ internal fun RunEndPromptItem(
                 lastRunEnd = lastRunEnd,
                 isCopyPossible = state.isCopyPossible,
                 isSharePossible = state.isSharePossible,
+                summaryMaxLines = summaryMaxLines,
                 actions = actions
             )
         }
@@ -69,12 +75,18 @@ internal fun RunEndPromptItem(
  *
  * Shaped like [PermissionPrompt] - the screen's other banner - but in the error colours and with no
  * dashed frame: this one reports something that already went wrong rather than asking for something.
+ *
+ * Its height is bounded by [summaryMaxLines] and nothing else, because an error is as long as it
+ * feels like being - a `VerifyError` names every local in the frame - and a banner tall enough to
+ * push its own buttons off the window is a notice with no way out of it. What is cut here is not
+ * lost: the report carries the whole of it.
  */
 @Composable
 private fun RunEndPrompt(
     lastRunEnd: LastRunEnd,
     isCopyPossible: Boolean,
     isSharePossible: Boolean,
+    summaryMaxLines: Int,
     actions: BitsPaneActions
 ) {
     val formats = LocalDateTimeFormats.current
@@ -113,25 +125,37 @@ private fun RunEndPrompt(
                     is LastRunEnd.Vanished -> stringResource(Res.string.run_end_summary_vanished)
                 }
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    // Aligned to the first line rather than centred: the error below it is as many
+                    // lines as it is allowed, and an icon halfway down a paragraph belongs to
+                    // nothing in particular.
+                    verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(text = "⚠️", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(lead) }
-                            appendLine()
-                            // The moment in the reader's own spelling, what happened in the
-                            // machine's: one half is for them, the other for whoever gets the report.
-                            moment?.let {
-                                append(formats.dateAndTimeOf(it))
-                                append(" · ")
-                            }
-                            append(summary)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        // The sentence that says what the banner is keeps its own line, out of the
+                        // error's budget: cut to make room for a stack dump, it would be the one
+                        // line the reader actually needed.
+                        Text(
+                            text = lead,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // The moment in the reader's own spelling, what happened in the machine's:
+                        // one half is for them, the other for whoever gets the report.
+                        Text(
+                            text = buildString {
+                                moment?.let {
+                                    append(formats.dateAndTimeOf(it))
+                                    append(" · ")
+                                }
+                                append(summary)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = summaryMaxLines,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 Text(
                     text = stringResource(Res.string.run_end_note),
@@ -166,6 +190,12 @@ private fun RunEndPrompt(
 /** `IllegalStateException: boom`, or as much of it as the crash actually came with. */
 private val CrashBreadcrumb.summary: String?
     get() = listOfNotNull(type, message).joinToString(": ").takeIf { it.isNotEmpty() }
+
+/**
+ * The fewest lines of the error the banner ever shows - what the shortest windows get, and what it
+ * falls back to where nobody says. Two, because the type alone can take one of them.
+ */
+internal const val RUN_END_SUMMARY_MIN_LINES = 2
 
 /** The same width the other banner is drawn to; see [PermissionPrompt]. */
 private val PROMPT_MAX_WIDTH = 480.dp

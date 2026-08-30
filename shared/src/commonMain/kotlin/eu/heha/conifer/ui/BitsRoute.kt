@@ -2,6 +2,7 @@ package eu.heha.conifer.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import eu.heha.conifer.ConiferApp
 import eu.heha.conifer.PermissionHandler
 import eu.heha.conifer.Platform
 import eu.heha.conifer.ui.bits.BitsPane
@@ -68,6 +69,9 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             ShortcutChord.CtrlAlt
         } else {
             ShortcutChord.Alt
-        }
+        },
+        // Read here rather than deeper down for the same reason as the two above: the screen below
+        // takes plain arguments and asks nothing of the app it is running in.
+        isDebug = ConiferApp.isDebug
     )
 }
