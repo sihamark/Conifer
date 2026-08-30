@@ -198,4 +198,11 @@ away, not the full spec mitigation (which needs a UI to ask the user).
 
 - **NextCloud uploader** — Gradle task uploads release artifacts via WebDAV, zipping APKs since
   Android browsers block raw `.apk` downloads (`buildSrc/.../UploadToNextcloud.kt`).
-- **Desktop release packaging** — `:desktopApp:buildDesktopRelease` into `./releases`.
+- **Desktop release packaging** — `:desktopApp:buildDesktopRelease` into `./releases`. The release
+  build shrinks with ProGuard (`desktopApp/compose-desktop.pro`, optimization off); every rule in
+  that file is there because something is reached by *name* rather than by reference — Room's
+  generated implementation, Ktor's ServiceLoader engine, and JNA, whose native dispatch looks its
+  methods up through JNI, so shrinking it left KSafe unable to load the OS secret store and quietly
+  keeping its key in a file. Anything reached reflectively or from native code needs a rule here,
+  and
+  only a packaged build shows the difference.

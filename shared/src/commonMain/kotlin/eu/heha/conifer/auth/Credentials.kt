@@ -37,4 +37,15 @@ class Credentials(private val ksafe: KSafe) {
      */
     val keyCustodyDescription: String
         get() = ksafe.protectionInfo.custody
+
+    /**
+     * KSafe's own stable codes for how custody came out the way it did - `jvm_os_vault_unavailable`
+     * and the like (see [eu.anifantakis.lib.ksafe.KSafeProtectionInfo.notes]). Logged beside
+     * [keyCustodyDescription] when the key is not securely stored: that one says where the key
+     * ended up, these say why, and a log carrying both can be read without the machine in front of
+     * you - which is how a release build turned out to be reaching for a Keychain it could not
+     * load rather than running on a host without one.
+     */
+    val keyCustodyNotes: List<String>
+        get() = ksafe.protectionInfo.notes
 }
