@@ -1,5 +1,17 @@
 # Changelog
 
+## Version 1.2.9
+
+- a test run says how it went on its own page. All four suites — the JVM one, the browser, the
+  Android host tests and the iOS simulator — end by adding up the JUnit XML Gradle leaves behind and
+  writing the count onto the run summary, where a green tick used to be the whole story. A failing
+  run names what failed and with what message, which is the case worth not having to open a log for,
+  and the JVM job prints the coverage the badge is made from beside its count. It is written as a
+  script the four jobs share rather than an action fetched from elsewhere, which would have wanted
+  permission to write checks for something that only needs to write text. Nothing here fails a
+  build: the step that runs the tests has already done that, and it runs whatever the outcome —
+  a summary that appears only when everything passed would be missing exactly when it is wanted
+
 ## Version 1.2.8 (30.08.2026)
 
 - a release now reaches Nextcloud without anyone carrying it there. The workflow already built
@@ -11,13 +23,20 @@
   APK has to be wrapped in a zip on the way, because a browser on Android refuses to download a raw
   one, and that the folder to put it all in is spelled out rather than derived — the fallback it
   would otherwise use names a folder these releases have never gone to, and an upload to the wrong
-  place is the one kind that succeeds quietly
+  place is the one kind that succeeds quietlywhere
   - a debug APK is built alongside the signed one and goes up with the rest, which the workflow had
     not built at all. It stays off the public release page, and not only for tidiness: nothing
     declares a signing key for the debug build, so it is signed with the throwaway one the build
     tools invent when they find none — a different key on every runner, which Android will refuse
     to install over a build from anywhere else. As something to hand someone from the shared folder
     it is fine; as a public download it would be a stream of failed installs
+  - the run summarises itself when it is done: what is sitting in the draft waiting to be
+    published, and what went to the shared folder. Names only — nothing about where that folder is
+    or which server holds it, since a run page on a public repository is readable by anyone. The
+    address, the login, the password and the path are all held as secrets and masked wherever they
+    would otherwise be printed, the path in its percent-encoded spelling as well, which is how it
+    appears in the URL a failed upload reports and is not the spelling the masking would have
+    caught
   - a rehearsal uploads nothing. It builds and assembles its page as before, but writing its files
     into the folder of a version nobody has released, indistinguishable from the real ones once
     they arrive, is not something to find out about later

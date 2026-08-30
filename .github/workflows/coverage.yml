@@ -35,6 +35,16 @@ jobs:
       - name: Run the JVM tests with coverage
         run: xvfb-run --auto-servernum ./gradlew :shared:jvmCoverageReport --stacktrace
 
+      # Reporting only, and always: a suite that failed is exactly the run whose summary is worth
+      # having, and a step that only runs on success would skip it.
+      - name: Say how many tests ran
+        if: always()
+        run: |
+          python3 .github/scripts/test-summary.py \
+            --title "JVM tests" \
+            --results shared/build/test-results/jvmTest \
+            --jacoco-csv shared/build/reports/jacoco/jvmCoverageReport/jvmCoverageReport.csv
+
       - name: Keep the full report as an artifact
         if: always()
         uses: actions/upload-artifact@v7

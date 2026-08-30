@@ -43,6 +43,15 @@ jobs:
       - name: Run the browser tests
         run: ./gradlew :shared:wasmJsBrowserTest --stacktrace
 
+      # Reporting only, and always: a suite that failed is exactly the run whose summary is worth
+      # having, and a step that only runs on success would skip it.
+      - name: Say how many tests ran
+        if: always()
+        run: |
+          python3 .github/scripts/test-summary.py \
+            --title "Web (wasmJs)" \
+            --results shared/build/test-results/wasmJsBrowserTest
+
       - name: Keep the test results if they failed
         if: failure()
         uses: actions/upload-artifact@v7
@@ -70,6 +79,15 @@ jobs:
 
       - name: Run the host tests
         run: ./gradlew :shared:testAndroidHostTest --stacktrace
+
+      # Reporting only, and always: a suite that failed is exactly the run whose summary is worth
+      # having, and a step that only runs on success would skip it.
+      - name: Say how many tests ran
+        if: always()
+        run: |
+          python3 .github/scripts/test-summary.py \
+            --title "Android (host)" \
+            --results shared/build/test-results/testAndroidHostTest
 
       - name: Keep the test results if they failed
         if: failure()
@@ -107,6 +125,15 @@ jobs:
 
       - name: Run the simulator tests
         run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace
+
+      # Reporting only, and always: a suite that failed is exactly the run whose summary is worth
+      # having, and a step that only runs on success would skip it.
+      - name: Say how many tests ran
+        if: always()
+        run: |
+          python3 .github/scripts/test-summary.py \
+            --title "iOS (simulator)" \
+            --results shared/build/test-results/iosSimulatorArm64Test
 
       - name: Keep the test results if they failed
         if: failure()

@@ -358,6 +358,14 @@ jobs:
             exit 1
           fi
 
+          # Redaction is by exact substring, and the upload task prints the folder percent-encoded
+          # when a request fails - App%20Ideas where the secret says App Ideas - which would not be
+          # matched and so would not be masked. Mask that spelling of it too, before anything runs.
+          encoded=$(python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe='/'))" "$NEXTCLOUD_REMOTE_FOLDER")
+          if [ "$encoded" != "$NEXTCLOUD_REMOTE_FOLDER" ]; then
+            echo "::add-mask::$encoded"
+          fi
+
           # remoteFolder is a secret like the rest, and a required one. NextcloudConfig treats it
           # as optional and falls back to Conifer/<versionName>, which is not where these releases
           # have ever gone - and an upload to the wrong folder succeeds quietly, which is the one
@@ -370,6 +378,29 @@ jobs:
           PROPS
 
           ./gradlew uploadReleasesToNextcloud --stacktrace
+
+      # What the run page says when it is over: what is waiting to be published and what went to the
+      # shared folder. Names only - no link, and nothing naming the folder or the server it is on.
+      # A run page on a public repository is readable by anyone, so what is written here is written
+      # for someone who already knows where the files went and only wants to see that they did.
+      - name: Say what went where
+        if: steps.version.outputs.rehearsal == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "## Conifer $VERSION"
+            echo
+            echo "### Waiting as a draft release"
+            echo
+            for file in page/*; do
+              echo "- \`$(basename "$file")\`"
+            done
+            echo
+            echo "### Uploaded to Nextcloud"
+            echo
+            find releases -type f | sort | sed 's|^releases/|- `|; s|$|`|'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # As with the keystore: the file holding the password does not outlive the job.
       - name: Remove the Nextcloud credentials

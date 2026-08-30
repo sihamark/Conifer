@@ -97,6 +97,10 @@ verify database migrations against the exported schemas in [shared/schemas](./sh
 
 Run them with:
 
+On CI each of the four suites adds its count to the run summary through
+[.github/scripts/test-summary.py](./.github/scripts/test-summary.py), naming what failed when
+something did, so a run can be read without opening a log.
+
 ```shell
 # all targets (JVM, iOS simulator, wasmJs browser)
 ./gradlew :shared:allTests
@@ -161,6 +165,12 @@ changelog, pushing the tag and pressing Publish are what is left by hand.
    deleted again afterwards. The remote folder is a secret like the others and required like them:
    `NextcloudConfig` would otherwise fall back to `Conifer/<versionName>`, which is not where these
    releases go, and an upload to the wrong folder succeeds without complaining.
+
+   All four Nextcloud secrets stay masked in everything the run prints, which on a public repository
+   is readable by anyone — the folder path in its percent-encoded spelling too, which redaction
+   would otherwise miss in the URL an upload failure prints. The run summary lists what the draft is
+   offering and what went to the shared folder by name, and says nothing about where that folder is
+   or which server holds it.
 
    Not built by the workflow: iOS, which needs an Xcode signing identity of its own, and the web
    bundle.
