@@ -2,6 +2,11 @@
 
 ## Version 1.2.4
 
+- opening the keyboard no longer pushes the newest bits out of sight. The composer grows by the
+  height of the keyboard and takes that room off the list, and the list stayed where it was — so the
+  bits at the bottom, the ones you had just been reading and had just written, slid behind it. The
+  list now moves with it: whatever was at the bottom edge stays at the bottom edge, and putting the
+  keyboard away hands the room back instead of leaving you a screenful further on
 - the app now says when the last run ended badly. A crash was already being written down, into a
   file nobody was ever told about — the next start now says so on screen instead: when it happened
   and what the error was. It also notices the endings that leave nothing behind at all, where the
