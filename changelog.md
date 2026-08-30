@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.8
+## Version 1.2.8 (30.08.2026)
 
 - a release now reaches Nextcloud without anyone carrying it there. The workflow already built
   everything a release is made of and left it as artifacts to be downloaded and uploaded again by
