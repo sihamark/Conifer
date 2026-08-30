@@ -32,18 +32,12 @@ enum class BitsLayout {
 }
 
 /**
- * How many days back the day lists reach — the day strip and the [DaySidebar] both offer this many,
- * today included, and the day hotkeys stay inside the same window: a day neither list can show is
- * one the user would be filtered to with nothing on screen saying so.
+ * How many days a page of either day list holds — the day strip and the [DaySidebar] both start
+ * with this many, today included, and both ask for another page of the same size as they are
+ * scrolled towards their oldest day (see [BitsPaneState.listedDayCount]). It is a step, not a
+ * limit: the lists reach as far back as they are scrolled.
  */
-// TODO(no fixed day window): both day lists should instead grow as they are scrolled, loading older
-//  days on demand and reaching as far back as there are bits. This number is the only thing making
-//  that a limit rather than a starting point, and three things lean on it being one: the two lists
-//  count items from it, and the day hotkeys clamp to it (dateShiftedBy, nearestDateWithBits) so a
-//  selected day is always one a list can mark. Once the lists reach everywhere, the clamp on the
-//  plain step should become "as far back as there are bits" and the clamp on the skip should go
-//  altogether — the day it lands on is by definition a day with bits, so a list will have it.
-internal const val DAY_LIST_DAYS = 30
+internal const val DAY_LIST_PAGE = 30
 
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
@@ -71,12 +65,35 @@ data class BitsPaneState(
     val composerDate: LocalDate? = null,
     /** The time the composer will stamp on the bit being written; null uses [currentTime]. */
     val composerTime: LocalTime? = null,
+    /**
+     * How many days back the day lists currently reach, today included — a whole number of
+     * [DAY_LIST_PAGE] pages, grown by [BitsPaneActions.onLoadOlderDays] as either list is scrolled
+     * towards its oldest day, and by the day hotkeys when they land past it.
+     *
+     * The days themselves are not loaded from anywhere: every bit is in [bitsByDate] already, and
+     * a day is a date and whatever of those bits falls on it. This is only how far the lists have
+     * been asked to count back, which is what keeps a list that nobody scrolled from composing a
+     * decade of empty days.
+     */
+    val listedDayCount: Int = DAY_LIST_PAGE,
     val today: LocalDate = now().date,
     val currentTime: LocalTime = now().time,
     val bitsByDate: List<DatedBits> = emptyList(),
     val editingBitId: String? = null,
     /** One-shot request to scroll the list to this bit after it was added or edited. */
-    val scrollToBitId: String? = null
+    val scrollToBitId: String? = null,
+    /**
+     * One-shot request to take the day lists back to today — bumped by the actions that mean "out
+     * of wherever I was": Esc, "All days", the key for today.
+     *
+     * A counter rather than a flag or a date, because the request has to survive being made twice
+     * in a row and, more to the point, being made when it changes nothing else: Esc pressed with
+     * nothing selected leaves every other field exactly as it was, and a day list scrolled a year
+     * into the past is precisely the state in which that press has something to do. Nothing
+     * acknowledges it; each new number is a new request, and a list that was already home simply
+     * scrolls nowhere.
+     */
+    val scrollDaysHomeRequest: Int = 0
 ) {
     /**
      * The time a bit added right now would carry: the user's pick, or the clock while they haven't
@@ -90,9 +107,20 @@ data class BitsPaneState(
      */
     val effectiveDate: LocalDate get() = composerDate ?: today
 
-    /** The oldest day either day list offers, and so the oldest the day hotkeys reach. */
-    val oldestListedDate: LocalDate
-        get() = LocalDate.fromEpochDays(today.toEpochDays() - (DAY_LIST_DAYS - 1))
+    /**
+     * The oldest day a plain day step can reach: as far back as there is writing, and never less
+     * than the first page, so the step still walks a fresh install's month of empty days.
+     *
+     * The lists themselves stop nowhere — they grow for as long as they are scrolled — but a key
+     * held down is not scrolling, and the days before the first bit are days there is nothing to
+     * say about. A skip has no such bound at all ([nearestDateWithBits]): it only ever lands on a
+     * day that has bits.
+     */
+    val oldestReachableDate: LocalDate
+        get() = minOf(
+            bitsByDate.minOfOrNull { it.date } ?: today,
+            LocalDate.fromEpochDays(today.toEpochDays() - (DAY_LIST_PAGE - 1))
+        )
 
     /**
      * Whether the screen is pointed at anything other than every day and now — a day being looked
@@ -104,23 +132,27 @@ data class BitsPaneState(
 }
 
 /**
- * The day [days] steps away from the one being written to, clamped to the days the day lists offer:
- * the arithmetic behind Alt+←/→, kept out of the view model for the same reason
+ * The day [days] steps away from the one being written to, clamped to [oldestReachableDate] and
+ * today: the arithmetic behind Alt+←/→, kept out of the view model for the same reason
  * [shiftedByTimeSlots] is — it is the part worth testing on its own.
+ *
+ * Landing past the oldest day the lists show is fine — the view model has them count back far
+ * enough to mark it (see [eu.heha.conifer.ui.BitsViewModel.shiftDate]) — so what is clamped here
+ * is how far a held key walks, not what a list can show.
  */
 internal fun BitsPaneState.dateShiftedBy(days: Int): LocalDate =
     LocalDate.fromEpochDays(effectiveDate.toEpochDays() + days)
-        .coerceIn(oldestListedDate, today)
+        .coerceIn(oldestReachableDate, today)
 
 /**
- * The nearest day in that direction that has bits, or null when there is none within reach — the
- * arithmetic behind Shift+Alt+←/→. Clamped to the same days as [dateShiftedBy], so a day with bits
- * older than the lists go is left to the unfiltered list to show.
+ * The nearest day in that direction that has bits, or null when there is none — the arithmetic
+ * behind Shift+Alt+←/→. Unbounded into the past: the day it lands on has bits by definition, and
+ * the day lists grow to reach whichever day that is.
  */
 internal fun BitsPaneState.nearestDateWithBits(days: Int): LocalDate? {
     val dates = bitsByDate.map { it.date }
     return if (days < 0) {
-        dates.filter { it < effectiveDate && it >= oldestListedDate }.maxOrNull()
+        dates.filter { it < effectiveDate }.maxOrNull()
     } else {
         dates.filter { it > effectiveDate && it <= today }.minOrNull()
     }
@@ -133,7 +165,13 @@ class BitsPaneActions(
     val onClickDate: (LocalDate) -> Unit = {},
     val onClickAllDays: () -> Unit = {},
     /**
-     * Steps the day being written to by days, clamped to what the day lists show. Unlike
+     * Asks for another [DAY_LIST_PAGE] days at the old end of the day lists — what either list
+     * calls as it is scrolled within sight of its oldest day, and it may call it again as soon as
+     * the days it got are on screen too.
+     */
+    val onLoadOlderDays: () -> Unit = {},
+    /**
+     * Steps the day being written to by days, as far back as there is writing. Unlike
      * [onClickDate] — which is the day lists', and says "look at this day *and* write to it" — this
      * is the keyboard's, and only pulls the list along if it was already filtered to a day.
      */

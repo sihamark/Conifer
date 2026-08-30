@@ -27,6 +27,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickRequestPermission = { permissionHandler?.requestPermission() },
             onClickDate = model::selectDate,
             onClickAllDays = model::selectAllDays,
+            onLoadOlderDays = model::loadOlderDays,
             onShiftDate = model::shiftDate,
             onSkipToDateWithBits = model::skipToDateWithBits,
             onSelectToday = model::selectToday,

@@ -13,22 +13,14 @@ import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.InMemoryPreferencesStore
 import eu.heha.conifer.prefs.SyncPrefs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExecutorCoroutineDispatcher
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import java.nio.file.Files
-import java.util.concurrent.Executors
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -43,38 +35,16 @@ import kotlin.time.Duration.Companion.seconds
  * Real dispatchers throughout (the database is a real Room one), so every assertion waits for the
  * state it is about rather than assuming a turn of the scheduler has been enough - see [awaitTrue].
  *
- * Each test body runs on [Dispatchers.Main], because that is where the screen calls the ViewModel
- * from and the ViewModel is written for exactly that: `state = state.copy(...)` reads and then
- * writes, so a call arriving on a second thread can drop what a coroutine of its own wrote in
- * between — the typed text, in the one case where this test noticed. Nothing in the app makes that
- * call off the main thread; a test that did was only testing something the app never does.
+ * Each test body runs on [Dispatchers.Main] — [BitsViewModelTestCase]'s stand-in for it — because
+ * that is where the screen calls the ViewModel from and the ViewModel is written for exactly that:
+ * `state = state.copy(...)` reads and then writes, so a call arriving on a second thread can drop
+ * what a coroutine of its own wrote in between — the typed text, in the one case where this test
+ * noticed. Nothing in the app makes that call off the main thread; a test that did was only testing
+ * something the app never does.
  */
-@OptIn(ExperimentalCoroutinesApi::class) // Dispatchers.setMain/resetMain
-class BitsViewModelDraftTest {
+class BitsViewModelDraftTest : BitsViewModelTestCase() {
 
     private val draftPrefs = DraftPrefs(InMemoryPreferencesStore())
-    private lateinit var mainThread: ExecutorCoroutineDispatcher
-
-    @BeforeTest
-    fun setUp() {
-        // viewModelScope needs a Main dispatcher, and a single thread of its own is the honest
-        // stand-in for one: that is what the real main thread is.
-        //
-        // Not Dispatchers.Unconfined, which cannot serve as Main at all — it refuses to dispatch
-        // (only `yield` may ask it to), while the dispatcher setMain installs never asks whether
-        // dispatching is needed and simply does. Every database query here hops to Dispatchers.IO
-        // and hops back, and that hop back is a dispatch: it throws on a pool thread, where no
-        // test catches it, and kotlinx-coroutines-test reports it against whichever test runs next.
-        mainThread = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "test-main") }
-            .asCoroutineDispatcher()
-        Dispatchers.setMain(mainThread)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-        mainThread.close()
-    }
 
     @Test
     fun restoresTheDraftIntoTheComposer() = runBlocking(Dispatchers.Main) {
@@ -166,10 +136,12 @@ class BitsViewModelDraftTest {
         assertEquals("left alone", repository.getBit(bit.id)?.text)
     }
 
-    private fun viewModel(repository: BitsRepository = repository()) = BitsViewModel(
-        repository = repository,
-        dateTimeFormats = IsoDateTimeFormats,
-        draftPrefs = draftPrefs
+    private fun viewModel(repository: BitsRepository = repository()) = track(
+        BitsViewModel(
+            repository = repository,
+            dateTimeFormats = IsoDateTimeFormats,
+            draftPrefs = draftPrefs
+        )
     )
 
     private fun repository(): BitsRepository {

@@ -5,8 +5,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -17,8 +23,13 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.dp
+import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.DatedBits
+import eu.heha.conifer.ui.SyncPaneActions
+import eu.heha.conifer.ui.SyncPresentation
+import eu.heha.conifer.ui.SyncUiState
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -336,6 +347,156 @@ class BitsPaneShortcutsTest {
     }
 
     @Test
+    fun escapeBringsTheDaysHomeWithNothingSelectedAtAll() = runComposeUiTest {
+        // The case the whole request exists for: a day list scrolled a year back with nothing
+        // selected leaves Esc nothing to clear, and is exactly when a way home is wanted. The press
+        // has to reach the view model even though no other field will move — see BitsViewModel's
+        // withDayListsHome and BitsViewModelDayListsHomeTest for the other half of this.
+        var reset = 0
+        setContent {
+            ShortcutPane(actions = BitsPaneActions(onResetSelection = { reset++ }))
+        }
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, reset)
+    }
+
+    @Test
+    fun escapeClosesTheComposerPickerBeforeItTouchesTheSelection() = runComposeUiTest {
+        // One press, one thing: the picker is what is visibly open, so it goes first and the
+        // selection behind it is left alone.
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = DAY),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+        onNodeWithContentDescription("Show date picker").performClick()
+        waitForIdle()
+        onNodeWithContentDescription("Hide date picker").assertExists()
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+        waitForIdle()
+
+        onNodeWithContentDescription("Show date picker").assertExists()
+        assertEquals(0, reset, "the picker and the selection both went on one press")
+    }
+
+    @Test
+    fun theNextEscapeAfterThePickerIsClosedGoesOnToTheSelection() = runComposeUiTest {
+        // And the chain keeps its order: each press takes the next thing out.
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = DAY),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+        onNodeWithContentDescription("Show date picker").performClick()
+        waitForIdle()
+
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+        waitForIdle()
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, reset)
+    }
+
+    /**
+     * Whether a dialog open over the screen keeps Esc to itself — which is what decides whether the
+     * screen's own Esc has to know about it. A dialog is a separate window and takes focus with it
+     * (as [ShortcutsOverlay]'s KDoc says of the overlay it deliberately is *not*), so the press
+     * should never reach the pane's handler at all. Every one of these arranges a selection Esc
+     * would otherwise clear, so a press that did reach the pane would be visible as a reset.
+     */
+    @Test
+    fun theTimePickerDialogKeepsEscapeToItself() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = LocalDate(2026, 8, 4)),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+        onNodeWithContentDescription("Show date picker").performClick()
+        onNodeWithContentDescription("Pick an exact time").performClick()
+        waitForIdle()
+
+        // At the dialog's own root, which is where the user's press goes: opening one adds a second
+        // root to the tree, and that on its own is most of the answer.
+        rootShowing("Cancel").performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(0, reset, "the dialog's Esc also reached the screen behind it")
+    }
+
+    @Test
+    fun theBitMenuKeepsEscapeToItself() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = DAY, bitsByDate = oneBit()),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+        onNodeWithContentDescription("Bit options").performClick()
+        waitForIdle()
+
+        rootShowing("Delete").performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(0, reset, "the menu's Esc also reached the screen behind it")
+    }
+
+    @Test
+    fun theDeleteDialogKeepsEscapeToItself() = runComposeUiTest {
+        var reset = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = DAY, bitsByDate = oneBit()),
+                actions = BitsPaneActions(onResetSelection = { reset++ })
+            )
+        }
+        onNodeWithContentDescription("Bit options").performClick()
+        onNodeWithText("Delete").performClick()
+        waitForIdle()
+
+        rootShowing("Delete bit?").performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(0, reset, "the dialog's Esc also reached the screen behind it")
+    }
+
+    /**
+     * Sync's popover, which is a `DropdownMenu` and so a layer of its own like the rest of them: Esc
+     * closes it, and the screen behind it stays exactly where it was.
+     *
+     * Both halves matter. The press has to do something — an open popover with a key that does
+     * nothing is the state this test was written for — and it has to do only that one thing, which is
+     * what the screen's own Esc chain is for everywhere else (see [handleShortcut]).
+     */
+    @Test
+    fun theSyncPopoverClosesOnEscapeAndLeavesTheScreenAlone() = runComposeUiTest {
+        var reset = 0
+        var closedSync = 0
+        setContent {
+            ShortcutPane(
+                state = BitsPaneState(filterDate = DAY),
+                actions = BitsPaneActions(onResetSelection = { reset++ }),
+                syncState = SyncUiState(isSyncOpen = true),
+                syncActions = SyncPaneActions(onCloseSync = { closedSync++ }),
+                syncPresentation = SyncPresentation.Sheet
+            )
+        }
+        waitForIdle()
+        onAllNodes(isRoot()).assertCountEquals(2)
+
+        rootShowing("Sync").performKeyInput { pressKey(Key.Escape) }
+
+        assertEquals(1, closedSync, "Esc over the open popover did nothing")
+        assertEquals(0, reset, "the popover's Esc also reached the screen behind it")
+    }
+
+    @Test
     fun theShortcutsStillWorkAfterSomethingElseOnTheScreenHasTakenFocus() = runComposeUiTest {
         val stepped = mutableListOf<Int>()
         setContent {
@@ -374,6 +535,27 @@ class BitsPaneShortcutsTest {
 
         onNodeWithText("Keyboard shortcuts").assertExists()
     }
+
+    /**
+     * The root of whichever window is showing [text] — a dialog or a menu is a window of its own, so
+     * a press meant for it is sent there rather than at [onRoot], which by then is ambiguous.
+     */
+    private fun ComposeUiTest.rootShowing(text: String) =
+        onAllNodes(isRoot()).filterToOne(hasAnyDescendant(hasText(text)))
+
+    /** One day holding one bit, which is all the bit menu and its dialog need. */
+    private fun oneBit(): List<DatedBits> = listOf(
+        DatedBits(
+            date = DAY,
+            bits = listOf(
+                Bit(
+                    id = "a-bit",
+                    text = "a bit to be got at",
+                    date = LocalDateTime(DAY, LocalTime(8, 0))
+                )
+            )
+        )
+    )
 
     @Test
     fun theListNamesEveryShortcutTheScreenHandles() = runComposeUiTest {
@@ -554,12 +736,15 @@ private fun ShortcutPane(
     actions: BitsPaneActions = BitsPaneActions(),
     composerMaxLines: Int = 1,
     hasHardwareKeyboard: Boolean = false,
-    shortcutChord: ShortcutChord = ShortcutChord.Alt
+    shortcutChord: ShortcutChord = ShortcutChord.Alt,
+    syncState: SyncUiState = SyncUiState(),
+    syncActions: SyncPaneActions = SyncPaneActions(),
+    syncPresentation: SyncPresentation = SyncPresentation.Sheet
 ) {
     BitsPane(
         state = state.copy(
             bitsByDate = state.bitsByDate.ifEmpty {
-                listOf(DatedBits(date = LocalDate(2026, 8, 5), bits = emptyList()))
+                listOf(DatedBits(date = DAY, bits = emptyList()))
             }
         ),
         actions = actions,
@@ -567,6 +752,12 @@ private fun ShortcutPane(
         doesImeHideTopBar = false,
         composerMaxLines = composerMaxLines,
         hasHardwareKeyboard = hasHardwareKeyboard,
-        shortcutChord = shortcutChord
+        shortcutChord = shortcutChord,
+        syncState = syncState,
+        syncActions = syncActions,
+        syncPresentation = syncPresentation
     )
 }
+
+/** The day the [ShortcutPane]'s own list is on, so a bit put on it is a bit the screen shows. */
+private val DAY = LocalDate(2026, 8, 5)

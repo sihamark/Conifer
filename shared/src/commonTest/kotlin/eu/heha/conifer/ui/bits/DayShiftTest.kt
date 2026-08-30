@@ -39,11 +39,25 @@ class DayShiftTest {
     }
 
     @Test
-    fun theOldestDayReachableIsTheOldestOneTheListsShow() {
-        val oldest = LocalDate.fromEpochDays(TODAY.toEpochDays() - (DAY_LIST_DAYS - 1))
+    fun withNothingWrittenAStepWalksTheFirstPageAndStaysOnIt() {
+        val oldest = LocalDate.fromEpochDays(TODAY.toEpochDays() - (DAY_LIST_PAGE - 1))
+
         assertEquals(oldest, stateOn(TODAY, composerDate = oldest).dateShiftedBy(-1))
-        // Holding the key down walks to that day and then stays on it rather than off the strip.
+        // Holding the key down walks to that day and then stays on it.
         assertEquals(oldest, stateOn(TODAY, composerDate = oldest).dateShiftedBy(-40))
+    }
+
+    @Test
+    fun aStepReachesAsFarBackAsThereIsWriting() {
+        // The lists grow for as long as they are scrolled, so what bounds a held key is the
+        // writing, not the page the lists happen to have counted back to.
+        val firstBit = LocalDate.fromEpochDays(TODAY.toEpochDays() - 400)
+        val state = stateOn(TODAY, datesWithBits = listOf(firstBit, LocalDate(2026, 8, 4)))
+
+        assertEquals(firstBit, state.dateShiftedBy(-400))
+        assertEquals(firstBit, state.dateShiftedBy(-500))
+        // And no further: the days before the first bit are days with nothing to say about them.
+        assertEquals(firstBit, state.copy(composerDate = firstBit).dateShiftedBy(-1))
     }
 
     @Test
@@ -93,12 +107,15 @@ class DayShiftTest {
     }
 
     @Test
-    fun aSkipStaysInsideTheDaysTheListsShow() {
-        // A day with bits from before the lists reach is left to the unfiltered list to show; see
-        // the TODO on DAY_LIST_DAYS.
-        val tooOld = LocalDate.fromEpochDays(TODAY.toEpochDays() - DAY_LIST_DAYS)
+    fun aSkipReachesADayOlderThanTheListsHaveCountedBackTo() {
+        // The day it lands on has bits by definition, and the lists are grown to reach it, so
+        // there is nothing for the skip itself to stop at.
+        val longAgo = LocalDate.fromEpochDays(TODAY.toEpochDays() - (DAY_LIST_PAGE * 3L))
 
-        assertNull(stateOn(TODAY, datesWithBits = listOf(tooOld)).nearestDateWithBits(-1))
+        assertEquals(
+            longAgo,
+            stateOn(TODAY, datesWithBits = listOf(longAgo)).nearestDateWithBits(-1)
+        )
     }
 
     private fun stateOn(

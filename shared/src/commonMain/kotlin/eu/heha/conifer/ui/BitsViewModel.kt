@@ -16,6 +16,7 @@ import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.prefs.ComposerDraft
 import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.ui.bits.BitsPaneState
+import eu.heha.conifer.ui.bits.DAY_LIST_PAGE
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
@@ -348,6 +349,18 @@ class BitsViewModel(
     }
 
     /**
+     * Has the day lists count back another page of days — what either of them asks for as it is
+     * scrolled to within sight of its oldest day. There is nothing to load: the days are dates,
+     * and the bits that fall on them are in the state already (see [BitsPaneState.listedDayCount]).
+     * So this is deliberately unbounded — a list scrolled far enough reaches any day in the past,
+     * whether or not anything was ever written on it, because a day one wants to backdate a bit to
+     * is exactly a day with nothing on it yet.
+     */
+    fun loadOlderDays() {
+        state = state.copy(listedDayCount = state.listedDayCount + DAY_LIST_PAGE)
+    }
+
+    /**
      * Steps the day by [days] — the keyboard's way in, where the day lists have [selectDate].
      *
      * It counts from the day being written to ([BitsPaneState.effectiveDate]) rather than from the
@@ -357,9 +370,12 @@ class BitsViewModel(
      * and having the bits jump about underneath would be no help. While a bit is being edited, that
      * makes this the date counterpart of the time nudge — it re-dates the bit in hand.
      *
-     * Clamped to the days both day lists offer, so the selection is always one of them can show.
+     * Clamped to [BitsPaneState.oldestReachableDate] rather than to what the lists happen to show:
+     * where it lands past their oldest day, [movedTo] has them count back far enough to mark it.
      */
-    fun shiftDate(days: Int) = moveToDate(state.dateShiftedBy(days))
+    fun shiftDate(days: Int) {
+        state = state.movedTo(state.dateShiftedBy(days))
+    }
 
     /**
      * As [shiftDate], but skips to the nearest day in that direction that has bits — the whole
@@ -367,19 +383,12 @@ class BitsViewModel(
      * writing is a poor way to spend a keyboard. Does nothing when there is no such day.
      */
     fun skipToDateWithBits(days: Int) {
-        moveToDate(state.nearestDateWithBits(days) ?: return)
+        state = state.movedTo(state.nearestDateWithBits(days) ?: return)
     }
 
-    /** Back to today, on [shiftDate]'s terms. */
-    fun selectToday() = moveToDate(state.today)
-
-    private fun moveToDate(date: LocalDate) {
-        state = state.copy(
-            // Today is left to the clock rather than written down, so that a date stepped back to
-            // today still rolls over at midnight like one never picked at all.
-            composerDate = date.takeIf { it != state.today },
-            filterDate = state.filterDate?.let { date }
-        )
+    /** Back to today, on [shiftDate]'s terms, and the day lists back to today with it. */
+    fun selectToday() {
+        state = state.movedTo(state.today).withDayListsHome()
     }
 
     /**
@@ -388,7 +397,7 @@ class BitsViewModel(
      * date goes back to the current one, a chosen time is kept.
      */
     fun selectAllDays() {
-        state = state.copy(filterDate = null, composerDate = null)
+        state = state.copy(filterDate = null, composerDate = null).withDayListsHome()
     }
 
     /**
@@ -399,7 +408,9 @@ class BitsViewModel(
      * being done with whatever you were in.
      */
     fun resetSelection() {
-        state = state.copy(filterDate = null, composerDate = null, composerTime = null)
+        state = state
+            .copy(filterDate = null, composerDate = null, composerTime = null)
+            .withDayListsHome()
     }
 
     fun selectTime(newTime: LocalTime) {
@@ -493,6 +504,55 @@ class BitsViewModel(
         runEndReports.forget()
         state = state.copy(lastRunEnd = null)
     }
+}
+
+/**
+ * The day being written to, and looked at, moved to [date] — the one move behind every date step,
+ * skip and "today", returned as a state so the action making it can fold it into a single write.
+ */
+private fun BitsPaneState.movedTo(date: LocalDate): BitsPaneState =
+    copy(
+        // Today is left to the clock rather than written down, so that a date stepped back to
+        // today still rolls over at midnight like one never picked at all.
+        composerDate = date.takeIf { it != today },
+        filterDate = filterDate?.let { date },
+        // A day the lists do not count back to yet is a day the user would be moved to with
+        // nothing on screen saying so — a skip over an empty month lands on such a day at the
+        // first press. So the lists are grown to it, rather than the move being clamped to
+        // them: it is the keyboard that decides how far back one goes, and the lists follow.
+        listedDayCount = dayCountReachingBackTo(date)
+    )
+
+/**
+ * The same state with both day lists asked to scroll back to today — see
+ * [BitsPaneState.scrollDaysHomeRequest]. Returns a state rather than making the request itself, so
+ * an action that changes something else as well says all of it in one write.
+ *
+ * Unconditional, deliberately. The three actions that ask for this — Esc
+ * ([BitsViewModel.resetSelection]), "All days" ([BitsViewModel.selectAllDays]) and the key for
+ * today ([BitsViewModel.selectToday]) — all mean "out of wherever I was",
+ * and on a state that is already clean they change nothing else at all; if the request were
+ * conditional on something else moving, they would do nothing exactly when the day lists are
+ * scrolled into the past with nothing selected — which is the case they exist for.
+ *
+ * Not asked for when a day is deselected by tapping its chip a second time: that is a gesture aimed
+ * at a day in view, and lifting the filter is no reason to take the days it was tapped among off
+ * the screen. The keys and the "All days" row are the way out of the past; the chips are for
+ * working where you already are.
+ */
+private fun BitsPaneState.withDayListsHome(): BitsPaneState =
+    copy(scrollDaysHomeRequest = scrollDaysHomeRequest + 1)
+
+/**
+ * How far back the day lists have to count for [date] to be one of the days they show — what they
+ * already do when that is far enough, and whole [DAY_LIST_PAGE] pages otherwise, so a list grown by
+ * a hotkey ends where one grown by scrolling would.
+ */
+private fun BitsPaneState.dayCountReachingBackTo(date: LocalDate): Int {
+    val daysBack = today.toEpochDays() - date.toEpochDays() + 1
+    if (daysBack <= listedDayCount) return listedDayCount
+    val pages = (daysBack + DAY_LIST_PAGE - 1) / DAY_LIST_PAGE
+    return (pages * DAY_LIST_PAGE).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
 
 /**

@@ -125,6 +125,9 @@ fun BitsPane(
         val paneFocusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) { paneFocusRequester.requestFocus() }
         var isShortcutsOverlayOpen by remember { mutableStateOf(false) }
+        // The composer's date/time picker, kept here rather than in the composer because Esc has to
+        // be able to close it — see [waysOut] below.
+        var isPickerExpanded by remember { mutableStateOf(false) }
         // The platform's answer is only a guess about the device (see Platform.hasHardwareKeyboard),
         // and a modifier arriving is proof: nothing on a touch keyboard sends Alt. So a tablet with a
         // keyboard plugged in earns the icon as soon as it is used, without asking the platform
@@ -156,7 +159,17 @@ fun BitsPane(
                         actions = actions,
                         chord = shortcutChord,
                         isShortcutsOverlayOpen = isShortcutsOverlayOpen,
-                        onShortcutsOverlayChange = { isShortcutsOverlayOpen = it }
+                        onShortcutsOverlayChange = { isShortcutsOverlayOpen = it },
+                        // What Esc backs out of and in which order, innermost first, so that one
+                        // press is always one thing. Only what the screen draws inside itself
+                        // belongs here: a dialog, a menu and sync's popover are each a window of
+                        // their own and keep their own Esc, which never reaches this handler at all
+                        // (BitsPaneShortcutsTest holds that down). The picker comes before the edit
+                        // because it is the thing visibly open, where an edit is a mode.
+                        waysOut = buildList<() -> Unit> {
+                            if (isPickerExpanded) add { isPickerExpanded = false }
+                            if (state.editingBitId != null) add(actions.onCancelEdit)
+                        }
                     )
                 }
                 .focusRequester(paneFocusRequester)
@@ -180,6 +193,9 @@ fun BitsPane(
                         isTopBarVisible = isTopBarVisible,
                         onClickDate = actions.onClickDate,
                         onClickAllDays = actions.onClickAllDays,
+                        dayCount = state.listedDayCount,
+                        onLoadOlderDays = actions.onLoadOlderDays,
+                        scrollHomeRequest = state.scrollDaysHomeRequest,
                         // The sidebar spans the whole pane height, so its content has to stay clear
                         // of the keyboard itself — the composer's own inset only shifts the main
                         // pane.
@@ -200,6 +216,8 @@ fun BitsPane(
                 runEndMaxLines = runEndMaxLines,
                 focusRequester = focusRequester,
                 isKeyboardPresent = isKeyboardPresent,
+                isPickerExpanded = isPickerExpanded,
+                onPickerExpandedChange = { isPickerExpanded = it },
                 onClickShortcuts = { isShortcutsOverlayOpen = true },
                 modifier = Modifier.weight(1f)
             )
@@ -251,6 +269,9 @@ private fun MainPane(
     runEndMaxLines: Int,
     focusRequester: FocusRequester,
     isKeyboardPresent: Boolean,
+    /** The composer's picker, owned by [BitsPane] so that Esc can close it — see `waysOut` there. */
+    isPickerExpanded: Boolean,
+    onPickerExpandedChange: (Boolean) -> Unit,
     onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -299,7 +320,9 @@ private fun MainPane(
                 paneInset = paneInset,
                 maxLines = composerMaxLines,
                 focusRequester = focusRequester,
-                isKeyboardPresent = isKeyboardPresent
+                isKeyboardPresent = isKeyboardPresent,
+                isPickerExpanded = isPickerExpanded,
+                onPickerExpandedChange = onPickerExpandedChange
             )
         },
         modifier = modifier
@@ -453,6 +476,8 @@ private fun Composer(
     maxLines: Int,
     focusRequester: FocusRequester,
     isKeyboardPresent: Boolean,
+    isPickerExpanded: Boolean,
+    onPickerExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isShort = layout == BitsLayout.SideComposer
@@ -488,10 +513,15 @@ private fun Composer(
                 // Only the sidebar layout takes the day off the picker's hands.
                 isDaySelectionVisible = layout != BitsLayout.DaySidebar,
                 isKeyboardPresent = isKeyboardPresent,
+                isExpanded = isPickerExpanded,
+                onExpandedChange = onPickerExpandedChange,
                 onClickDate = actions.onClickDate,
                 onSelectTime = actions.onSelectTime,
                 onResetToNow = actions.onResetToNow,
-                onCancelEdit = actions.onCancelEdit
+                onCancelEdit = actions.onCancelEdit,
+                dayCount = state.listedDayCount,
+                onLoadOlderDays = actions.onLoadOlderDays,
+                scrollHomeRequest = state.scrollDaysHomeRequest
             )
             NewBitText(
                 newBitText = state.newBitText,

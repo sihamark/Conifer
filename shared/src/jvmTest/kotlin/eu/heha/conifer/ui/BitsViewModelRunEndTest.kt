@@ -7,10 +7,10 @@ import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DatabaseInitializer
 import eu.heha.conifer.ReportShareController
 import eu.heha.conifer.log.CrashBreadcrumb
-import eu.heha.conifer.log.LastRunEnd
-import eu.heha.conifer.log.readLastRun
-import eu.heha.conifer.log.RunEndReports
 import eu.heha.conifer.log.InMemoryLastRunStore
+import eu.heha.conifer.log.LastRunEnd
+import eu.heha.conifer.log.RunEndReports
+import eu.heha.conifer.log.readLastRun
 import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.model.database.AppDatabase
 import eu.heha.conifer.model.database.DatabaseController
@@ -18,18 +18,10 @@ import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.InMemoryPreferencesStore
 import eu.heha.conifer.prefs.SyncPrefs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExecutorCoroutineDispatcher
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.file.Files
-import java.util.concurrent.Executors
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -43,26 +35,11 @@ import kotlin.time.Duration.Companion.seconds
  * that crashed, off the main thread - and get it out of the app, or fail to and say so by falling
  * back to the clipboard.
  *
- * Set up like [BitsViewModelDraftTest], for the same reasons: a real Main dispatcher of its own, and
- * assertions that wait rather than assume.
+ * Set up like [BitsViewModelDraftTest], for the same reasons: [BitsViewModelTestCase]'s real Main
+ * dispatcher, and assertions that wait rather than assume.
  */
-@OptIn(ExperimentalCoroutinesApi::class) // Dispatchers.setMain/resetMain
-class BitsViewModelRunEndTest {
+class BitsViewModelRunEndTest : BitsViewModelTestCase() {
 
-    private lateinit var mainThread: ExecutorCoroutineDispatcher
-
-    @BeforeTest
-    fun setUp() {
-        mainThread = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "test-main") }
-            .asCoroutineDispatcher()
-        Dispatchers.setMain(mainThread)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-        mainThread.close()
-    }
 
     @Test
     fun sharesTheReportWithTheLogOfTheRunThatCrashed() = runBlocking(Dispatchers.Main) {
@@ -127,18 +104,20 @@ class BitsViewModelRunEndTest {
         shareController: ReportShareController? = null,
         clipboardController: ClipboardController? = null,
         store: InMemoryLastRunStore? = null,
-    ) = BitsViewModel(
-        repository = repository(),
-        dateTimeFormats = IsoDateTimeFormats,
-        draftPrefs = DraftPrefs(InMemoryPreferencesStore()),
-        clipboardController = clipboardController,
-        reportShareController = shareController,
-        runEndReports = RunEndReports(
-            store = store,
-            lastEnd = LastRunEnd.Crashed(BREADCRUMB),
-            logFiles = { _, _ -> "12:34:50.001 I  pull: 3 buckets changed" },
-            userAgent = "Conifer (Mac OS X, Java 21)",
-            runningLogFile = LOG_NAME,
+    ) = track(
+        BitsViewModel(
+            repository = repository(),
+            dateTimeFormats = IsoDateTimeFormats,
+            draftPrefs = DraftPrefs(InMemoryPreferencesStore()),
+            clipboardController = clipboardController,
+            reportShareController = shareController,
+            runEndReports = RunEndReports(
+                store = store,
+                lastEnd = LastRunEnd.Crashed(BREADCRUMB),
+                logFiles = { _, _ -> "12:34:50.001 I  pull: 3 buckets changed" },
+                userAgent = "Conifer (Mac OS X, Java 21)",
+                runningLogFile = LOG_NAME,
+            )
         )
     )
 
