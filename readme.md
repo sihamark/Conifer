@@ -1,5 +1,5 @@
-[![Coverage](https://raw.githubusercontent.com/sihamark/Conifer/main/.github/badges/jacoco.svg)](https://github.com/sihamark/Conifer/actions/workflows/coverage.yml)
-[![Branches](https://raw.githubusercontent.com/sihamark/Conifer/main/.github/badges/branches.svg)](https://github.com/sihamark/Conifer/actions/workflows/coverage.yml)
+[![Coverage](https://raw.githubusercontent.com/sihamark/Conifer/badges/jacoco.svg)](https://github.com/sihamark/Conifer/actions/workflows/coverage.yml)
+[![Branches](https://raw.githubusercontent.com/sihamark/Conifer/badges/branches.svg)](https://github.com/sihamark/Conifer/actions/workflows/coverage.yml)
 
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM), and Web (wasmJs).
 

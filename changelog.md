@@ -2,6 +2,14 @@
 
 ## Version 1.2.9
 
+- the coverage badges moved to a branch of their own. They had been committed back onto `main` by
+  the run that generated them, which stopped working the moment `main` began taking changes only
+  through a pull request — the push was refused and took the whole coverage job down with it, on a
+  run where every test had passed. They are now published to a `badges` branch holding nothing but
+  the two images, which needs no way around the rule rather than a hole kept open in it; the readme
+  reads them from there. The run builds that commit out of git's plumbing instead of checking the
+  branch out, so a job sitting on `main` never has to leave it, and it can tell whether the coverage
+  moved by comparing what it built against what is already published
 - a test run says how it went on its own page. All four suites — the JVM one, the browser, the
   Android host tests and the iOS simulator — end by adding up the JUnit XML Gradle leaves behind and
   writing the count onto the run summary, where a green tick used to be the whole story. A failing

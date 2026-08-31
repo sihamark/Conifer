@@ -61,17 +61,41 @@ jobs:
           generate-coverage-badge: true
           generate-branches-badge: true
 
-      # Pushes made with the built-in GITHUB_TOKEN do not start another workflow run, so this
-      # cannot loop back into itself.
-      - name: Commit the badges if they moved
+      # The badges live on a branch of their own rather than beside the code. main takes changes
+      # only through a pull request - a repository rule, and one worth keeping - so a run cannot
+      # commit to it, and the ways around that all end in handing a credential that can write to
+      # main to a job that wants to update a number in a readme. Nothing else lives on this branch:
+      # two SVGs at its root, which is what the readme links to.
+      #
+      # Written with git's plumbing rather than by checking the branch out, because the workspace is
+      # sitting on main and this has no business disturbing it. Hash the two files into objects,
+      # build a tree of exactly those two, commit it onto whatever the branch already points at.
+      # Comparing that tree with the published one is also an exact answer to whether the coverage
+      # actually moved, which the old check - a diff against files tracked on main - no longer is.
+      - name: Publish the badges to the badges branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if git diff --quiet .github/badges; then
-            echo "Coverage unchanged, nothing to commit."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges
-          git commit -m "update coverage badge [skip ci]"
-          git push
+
+          jacoco=$(git hash-object -w .github/badges/jacoco.svg)
+          branches=$(git hash-object -w .github/badges/branches.svg)
+          tree=$(printf '100644 blob %s\t%s\n' \
+            "$jacoco" jacoco.svg "$branches" branches.svg | git mktree)
+
+          parent=""
+          if git fetch --depth 1 origin badges; then
+            published=$(git rev-parse FETCH_HEAD)
+            if [ "$(git rev-parse "$published^{tree}")" = "$tree" ]; then
+              echo "Coverage unchanged, nothing to publish."
+              exit 0
+            fi
+            parent="-p $published"
+          else
+            echo "No badges branch yet; this run starts it."
+          fi
+
+          # Nothing is triggered by a push to this branch - every workflow here watches main, a pull
+          # request or a tag - and [skip ci] says so out loud in case one day something does.
+          commit=$(git commit-tree "$tree" $parent -m "update coverage badge [skip ci]")
+          git push origin "$commit:refs/heads/badges"
