@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.2.9
+## Version 1.2.9 (31.08.2026)
 
 - the coverage badges moved to a branch of their own. They had been committed back onto `main` by
   the run that generated them, which stopped working the moment `main` began taking changes only
