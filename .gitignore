@@ -22,3 +22,4 @@ releases
 keystore.properties
 nextcloud.properties
 /gradle/gradle-daemon-jvm.properties
+.github/badges/

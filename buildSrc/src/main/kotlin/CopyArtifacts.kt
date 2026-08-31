@@ -111,7 +111,14 @@ abstract class CopyArtifacts @Inject constructor(
     @TaskAction
     fun action() {
         files.copy {
-            val flavor = flavorName.get()
+            // An absent flavor is held as "" - a Property<String> cannot hold null - but the folder
+            // helpers below test for null, so "" takes the flavored branch and builds
+            // `bundle/Release` and `mapping/Release` instead of the lowercase folders AGP writes.
+            // A case-insensitive filesystem finds them anyway; a Linux CI runner does not, and a
+            // copy from a folder that is not there says nothing - so the AAB and the mapping were
+            // quietly left behind on Linux while the APK, whose path merely doubles a slash, came
+            // through.
+            val flavor = flavorName.get().takeIf { it.isNotBlank() }
             val buildType = buildType.get()
             // copy the APK
             from(layout.apkFolder(buildType, flavor)) {

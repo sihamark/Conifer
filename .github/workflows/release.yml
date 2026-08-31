@@ -1,0 +1,408 @@
+name: Release artifacts
+
+# Builds what a release consists of: the desktop distributable for each of the three desktops, and
+# the signed Android APK and AAB, the mapping and a debug APK. Every job leaves its output as a
+# workflow artifact, and a last job then does two things with them: it draws the three desktop zips
+# and the release APK into a draft release page carrying this version's changelog entry, and it
+# uploads all of it to Nextcloud. Nothing becomes public on its own - the draft is published by hand
+# (see "Releasing" in the readme).
+#
+# Runs on a pushed version tag - bare and three-part, the way every tag in this repository is
+# written - which is the point in the release process where the version is already in AppConfig
+# and the changelog is dated. On demand via workflow_dispatch it builds the same thing and marks
+# the page a rehearsal, which is how to try the whole chain out without tagging anything.
+#
+# Not built here: iOS, which needs an Xcode signing identity of its own, and the web bundle.
+
+on:
+  push:
+    # A GitHub filter pattern, not a regular expression, however much it looks like one: `+` means
+    # one or more of the character before it and `.` is a literal dot. Matches 1.2.7 and nothing
+    # else - not a 1.2, not a 1.2.7.1, and not a scratch tag that happens to start with a digit.
+    tags: [ '[0-9]+.[0-9]+.[0-9]+' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A second push to the same tag replaces the run rather than racing it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    strategy:
+      # One failing desktop should not take the other two artifacts down with it.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+          - os: ubuntu-latest
+            label: Linux
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Only the JVM target is compiled here, but :shared configures the ios targets on macOS and
+      # the Kotlin plugin may fetch the toolchain for them. Cheap to cache, expensive to re-download.
+      - name: Cache the Kotlin/Native toolchain
+        if: runner.os == 'macOS'
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      # buildDesktopRelease builds the release distributable (ProGuard included) and zips the app
+      # image into ./releases/desktop, named after the OS it was built on. There is no
+      # cross-compiling: each desktop is built on its own runner, which is what the matrix is for.
+      - name: Build the desktop distributable
+        shell: bash
+        run: ./gradlew :desktopApp:buildDesktopRelease --stacktrace
+
+      - name: Keep the distributable
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.os }}
+          path: releases/desktop/
+          if-no-files-found: error
+          retention-days: 90
+
+  android:
+    name: Android (signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The keystore itself is in the repository; only the passwords and the alias are not, and
+      # androidApp/build.gradle.kts reads them from this git-ignored file. It is missing on a fresh
+      # checkout, and fromKeystoreProperties says nothing when it is - the release build then fails
+      # further along with a signing config that has no store file. So check for the secrets here,
+      # where the message can say which one is missing.
+      - name: Write the keystore properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          missing=""
+          [ -n "$STORE_PASSWORD" ] || missing="$missing ANDROID_STORE_PASSWORD"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing ANDROID_KEY_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing ANDROID_KEY_ALIAS"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing" >&2
+            exit 1
+          fi
+          # storeFile is a path, not a secret: the keystore is committed at this location.
+          cat > androidApp/keystore/keystore.properties <<PROPS
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=androidApp/keystore/keystore.jks
+          PROPS
+
+      # prepareAndroidRelease assembles and bundles, then copies the APK, the AAB and the ProGuard
+      # mapping into ./releases/android under the version from AppConfig. prepareAndroidDebug adds a
+      # debug APK beside them, named with a -D. It is signed with the debug keystore AGP generates
+      # when there isn't one, which on a runner is made fresh every time - so a debug build from
+      # here will not install over one built anywhere else. It goes to Nextcloud, never to the
+      # release page.
+      - name: Build the signed release and a debug APK
+        run: ./gradlew :androidApp:prepareAndroidRelease :androidApp:prepareAndroidDebug --stacktrace
+
+      # Whatever the outcome, the file holding the passwords does not outlive the job's build steps.
+      - name: Remove the keystore properties
+        if: always()
+        run: rm -f androidApp/keystore/keystore.properties
+
+      - name: Keep the APK, the AAB and the mapping
+        uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: releases/android/
+          if-no-files-found: error
+          retention-days: 90
+
+      # if-no-files-found only fires when nothing at all arrived, so a copy that silently dropped
+      # two of the three files still went green. Name what has to be there. This runs after the
+      # upload on purpose: a partial artifact is worth having when it is time to work out why.
+      - name: Check all four artifacts are there
+        run: |
+          ls -lh releases/android/
+          missing=""
+          for ext in aab mapping.txt; do
+            ls releases/android/*."$ext" >/dev/null 2>&1 || missing="$missing .$ext"
+          done
+          # The debug APK carries a -D before the version code; the release one is the other.
+          ls releases/android/*-D.*.apk >/dev/null 2>&1 || missing="$missing debug .apk"
+          ls releases/android/*.apk 2>/dev/null | grep -qv -- '-D\.' || missing="$missing release .apk"
+          if [ -n "$missing" ]; then
+            echo "Missing from releases/android:$missing" >&2
+            exit 1
+          fi
+
+  release:
+    name: Release page
+    needs: [ desktop, android ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The one job here that writes anything back; the builds above stay read-only.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # No name, so every artifact the run produced arrives, each in a folder of its own.
+      - name: Collect what the build jobs left
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      # Which version this is, and whether it is a real release or a rehearsal.
+      #
+      # The version is AppConfig's either way, because that is what the artifacts are named after -
+      # the tag never reaches the build. A tag that disagrees with it would put files called
+      # Conifer.1.2.7.* on a page titled 0.0.1, and nothing downstream would notice, so the two are
+      # made to agree here.
+      #
+      # Without a tag - a workflow_dispatch run - there is nothing to disagree with and the run is a
+      # rehearsal: the same page, built from the same artifacts, marked as such and meant to be
+      # deleted once it has been looked at. A draft creates no tag, so a rehearsal leaves none.
+      - name: Work out which version this is
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' buildSrc/src/main/kotlin/AppConfig.kt)
+          if [ -z "$version" ]; then
+            echo "Could not read versionName from buildSrc/src/main/kotlin/AppConfig.kt." >&2
+            exit 1
+          fi
+
+          rehearsal=true
+          if [ "$IS_TAG" = "true" ]; then
+            rehearsal=false
+            if [ "$REF_NAME" != "$version" ]; then
+              echo "Tag $REF_NAME does not match AppConfig's versionName $version. The artifacts are" >&2
+              echo "named after AppConfig, so this page would offer Conifer.$version.* files under the" >&2
+              echo "title $REF_NAME. Bump AppConfig first, or tag $version." >&2
+              exit 1
+            fi
+            echo "Release $version."
+          else
+            echo "No tag, so this is a rehearsal of $version from $GITHUB_SHA."
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "rehearsal=$rehearsal" >> "$GITHUB_OUTPUT"
+
+      # The page says what the changelog already says about this version, so there is one wording
+      # and not two. An entry that isn't there means the tag went out ahead of the changelog, which
+      # is worth stopping for rather than publishing a release with nothing written on it.
+      - name: Take this version's changelog entry for the notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Matched as a literal prefix rather than a regular expression: the dots in a version
+          # number would each match any character. The heading is either bare or followed by the
+          # release date in brackets, hence the test for a space after it.
+          awk -v want="## Version $VERSION" '
+            index($0, want) == 1 &&
+              (length($0) == length(want) || substr($0, length(want) + 1, 1) == " ") {
+              found = 1; next
+            }
+            found && /^## / { exit }
+            found { print }
+          ' changelog.md > entry.md
+
+          if [ ! -s entry.md ]; then
+            echo "changelog.md has no '## Version $VERSION' entry to write the release page from." >&2
+            exit 1
+          fi
+
+          # Drop the blank lines at either end that come from cutting between two headings.
+          sed -e '/./,$!d' entry.md | tac | sed -e '/./,$!d' | tac > notes.md
+
+          cat >> notes.md <<'FOOTER'
+
+          ---
+
+          The desktop apps are the `macos`, `windows` and `linux` zips; the Android build is the
+          `.apk`. The macOS app is neither signed nor notarized, so Gatekeeper refuses it on first
+          open: open it from the right-click menu instead of by double-clicking, or clear the
+          quarantine flag with `xattr -dr com.apple.quarantine Conifer.app`.
+          FOOTER
+
+          cat notes.md
+
+      - name: Gather the files the page offers
+        run: |
+          mkdir -p page
+          find artifacts -type f \
+            \( -name '*.zip' -o \( -name '*.apk' -a ! -name '*-D.*.apk' \) \) \
+            -exec cp {} page/ \;
+          ls -lh page/
+
+          # Three desktops and one APK. What is left off the page still goes to Nextcloud below: a
+          # bundle cannot be installed from a download, the mapping is the file that turns the
+          # obfuscated build back into readable names, and the debug APK is signed with a key this
+          # runner made up on the spot - offering it publicly would only produce install failures.
+          count=$(find page -type f | wc -l)
+          if [ "$count" -ne 4 ]; then
+            echo "Expected 4 files for the release page, found $count." >&2
+            exit 1
+          fi
+
+      # A draft: the tag push assembles the page, and it becomes public when someone presses
+      # Publish, having read what it says.
+      - name: Assemble the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REHEARSAL: ${{ steps.version.outputs.rehearsal }}
+        run: |
+          title="Conifer $VERSION"
+          if [ "$REHEARSAL" = "true" ]; then
+            title="$title (rehearsal)"
+            printf '\n_Rehearsal build from `%s`, not a release. Delete this draft when done with it._\n' \
+              "$GITHUB_SHA" >> notes.md
+          fi
+
+          state=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null || true)
+          if [ "$state" = "false" ]; then
+            echo "A published release for $VERSION already exists; refusing to replace it." >&2
+            exit 1
+          fi
+          if [ "$state" = "true" ]; then
+            # Only ever a draft this workflow made itself, and only the release - the tag stays.
+            echo "Replacing the draft an earlier run left."
+            gh release delete "$VERSION" --yes
+          fi
+
+          gh release create "$VERSION" page/* \
+            --draft \
+            --title "$title" \
+            --notes-file notes.md
+
+      # Nextcloud gets all of it, not only what the page offers. The upload goes through the same
+      # Gradle task the release process has always used rather than a handful of PUTs written out
+      # again here: it is the task that knows an APK has to be wrapped in a zip on the way, because
+      # Android browsers refuse to download a raw .apk, and a second copy of that rule would drift
+      # from the first without anyone noticing until a download failed on someone's phone.
+      #
+      # A rehearsal skips all of this. It would otherwise write its files into the folder of a
+      # version that has not been released, with nothing to tell them apart from the real ones.
+      - name: Put the artifacts back under ./releases
+        if: steps.version.outputs.rehearsal == 'false'
+        run: |
+          mkdir -p releases/android releases/desktop
+          cp artifacts/android/* releases/android/
+          cp artifacts/desktop-*/* releases/desktop/
+          find releases -type f | sort
+
+      - name: Set up Java for the upload task
+        if: steps.version.outputs.rehearsal == 'false'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle for the upload task
+        if: steps.version.outputs.rehearsal == 'false'
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Upload everything to Nextcloud
+        if: steps.version.outputs.rehearsal == 'false'
+        env:
+          NEXTCLOUD_URL: ${{ secrets.NEXTCLOUD_URL }}
+          NEXTCLOUD_USERNAME: ${{ secrets.NEXTCLOUD_USERNAME }}
+          NEXTCLOUD_PASSWORD: ${{ secrets.NEXTCLOUD_PASSWORD }}
+          NEXTCLOUD_REMOTE_FOLDER: ${{ secrets.NEXTCLOUD_REMOTE_FOLDER }}
+        run: |
+          # NextcloudConfig.loadOrNull returns nothing when the file is absent and the task then
+          # fails with its own message, which would not say which secret was the missing one.
+          missing=""
+          [ -n "$NEXTCLOUD_URL" ] || missing="$missing NEXTCLOUD_URL"
+          [ -n "$NEXTCLOUD_USERNAME" ] || missing="$missing NEXTCLOUD_USERNAME"
+          [ -n "$NEXTCLOUD_PASSWORD" ] || missing="$missing NEXTCLOUD_PASSWORD"
+          [ -n "$NEXTCLOUD_REMOTE_FOLDER" ] || missing="$missing NEXTCLOUD_REMOTE_FOLDER"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing" >&2
+            exit 1
+          fi
+
+          # Redaction is by exact substring, and the upload task prints the folder percent-encoded
+          # when a request fails - App%20Ideas where the secret says App Ideas - which would not be
+          # matched and so would not be masked. Mask that spelling of it too, before anything runs.
+          encoded=$(python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe='/'))" "$NEXTCLOUD_REMOTE_FOLDER")
+          if [ "$encoded" != "$NEXTCLOUD_REMOTE_FOLDER" ]; then
+            echo "::add-mask::$encoded"
+          fi
+
+          # remoteFolder is a secret like the rest, and a required one. NextcloudConfig treats it
+          # as optional and falls back to Conifer/<versionName>, which is not where these releases
+          # have ever gone - and an upload to the wrong folder succeeds quietly, which is the one
+          # failure nobody would notice. So it is checked above rather than defaulted here.
+          cat > nextcloud.properties <<PROPS
+          nextcloud.url=$NEXTCLOUD_URL
+          nextcloud.username=$NEXTCLOUD_USERNAME
+          nextcloud.password=$NEXTCLOUD_PASSWORD
+          nextcloud.remoteFolder=$NEXTCLOUD_REMOTE_FOLDER
+          PROPS
+
+          ./gradlew uploadReleasesToNextcloud --stacktrace
+
+      # What the run page says when it is over: what is waiting to be published and what went to the
+      # shared folder. Names only - no link, and nothing naming the folder or the server it is on.
+      # A run page on a public repository is readable by anyone, so what is written here is written
+      # for someone who already knows where the files went and only wants to see that they did.
+      - name: Say what went where
+        if: steps.version.outputs.rehearsal == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "## Conifer $VERSION"
+            echo
+            echo "### Waiting as a draft release"
+            echo
+            for file in page/*; do
+              echo "- \`$(basename "$file")\`"
+            done
+            echo
+            echo "### Uploaded to Nextcloud"
+            echo
+            find releases -type f | sort | sed 's|^releases/|- `|; s|$|`|'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # As with the keystore: the file holding the password does not outlive the job.
+      - name: Remove the Nextcloud credentials
+        if: always()
+        run: rm -f nextcloud.properties

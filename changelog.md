@@ -1,6 +1,55 @@
 # Changelog
 
-## Version 1.2.7
+## Version 1.2.9 (31.08.2026)
+
+- the coverage badges moved to a branch of their own. They had been committed back onto `main` by
+  the run that generated them, which stopped working the moment `main` began taking changes only
+  through a pull request — the push was refused and took the whole coverage job down with it, on a
+  run where every test had passed. They are now published to a `badges` branch holding nothing but
+  the two images, which needs no way around the rule rather than a hole kept open in it; the readme
+  reads them from there. The run builds that commit out of git's plumbing instead of checking the
+  branch out, so a job sitting on `main` never has to leave it, and it can tell whether the coverage
+  moved by comparing what it built against what is already published
+- a test run says how it went on its own page. All four suites — the JVM one, the browser, the
+  Android host tests and the iOS simulator — end by adding up the JUnit XML Gradle leaves behind and
+  writing the count onto the run summary, where a green tick used to be the whole story. A failing
+  run names what failed and with what message, which is the case worth not having to open a log for,
+  and the JVM job prints the coverage the badge is made from beside its count. It is written as a
+  script the four jobs share rather than an action fetched from elsewhere, which would have wanted
+  permission to write checks for something that only needs to write text. Nothing here fails a
+  build: the step that runs the tests has already done that, and it runs whatever the outcome —
+  a summary that appears only when everything passed would be missing exactly when it is wanted
+
+## Version 1.2.8 (30.08.2026)
+
+- a release now reaches Nextcloud without anyone carrying it there. The workflow already built
+  everything a release is made of and left it as artifacts to be downloaded and uploaded again by
+  hand; it now puts the whole set — the signed APK and the bundle, the ProGuard mapping, the three
+  desktop distributables — into the shared folder itself, through the same
+  `uploadReleasesToNextcloud` task that has always done it, rather than a second copy of the same
+  WebDAV calls written out in the workflow. The task knows things worth not knowing twice: that an
+  APK has to be wrapped in a zip on the way, because a browser on Android refuses to download a raw
+  one, and that the folder to put it all in is spelled out rather than derived — the fallback it
+  would otherwise use names a folder these releases have never gone to, and an upload to the wrong
+  place is the one kind that succeeds quietlywhere
+  - a debug APK is built alongside the signed one and goes up with the rest, which the workflow had
+    not built at all. It stays off the public release page, and not only for tidiness: nothing
+    declares a signing key for the debug build, so it is signed with the throwaway one the build
+    tools invent when they find none — a different key on every runner, which Android will refuse
+    to install over a build from anywhere else. As something to hand someone from the shared folder
+    it is fine; as a public download it would be a stream of failed installs
+  - the run summarises itself when it is done: what is sitting in the draft waiting to be
+    published, and what went to the shared folder. Names only — nothing about where that folder is
+    or which server holds it, since a run page on a public repository is readable by anyone. The
+    address, the login, the password and the path are all held as secrets and masked wherever they
+    would otherwise be printed, the path in its percent-encoded spelling as well, which is how it
+    appears in the URL a failed upload reports and is not the spelling the masking would have
+    caught
+  - a rehearsal uploads nothing. It builds and assembles its page as before, but writing its files
+    into the folder of a version nobody has released, indistinguishable from the real ones once
+    they arrive, is not something to find out about later
+
+## Version 1.2.7 (30.08.2026)
 
 - the desktop app keeps the key to your sync password in the macOS Keychain again, as it always
   meant to. The step that trims the release build for packaging had taken out the parts of the
@@ -54,6 +103,42 @@
     API that Android has not got would show up — no emulator involved; the instrumented variant is
     deliberately left off. 126 tests, and nothing that only passes because a desktop JVM was
     underneath them
+- what a release is made of is built by the CI now. A pushed version tag — the step the release
+  process already had — builds the desktop distributable for all three desktops and the signed
+  Android APK and AAB, and leaves each as a downloadable artifact. Nothing is published from
+  there; collecting them and uploading is still done by hand. The desktops are built one per
+  runner because there is no cross-compiling here: `buildDesktopRelease` names its zip after the
+  machine it ran on, so macOS, Windows and Linux each need their own. The macOS one is built on an
+  arm64 runner and is neither signed nor notarized, which is what a locally built one has always
+  been. Signing the Android build needs three secrets in the repository — the store and key
+  passwords and the alias — written into the git-ignored `keystore.properties` for the build and
+  deleted after it; the keystore itself is in the repository and always has been
+  - the first run on the CI found a bug the release task had been carrying all along: a project
+    without flavors holds its flavor name as the empty string, and the helpers that build the
+    output paths test it for null, so the empty string took the flavored branch and asked for
+    `bundle/Release` and `mapping/Release` rather than the lowercase folders the Android plugin
+    actually writes. A Mac finds those anyway — its filesystem does not care about case — and a
+    Linux runner does not, and a copy from a folder that is not there says nothing at all, so the
+    build came back green having collected the APK alone. The AAB and the mapping had been
+    arriving locally by the grace of the filesystem, which is a poor thing to build a release on.
+    The workflow now also names the three files it expects, so a copy that quietly drops one
+    fails instead of being uploaded
+  - a tagged version gets a release page of its own, assembled by the same workflow: the three
+    desktop zips and the APK to download, and this version's changelog entry as the notes, so what
+    the page says and what the changelog says cannot drift apart. It arrives as a draft — nothing
+    is public until someone has read it — and a tag whose version the changelog has no entry for
+    fails the job rather than producing a page with nothing on it. The bundle and the mapping stay
+    off it: an AAB cannot be installed from a download, and the mapping is the file that turns the
+    obfuscated build back into readable names. Nextcloud still gets everything
+  - the tag has to agree with the version the build was made from. Nothing carries a tag into the
+    build — the artifacts are named after `AppConfig` — so a tag that says one version while
+    `AppConfig` says another would have produced a page whose title and whose files disagreed, and
+    nothing downstream would have noticed. And the whole chain can be rehearsed without tagging at
+    all: run by hand it builds the same page from `AppConfig`'s version and marks it a rehearsal,
+    which, being a draft, leaves not even a tag behind
+  - the readme says how a release is made, which it never did: the version, the date on the
+    changelog heading, the tag, where the artifacts are collected and the upload — the steps that
+    until now lived only in the habit of the person doing them
 
 ## Version 1.2.6 (22.08.2026)
 
