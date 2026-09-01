@@ -17,6 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.bits_action_all_days
+import conifer.shared.generated.resources.bits_action_show_calendar
 import conifer.shared.generated.resources.bits_label_days
 import conifer.shared.generated.resources.bits_label_today
 import eu.heha.conifer.ui.DatedBits
@@ -70,6 +75,8 @@ internal fun DaySidebar(
     isTopBarVisible: Boolean,
     onClickDate: (LocalDate) -> Unit,
     onClickAllDays: () -> Unit,
+    /** Opens the calendar ([DayPickerDialog]), which [BitsPane] owns — the composer opens the same one. */
+    onClickCalendar: () -> Unit = {},
     dayCount: Int = DAY_LIST_PAGE,
     onLoadOlderDays: () -> Unit = {},
     scrollHomeRequest: Int = 0,
@@ -87,11 +94,27 @@ internal fun DaySidebar(
         AnimatedVisibility(isTopBarVisible) {
             Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
         }
-        Text(
-            text = stringResource(Res.string.bits_label_days),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 18.dp, end = 10.dp, bottom = 4.dp)
-        )
+        // The days' own heading, and beside it the way to a day too far back to scroll to. The
+        // composer's chip row carries the same button in every layout; this one is here because in
+        // this layout the days are the sidebar's, and reaching for the composer to move the list
+        // beside it would be the long way round.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 18.dp, end = 4.dp, bottom = 4.dp)
+        ) {
+            Text(
+                text = stringResource(Res.string.bits_label_days),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onClickCalendar) {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = stringResource(Res.string.bits_action_show_calendar),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
         // As in DaySelection, the items are as flat as their content instead of being stretched to
         // the minimum touch target height, so a useful number of days fits without scrolling.
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {

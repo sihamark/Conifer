@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,6 +129,11 @@ fun BitsPane(
         // The composer's date/time picker, kept here rather than in the composer because Esc has to
         // be able to close it — see [waysOut] below.
         var isPickerExpanded by remember { mutableStateOf(false) }
+        // The calendar, kept here because both ways in open the same one: the composer's chip row,
+        // which every layout has, and the sidebar's heading, which only the two-pane layout has. It
+        // is a dialog and so a window of its own, which is why — unlike the picker above — it is no
+        // part of `waysOut`: its Esc never reaches this screen's handler at all.
+        var isCalendarOpen by remember { mutableStateOf(false) }
         // The platform's answer is only a guess about the device (see Platform.hasHardwareKeyboard),
         // and a modifier arriving is proof: nothing on a touch keyboard sends Alt. So a tablet with a
         // keyboard plugged in earns the icon as soon as it is used, without asking the platform
@@ -193,6 +199,7 @@ fun BitsPane(
                         isTopBarVisible = isTopBarVisible,
                         onClickDate = actions.onClickDate,
                         onClickAllDays = actions.onClickAllDays,
+                        onClickCalendar = { isCalendarOpen = true },
                         dayCount = state.listedDayCount,
                         onLoadOlderDays = actions.onLoadOlderDays,
                         scrollHomeRequest = state.scrollDaysHomeRequest,
@@ -218,6 +225,7 @@ fun BitsPane(
                 isKeyboardPresent = isKeyboardPresent,
                 isPickerExpanded = isPickerExpanded,
                 onPickerExpandedChange = { isPickerExpanded = it },
+                onClickCalendar = { isCalendarOpen = true },
                 onClickShortcuts = { isShortcutsOverlayOpen = true },
                 modifier = Modifier.weight(1f)
             )
@@ -252,6 +260,21 @@ fun BitsPane(
                 isDebug = isDebug
             )
         }
+        if (isCalendarOpen) {
+            DayPickerDialog(
+                // The day the composer would stamp on a bit added now, so the calendar opens where
+                // the chip beside it says the bit is going.
+                date = state.effectiveDate,
+                today = state.today,
+                earliestDate = state.bitsByDate.minOfOrNull { it.date },
+                // As with the time picker: where a keyboard is the way in, a date can simply be
+                // typed, and where it is a finger it is the other way about. The dialog's own toggle
+                // switches either way, so this only decides which half is one press cheaper.
+                initialDisplayMode = if (isKeyboardPresent) DisplayMode.Input else DisplayMode.Picker,
+                onPickDate = actions.onPickDate,
+                onDismiss = { isCalendarOpen = false }
+            )
+        }
     }
 }
 
@@ -272,6 +295,8 @@ private fun MainPane(
     /** The composer's picker, owned by [BitsPane] so that Esc can close it — see `waysOut` there. */
     isPickerExpanded: Boolean,
     onPickerExpandedChange: (Boolean) -> Unit,
+    /** Opens the calendar, which [BitsPane] owns — the sidebar opens the same one. */
+    onClickCalendar: () -> Unit,
     onClickShortcuts: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -322,7 +347,8 @@ private fun MainPane(
                 focusRequester = focusRequester,
                 isKeyboardPresent = isKeyboardPresent,
                 isPickerExpanded = isPickerExpanded,
-                onPickerExpandedChange = onPickerExpandedChange
+                onPickerExpandedChange = onPickerExpandedChange,
+                onClickCalendar = onClickCalendar
             )
         },
         modifier = modifier
@@ -478,6 +504,7 @@ private fun Composer(
     isKeyboardPresent: Boolean,
     isPickerExpanded: Boolean,
     onPickerExpandedChange: (Boolean) -> Unit,
+    onClickCalendar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isShort = layout == BitsLayout.SideComposer
@@ -516,6 +543,7 @@ private fun Composer(
                 isExpanded = isPickerExpanded,
                 onExpandedChange = onPickerExpandedChange,
                 onClickDate = actions.onClickDate,
+                onClickCalendar = onClickCalendar,
                 onSelectTime = actions.onSelectTime,
                 onResetToNow = actions.onResetToNow,
                 onCancelEdit = actions.onCancelEdit,

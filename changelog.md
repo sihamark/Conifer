@@ -1,5 +1,22 @@
 # Changelog
 
+## Version 1.3.0
+
+- a day too far back to scroll to can now be picked out of a calendar. Both day lists reach as far
+  as they are dragged, a page of thirty days at a time, which is a fine way to last week and a poor
+  one to last March; a button beside the composer's date chip — and, in the two-pane layout, beside
+  the sidebar's heading as well, where that layout keeps its days — opens Material's own calendar
+  instead, and its year grid is what turns a jump of eighteen months into two presses. The day it
+  hands back is picked exactly as a day chip is picked: the list is filtered to it and the bit being
+  written is dated to it. The day lists are then grown to count back far enough to mark it, which is
+  the part a chip never has to do — a day already within their reach is one that could have been
+  scrolled to, and not what anybody opens a calendar for. Days that have not happened yet are barred
+  rather than hidden, since the rest of the month is drawn either way and a greyed-out day says "not
+  this one" where a missing day says nothing at all. Where there is a keyboard it opens on the typed
+  field rather than on the grid, as the time picker already does, so a date can simply be written
+  out; and the year grid reaches back to the oldest day there is writing on, and five years past it,
+  so a bit can still be backdated to a holiday on an install that is a week old
+
 ## Version 1.2.9 (31.08.2026)
 
 - the coverage badges moved to a branch of their own. They had been committed back onto `main` by

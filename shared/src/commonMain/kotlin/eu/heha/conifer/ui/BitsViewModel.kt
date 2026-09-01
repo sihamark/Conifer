@@ -349,6 +349,21 @@ class BitsViewModel(
     }
 
     /**
+     * Picks the day from the calendar ([eu.heha.conifer.ui.bits.DayPickerDialog]), which is
+     * [selectDate]'s job with two differences the calendar brings.
+     *
+     * It never deselects: the calendar has no way of saying "not this day either", so the day it
+     * hands back is always a day to go to. And it goes through [movedTo], because the day it hands
+     * back is typically one the lists do not count back to yet — a day within their reach is one
+     * the user could have scrolled to instead, and would not have opened a calendar for. The filter
+     * is then set unconditionally, where [movedTo] would leave an unfiltered list alone: picking a
+     * day out of a calendar is asking to see it.
+     */
+    fun pickDate(date: LocalDate) {
+        state = state.movedTo(date).copy(filterDate = date)
+    }
+
+    /**
      * Has the day lists count back another page of days — what either of them asks for as it is
      * scrolled to within sight of its oldest day. There is nothing to load: the days are dates,
      * and the bits that fall on them are in the state already (see [BitsPaneState.listedDayCount]).

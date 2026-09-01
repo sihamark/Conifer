@@ -26,6 +26,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onNewBitTextChange = { model.onNewBitTextChange(it) },
             onClickRequestPermission = { permissionHandler?.requestPermission() },
             onClickDate = model::selectDate,
+            onPickDate = model::pickDate,
             onClickAllDays = model::selectAllDays,
             onLoadOlderDays = model::loadOlderDays,
             onShiftDate = model::shiftDate,

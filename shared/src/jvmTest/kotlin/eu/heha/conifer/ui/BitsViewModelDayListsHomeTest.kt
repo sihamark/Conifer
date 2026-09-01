@@ -207,6 +207,51 @@ class BitsViewModelDayListsHomeTest : BitsViewModelTestCase() {
         assertEquals(before.scrollDaysHomeRequest, model.state.scrollDaysHomeRequest)
     }
 
+    @Test
+    fun aDayPickedFromTheCalendarFiltersTheListAndGrowsTheDayListsToReachIt() =
+        runBlocking(Dispatchers.Main) {
+            // The case the calendar exists for: a day within the lists' reach is one the user could
+            // have scrolled to and would not have opened a calendar for.
+            val model = viewModel()
+            val day = model.state.today.daysBack(200)
+            val before = model.state.scrollDaysHomeRequest
+
+            model.pickDate(day)
+
+            assertEquals(day, model.state.filterDate)
+            assertEquals(day, model.state.composerDate)
+            // 201 days back, counted in pages of DAY_LIST_PAGE.
+            assertEquals(7 * DAY_LIST_PAGE, model.state.listedDayCount)
+            // Grown to reach the day, but not scrolled to it: as with a step or a skip, where the
+            // lists are is the list's own business.
+            assertEquals(before, model.state.scrollDaysHomeRequest)
+        }
+
+    @Test
+    fun pickingTodayShowsItAndLeavesTheDateToTheClock() = runBlocking(Dispatchers.Main) {
+        val model = viewModel()
+
+        model.pickDate(model.state.today)
+
+        assertEquals(model.state.today, model.state.filterDate)
+        // Null rather than today spelled out, so the date goes on following the clock over midnight.
+        assertNull(model.state.composerDate)
+    }
+
+    @Test
+    fun pickingTheSameDayAgainKeepsIt() = runBlocking(Dispatchers.Main) {
+        // Unlike a day chip, which lets go of the day when it is tapped a second time: a calendar
+        // has no way of saying "not this one either", so every day it hands back is one to go to.
+        val model = viewModel()
+        val day = model.state.today.daysBack(3)
+
+        model.pickDate(day)
+        model.pickDate(day)
+
+        assertEquals(day, model.state.filterDate)
+        assertEquals(day, model.state.composerDate)
+    }
+
     private fun LocalDate.daysBack(days: Int) = LocalDate.fromEpochDays(toEpochDays() - days)
 
     private suspend fun viewModel(bitsOn: List<Int> = emptyList()): BitsViewModel {
