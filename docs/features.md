@@ -27,6 +27,14 @@ launchers.
   Each day shows 1–3 dots: one for any bit that day, two
   once both morning (before 12:00) and afternoon have at least one, three past that once the day
   holds more than 3 bits (`DatedBits.dots`).
+- **Calendar** — a button beside the date chip, and beside the sidebar's "Days" heading in the
+  two-pane layout, opens Material's `DatePickerDialog` for a day too far back to scroll to
+  (`DayPickerDialog`). Picking a day does what a day chip does — filter the list, date the bit — and
+  additionally grows the day lists to count back far enough to mark it (`BitsViewModel.pickDate`,
+  through the same `movedTo` the date hotkeys use); there is no deselecting, a calendar having no
+  way to say "not this day either". Days after today are not selectable (`DaysUpTo`), the year grid
+  spans the oldest day with bits — and five years past it — up to this year (`yearRangeBackTo`), and
+  where there is a hardware keyboard it opens on the typed field rather than the grid.
 - **Time picker** — slider in 15-minute steps (00:00–23:45) for the bit's time of day.
 - **Localized dates and times** — everything the reader sees is spelled by the platform:
   `DateTimeFormats` (five methods — time of day, short weekday, day-and-month, whole date, date with
@@ -110,6 +118,14 @@ launchers.
   big
   emoji and once after — sharing one hoisted animation, each copy `alpha = 0` outside its half; they
   hand over at the two widest points of the loop, where nothing overlaps.
+- **Sync with your own Nextcloud** — optional, and off until an account is connected: the cloud icon
+  in the app bar is the whole of it, opening a pane, a sheet or a popover depending on the window
+  (`SyncStatusIcon`, `SyncPresentation`). Signing in goes through Login Flow v2 in the browser, so
+  the app only ever holds an app-scoped token; from then on bits travel between that person's own
+  devices through their own server, and a round runs on request, after a connect, ten seconds after
+  an edit settles, on coming back to the app and every five minutes while it is on screen. The whole
+  of it is its own section below — see
+  [Nextcloud sync](#nextcloud-sync-optional-off-until-connected).
 
 ## Secondary features
 
@@ -120,21 +136,25 @@ launchers.
 - **Notification permission prompt** — in-app card with rationale + grant button when permission
   is missing (Android only in practice).
 - **Custom typography** — handwriting-style "Story Script" for titles, "Lato" for body text.
-- There is **no settings screen** and no markdown *rendering* in the app.
+- There is **no settings screen** beyond sync's own sheet, and no markdown *rendering* in the
+  app.
 
 ## Platform-specific
 
-| Platform                      | Features                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Android**                   | Quick-add via conversation notification with inline reply — replying creates a bit even with the app closed, and the notification keeps the last 3 bits as history (`NotificationController`, `ConversationBroadcastReceiver`). POST_NOTIFICATIONS permission handling, edge-to-edge UI, system clipboard, bundled SQLite driver.                                                                                                               |
-| **Desktop (JVM)**             | Compose window with app icon/title; AWT clipboard; database, preferences, logs and reports in one per-user folder outside the installed app — `~/Library/Application Support/Conifer`, `%LOCALAPPDATA%\Conifer`, `$XDG_DATA_HOME/conifer` (`JvmDataFolder.kt`, which also moves data out of the pre-1.2.6 folder beside the jar; a `run` from Gradle gets a `-dev` folder of its own, and `-Dconifer.dataFolder=` overrides). No notifications. |
-| **iOS**                       | Compose UIViewController bridge; `UIPasteboard` clipboard; DB in the documents directory.                                                                                                                                                                                                                                                                                                                                                       |
-| **Web (wasmJs, in progress)** | `ComposeViewport` entry point; Room via `WebWorkerSQLiteDriver` with the vendored SQLite web worker, persisting to OPFS. No clipboard/notifications yet.                                                                                                                                                                                                                                                                                        |
+Everything above is common code and behaves the same everywhere. What differs is what each platform
+lends the app — and what it has not got to lend.
+
+| Platform          | What it has here                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Android**       | Quick-add via a conversation notification with inline reply — replying creates a bit even with the app closed, and the notification keeps the last 3 bits as history (`NotificationController`, `ConversationBroadcastReceiver`); POST_NOTIFICATIONS handling and the in-app rationale card. Edge-to-edge UI, system clipboard, share sheet for a report (as a `content://` file out of `cacheDir/reports`), bundled SQLite driver, Ktor on OkHttp, ICU date formats. Sync: the key for the stored app password in the Android Keystore, the login URL opened with an `ACTION_VIEW` intent. Put away and brought back with the activity lifecycle, counted across activities.                                                                                                                                                                                                                                                                                                                                                                               |
+| **Desktop (JVM)** | Compose window with its own icon and title; AWT clipboard; database, preferences, `logs/` and `reports/` in one per-user folder outside the installed app — `~/Library/Application Support/Conifer`, `%LOCALAPPDATA%\Conifer`, `$XDG_DATA_HOME/conifer` (`JvmDataFolder.kt`, which also moves data out of the pre-1.2.6 folder beside the jar; a `run` from Gradle gets a `-dev` folder of its own, and `-Dconifer.dataFolder=` overrides). A report is written into `reports/` and that folder opened in the file manager, a desktop having no share sheet. `java.time` date formats, Ktor on OkHttp, bundled SQLite driver. Sync: the key in the OS secret store (macOS Keychain, Windows DPAPI, Linux Secret Service), the login URL through AWT's `Desktop.browse` — which Linux JVMs routinely refuse even where a browser opens fine from a shell, and then the sheet offers the URL instead. The run ends on a JVM shutdown hook: a closed window, `exitApplication`, Ctrl+C or a `SIGTERM`, but deliberately not a `SIGKILL`. **No notifications.** |
+| **iOS**           | Compose `UIViewController` bridge (`ConiferAppViewController`, `IosConiferApp.initialize()`); `UIPasteboard` clipboard; database in the documents directory; the report through `UIActivityViewController`, which is how anything leaves an iPhone at all. `NSDateFormatter` templates for dates, Ktor on Darwin. Sync: the key in the Keychain, the login URL through `UIApplication.openURL`. Put away and brought back on the background/foreground notifications, since `applicationWillTerminate` is not called for a suspended app the system reclaims. **No notifications, no quick-add.** Functional but not in daily use, and not released: only the simulator test suite exercises it.                                                                                                                                                                                                                                                                                                                                                            |
+| **Web (wasmJs)**  | `ComposeViewport` entry point; Room through `WebWorkerSQLiteDriver` and the vendored SQLite web worker, persisting to **OPFS — which needs the page cross-origin isolated**, so the dev server sends `COOP`/`COEP` (`webApp/webpack.config.d/`) and a production host must send them too. Logs, preferences and the credentials all share the origin's `localStorage`, a handful of megabytes between them, which is why fewer and shorter logs are kept than on a disk (`WasmLogFileInitializer`, `MAX_WEB_LOG_RUNS`/`MAX_WEB_LOG_CHARS`). A report is handed over as a download (`data:` URL). `Intl.DateTimeFormat` for dates, Ktor on the JS engine. Sync: the login URL through `window.open`, which a browser may refuse outside a user gesture — the sheet then offers it to copy — and the credential key held by the browser (a non-extractable WebCrypto key) rather than by an OS store. The run says goodbye on `pagehide`, `pageshow` bringing it back. **No clipboard, no notifications.**                                                    |
 
 ## Data model
 
 `Bit` (table `bits`) — the columns the UI actually uses, plus sync bookkeeping the UI never
-touches (see [Nextcloud sync](#nextcloud-sync-implemented-but-not-reachable-from-the-app) below):
+touches (see [Nextcloud sync](#nextcloud-sync-optional-off-until-connected) below):
 
 | Column        | Type            | Notes                                                                                                    |
 |---------------|-----------------|----------------------------------------------------------------------------------------------------------|
@@ -153,7 +173,7 @@ touches (see [Nextcloud sync](#nextcloud-sync-implemented-but-not-reachable-from
 Room 3, schema v4. Auto-migrations: 1→2 dropped `concerned_at` and initialized `date = created_at`
 (deprecated `Instant`-based `date`, since replaced); 2→3 converted `date` to a zoneless
 `LocalDateTime`; 3→4 added all the sync bookkeeping columns above, defaulting existing rows to
-dirty (queued for a first push once sync is ever wired in). `BitDao` — what the UI actually
+dirty, so a first connect pushes everything already written. `BitDao` — what the UI actually
 uses — offers `getAllBits()` as a Flow (`WHERE deleted = 0`), `hasBitAtDate`, `upsert`, `delete`,
 and `getBitsByIds` (Android notification history). A separate `SyncDao` covers everything sync
 needs; the UI never touches it.
@@ -162,37 +182,85 @@ Sync also owns three more tables the UI never sees: `bucket_state` (per-month fo
 `readable_state` (content hash of each day's last-uploaded Markdown rendering), and
 `readable_pending` (days whose rendering is queued to (re-)upload).
 
-## Nextcloud sync (implemented, but not reachable from the app)
+## Nextcloud sync (optional, off until connected)
 
-Everything `docs/nexcloud_sync_spec.md` describes for syncing bits across devices via a stock
-Nextcloud instance exists as thoroughly-tested library code in `shared/.../sync/` and
-`.../auth/` — but **nothing in the running app calls any of it**. No settings screen, no DI
-wiring, no button, no background trigger. A user cannot turn sync on today; in practice the app
-is still 100% local-only, on every platform.
+Bits across a person's own devices, through a stock Nextcloud instance over WebDAV — no server-side
+code of any kind, no account of Conifer's own. It is opt-in and off until an account is connected:
+until then nothing here touches the network and the app is the local-only app it has always been
+(`SyncCoordinator.state` stays `Disconnected`). `docs/nexcloud_sync_spec.md` is the specification
+this implements.
 
-What exists, as library code:
+### On the screen
 
+- **The cloud icon in the app bar** (`SyncStatusIcon`) — muted while disconnected, tinted once
+  connected, spinning while a round is in flight. It is the whole entry point: pressing it opens the
+  sync surface, pressing it again closes it.
+- **Which surface that is** is `SyncPresentation`, decided by the window size classes and
+  overridable like the rest of the layout: `Pane` where the window is wide *and* tall enough to hand
+  sync a third pane beside the bits — the mirror of the day sidebar on the other side — and `Sheet`
+  everywhere else, where a connected app gets `SyncDebugPopover` anchored on the icon and
+  `SyncSettingsSheet` over the window on request or whenever there is no account yet.
+  `SyncUiState.isSyncOpen` only records that the user asked to see sync; the presentation is what
+  turns that into a surface.
+- **Connecting** (`DisconnectedContent`) — a server field (the scheme may be left off, `https://` is
+  assumed, a trailing slash trimmed) and one button, which starts Login Flow v2 and opens the
+  browser. Conifer never sees the account password, only the app-scoped token the flow hands back.
+  A browser that would not open does not lose the login: the URL is offered to copy or to open
+  again, and the poll started with it goes on waiting throughout (`ConnectingContent`,
+  `SyncCoordinator.retryOpenLoginUrl`).
+- **A warning before anything is written** (`InsecureKeyWarning`) — where the encryption key has no
+  OS-backed store to live in (a headless Linux with no keyring, a browser), the sheet says so and
+  names what would hold it instead, *before* connecting: once the username and app password are
+  written they are written through that same weaker custody either way
+  (`SyncCoordinator.insecureKeyCustody`).
+- **Once connected** (`ConnectedContent`) — the account, "last synced …" in the reader's own locale,
+  **Sync now**, the **app folder** field and **Disconnect**, which forgets the credentials but
+  deliberately keeps the local sync state, so reconnecting the same account resumes rather than
+  pulling everything down again.
+- **Changing the app folder** re-syncs into it wholesale: every bit goes back to dirty with no
+  remote identity and the bucket/rendering caches are cleared
+  (`SyncDao.resetForNewAppRoot`), because only dirty bits are ever pushed and the new folder is
+  empty. It then syncs at once instead of waiting for the next trigger. Blank input is ignored
+  rather than stored, and a path equal to the current one is a no-op, so neither can force a
+  pointless full re-push.
+- **Troubleshooting details** (`SyncDebugPopover` → `SyncDebugDetails`) — server, device id, app
+  root, last sync, root ETag, last GC, last error and the last round's tally (pushed · pulled ·
+  merged). Those rows are spelled ISO on purpose: they are read off the screen into bug reports and
+  compared against server-side timestamps, where a reader's locale would only be in the way — the
+  status line above them is localized. Never a bit's content.
+
+### When it runs
+
+`SyncViewModel` owns the triggers spec §5 asks for; `SyncCoordinator` itself only ever runs when
+told to, which is what keeps sync opt-in whatever is scheduled. A round starts on **Sync now**,
+**immediately after a connect succeeds**, **ten seconds after a local edit settles** (debounced),
+**when the app comes back to the front** (`AppPresence`) and **every five minutes while it is on
+screen**. Rounds never overlap, and one that starts while disconnected is skipped. Each says in the
+log what started it (`SyncTrigger`) — "it synced twice and then stopped" is otherwise unanswerable.
+
+### Underneath
+
+- `SyncCoordinator` — connect, disconnect, run, app root, debug snapshot: the layer between the
+  engine (which knows nothing about the UI) and the view model (which knows nothing about WebDAV or
+  the login flow).
 - `RemoteStore` / `KtorWebDavStore` — a WebDAV transport (PROPFIND/GET/PUT/MKCOL/DELETE, bulk
   upload with a sequential fallback), verified against a real containerized Nextcloud.
 - `SyncEngine` — fast-path check, pull (parallel downloads, ≤6 at a time), push, tombstone GC,
   and finalize, resolving conflicts via `MergePolicy` (last-write-wins, deterministic tiebreak on
   device id).
 - `ReadableRenderer` / `ReadableModule` — a deterministic, human-readable Markdown file per day
-  next to the machine JSON, skipped when the rendering hasn't actually changed.
+  next to the machine JSON, skipped when the rendering hasn't actually changed. Write-only: it is
+  generated, never read back, never merged.
 - `GarbageCollector` — physically deletes tombstones 90 days after they were pushed clean, at
   most once a week.
 - `LoginFlowV2` / `Credentials` — Nextcloud's poll-based login flow (the app never sees the real
   password) and KSafe-encrypted app-password storage, hardware-backed per platform.
 
-What's missing before a user could actually use any of this: a settings/login screen, Koin
-bindings for the classes above, and a trigger (app foreground / manual refresh /
-debounced-after-edit, per the spec) that ever calls `SyncEngine.sync()`. `docs/conifer-mockup.html`
-has a proposed sync entry point/settings sheet with no code behind it yet.
-
-See `sync_review.md` at the repo root for the full review of the sync implementation, including
-one known open correctness gap: a device returning from a long stretch offline has only a
-stopgap against resurrecting a post another device deleted-and-garbage-collected while it was
-away, not the full spec mitigation (which needs a UI to ask the user).
+See `docs/sync_review.md` for the full review of the sync implementation, including the one known
+open correctness gap: a device returning from a long stretch offline has only a stopgap against
+resurrecting a bit another device deleted-and-garbage-collected while it was away — it refuses to
+push, and the bit stays dirty — rather than the full spec mitigation, which needs a surface to ask
+the user with and does not have one.
 
 ## Build-level extras (not runtime features)
 

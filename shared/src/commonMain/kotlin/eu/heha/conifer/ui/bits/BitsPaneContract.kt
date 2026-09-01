@@ -163,6 +163,13 @@ class BitsPaneActions(
     val onNewBitTextChange: (String) -> Unit = {},
     val onClickRequestPermission: () -> Unit = {},
     val onClickDate: (LocalDate) -> Unit = {},
+    /**
+     * Picks a day from the calendar ([DayPickerDialog]), which says the same thing [onClickDate]
+     * does — look at this day, and write to it — with the two differences a calendar brings: there
+     * is no second press to deselect with, and the day lists are grown to reach whatever day it
+     * lands on, since a day they already count back to is one the user could have scrolled to.
+     */
+    val onPickDate: (LocalDate) -> Unit = {},
     val onClickAllDays: () -> Unit = {},
     /**
      * Asks for another [DAY_LIST_PAGE] days at the old end of the day lists — what either list
