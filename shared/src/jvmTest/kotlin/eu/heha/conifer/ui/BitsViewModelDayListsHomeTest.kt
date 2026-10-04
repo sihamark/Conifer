@@ -12,6 +12,7 @@ import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.InMemoryPreferencesStore
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.ui.bits.DAY_LIST_PAGE
+import eu.heha.conifer.ui.bits.DayScrollRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -205,6 +206,72 @@ class BitsViewModelDayListsHomeTest : BitsViewModelTestCase() {
         assertEquals(before.filterDate, model.state.filterDate)
         assertEquals(before.listedDayCount, model.state.listedDayCount)
         assertEquals(before.scrollDaysHomeRequest, model.state.scrollDaysHomeRequest)
+    }
+
+    @Test
+    fun aDayPickedFromTheCalendarFiltersTheListAndTakesTheDayListsToIt() =
+        runBlocking(Dispatchers.Main) {
+            // The case the calendar exists for: a day within the lists' reach is one the user could
+            // have scrolled to and would not have opened a calendar for.
+            val model = viewModel()
+            val day = model.state.today.daysBack(200)
+            val before = model.state.scrollDaysHomeRequest
+
+            model.pickDate(day)
+
+            assertEquals(day, model.state.filterDate)
+            assertEquals(day, model.state.composerDate)
+            // 201 days back, counted in pages of DAY_LIST_PAGE.
+            assertEquals(7 * DAY_LIST_PAGE, model.state.listedDayCount)
+            // Grown to hold the day and asked to show it, which are two different things: the day
+            // is now an item of both lists, two hundred items past where either of them is parked.
+            assertEquals(DayScrollRequest(day, 1), model.state.scrollDaysToDateRequest)
+            // Not home, though: that request is the way *out* of the past, and this is the way in.
+            assertEquals(before, model.state.scrollDaysHomeRequest)
+        }
+
+    @Test
+    fun pickingTodayShowsItAndLeavesTheDateToTheClock() = runBlocking(Dispatchers.Main) {
+        val model = viewModel()
+
+        model.pickDate(model.state.today)
+
+        assertEquals(model.state.today, model.state.filterDate)
+        // Null rather than today spelled out, so the date goes on following the clock over midnight.
+        assertNull(model.state.composerDate)
+    }
+
+    @Test
+    fun pickingTheSameDayAgainKeepsIt() = runBlocking(Dispatchers.Main) {
+        // Unlike a day chip, which lets go of the day when it is tapped a second time: a calendar
+        // has no way of saying "not this one either", so every day it hands back is one to go to.
+        val model = viewModel()
+        val day = model.state.today.daysBack(3)
+
+        model.pickDate(day)
+        model.pickDate(day)
+
+        assertEquals(day, model.state.filterDate)
+        assertEquals(day, model.state.composerDate)
+        // And asks for it again rather than repeating itself into a request nothing answers: the
+        // second pick is made from wherever the lists have been dragged since the first.
+        assertEquals(DayScrollRequest(day, 2), model.state.scrollDaysToDateRequest)
+    }
+
+    @Test
+    fun theDaysAreAskedForByTheCalendarAndByNothingElse() = runBlocking(Dispatchers.Main) {
+        // Every other way to a day is taken where the day is already in view, or means "out of
+        // wherever I was" — which asks the lists home instead (see the tests above).
+        val model = viewModel(bitsOn = listOf(40))
+
+        model.selectDate(model.state.today.daysBack(2))
+        model.shiftDate(-60)
+        model.skipToDateWithBits(-1)
+        model.selectToday()
+        model.selectAllDays()
+        model.resetSelection()
+
+        assertNull(model.state.scrollDaysToDateRequest)
     }
 
     private fun LocalDate.daysBack(days: Int) = LocalDate.fromEpochDays(toEpochDays() - days)

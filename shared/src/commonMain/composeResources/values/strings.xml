@@ -19,9 +19,11 @@
     <string name="bits_action_menu_edit">Edit</string>
     <string name="bits_action_menu_cancel_edit">Cancel Edit</string>
     <string name="bits_content_save_bit">Save Bit</string>
+    <string name="bits_action_show_calendar">Pick a day from the calendar</string>
     <string name="bits_action_show_date_picker">Show date picker</string>
     <string name="bits_action_show_time_picker">Pick an exact time</string>
     <string name="bits_action_set_time">Set time</string>
+    <string name="bits_action_set_date">Set day</string>
 
     <string name="bits_label_date_time_now">Now</string>
     <string name="bits_label_days">Days</string>
@@ -57,6 +59,7 @@
     <string name="shortcuts_now">Back to the current time</string>
     <string name="shortcuts_day">Move its day, one day at a time</string>
     <string name="shortcuts_day_with_bits">Jump to the nearest day that has bits</string>
+    <string name="shortcuts_calendar">Pick any day out of the calendar</string>
     <string name="shortcuts_today">Back to today</string>
     <string name="shortcuts_all_days">Show every day</string>
     <string name="shortcuts_escape">Close what is open, or stop editing — or, if neither, back to every day and now, the day list with it</string>
