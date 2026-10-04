@@ -17,6 +17,7 @@ import eu.heha.conifer.prefs.ComposerDraft
 import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.ui.bits.BitsPaneState
 import eu.heha.conifer.ui.bits.DAY_LIST_PAGE
+import eu.heha.conifer.ui.bits.DayScrollRequest
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
@@ -349,18 +350,21 @@ class BitsViewModel(
     }
 
     /**
-     * Picks the day from the calendar ([eu.heha.conifer.ui.bits.DayPickerDialog]), which is
-     * [selectDate]'s job with two differences the calendar brings.
-     *
-     * It never deselects: the calendar has no way of saying "not this day either", so the day it
-     * hands back is always a day to go to. And it goes through [movedTo], because the day it hands
-     * back is typically one the lists do not count back to yet — a day within their reach is one
-     * the user could have scrolled to instead, and would not have opened a calendar for. The filter
-     * is then set unconditionally, where [movedTo] would leave an unfiltered list alone: picking a
-     * day out of a calendar is asking to see it.
+     * Goes to a day picked in the calendar ([eu.heha.conifer.ui.bits.DayPickerDialog]): like
+     * [selectDate], but never deselects, grows the day lists to reach the day ([movedTo]) and asks
+     * them to scroll there.
      */
     fun pickDate(date: LocalDate) {
-        state = state.movedTo(date).copy(filterDate = date)
+        state = state.movedTo(date).copy(
+            filterDate = date,
+            scrollDaysToDateRequest = DayScrollRequest(
+                date = date,
+                // As with the way home, the number is what makes asking twice two requests: the
+                // same day picked again is asked for from wherever the lists have been dragged
+                // since, and a request equal to the last one would be answered by nothing at all.
+                count = (state.scrollDaysToDateRequest?.count ?: 0) + 1
+            )
+        )
     }
 
     /**

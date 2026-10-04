@@ -256,6 +256,30 @@ class BitsPaneShortcutsTest {
     }
 
     @Test
+    fun theCalendarIsOnAKeyOfItsOwn() = runComposeUiTest {
+        // The day keys walk the days; this is the one way to a day that is not a walk, and without
+        // it the calendar is a button and nothing else — on the very platforms that have a keyboard.
+        setContent { ShortcutPane(state = BitsPaneState(newBitText = "half a bit")) }
+
+        onRoot().performKeyInput { withKeyDown(Key.AltLeft) { pressKey(Key.C) } }
+
+        onNodeWithText("Set day").assertExists()
+    }
+
+    @Test
+    fun aBareCIsTheTextFieldsAsEveryOtherLetterIs() = runComposeUiTest {
+        // The chord is what makes a letter the screen's; without it C is a letter in a bit, and a
+        // calendar opening mid-word would be the worst kind of shortcut.
+        setContent { ShortcutPane() }
+        val field = onNode(hasSetTextAction())
+        field.performClick()
+
+        field.performTextInput("c")
+
+        onNodeWithText("Set day").assertDoesNotExist()
+    }
+
+    @Test
     fun altEndHandsTheTimeBackToTheClockWithoutTouchingTheDay() = runComposeUiTest {
         var times = 0
         var todays = 0
@@ -566,7 +590,7 @@ class BitsPaneShortcutsTest {
         // handleShortcut and never told to the user.
         listOf(
             "Enter", "Shift+Enter", "Alt+↑/↓", "Alt+←/→", "Alt+PgUp/PgDn", "Shift+Alt+←/→",
-            "Alt+Home", "Alt+0", "Esc", "Alt+H", "F1"
+            "Alt+C", "Alt+Home", "Alt+0", "Esc", "Alt+H", "F1"
         ).forEach { keys ->
             onNodeWithText(keys).assertExists()
         }
@@ -662,7 +686,7 @@ class BitsPaneShortcutsTest {
 
         listOf(
             "Ctrl+Alt+↑/↓", "Ctrl+Alt+←/→", "Ctrl+Alt+PgUp/PgDn", "Shift+Ctrl+Alt+←/→",
-            "Ctrl+Alt+Home", "Ctrl+Alt+0", "Ctrl+Alt+H"
+            "Ctrl+Alt+C", "Ctrl+Alt+Home", "Ctrl+Alt+0", "Ctrl+Alt+H"
         ).forEach { keys ->
             onNodeWithText(keys).assertExists()
         }

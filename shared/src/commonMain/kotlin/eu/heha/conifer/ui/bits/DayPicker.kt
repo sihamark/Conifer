@@ -1,5 +1,6 @@
 package eu.heha.conifer.ui.bits
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DisplayMode
@@ -9,7 +10,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.bits_action_cancel
 import conifer.shared.generated.resources.bits_action_set_date
@@ -17,17 +30,9 @@ import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Material's own calendar, for the day that is too far back to scroll to. The day lists reach as far
- * as they are dragged, a page of [DAY_LIST_PAGE] days at a time, which is a fine way to last week
- * and a poor one to last March; this is the way to any day at all, and its year grid is what makes
- * a jump of eighteen months two presses rather than six hundred days of dragging.
- *
- * A day is picked here exactly as it is picked in the day lists — see
- * [eu.heha.conifer.ui.BitsViewModel.pickDate] — so it filters the list *and* dates the bit being
- * written, and the lists are grown to count back to whatever day it lands on.
- *
- * Nothing is committed until "Set day", as in [TimeOfDayPickerDialog]: paging through months should
- * be as free to back out of as opening the calendar was.
+ * Material's calendar, for days too far back to scroll to. Picking a day works like
+ * [eu.heha.conifer.ui.BitsViewModel.pickDate]. Nothing is committed until "Set day" (or Enter); Esc
+ * cancels — see [CalendarKeys].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +59,14 @@ internal fun DayPickerDialog(
         initialDisplayMode = initialDisplayMode,
         selectableDates = remember(today) { DaysUpTo(today) }
     )
+    // Null while the typed field holds something that is not a day yet, and while a day was cleared
+    // rather than replaced. There is nothing to commit then, and a button that silently did nothing
+    // would be worse than one that says so.
+    val picked = state.selectedDateMillis?.let(::dateOfUtcMillis)
+    val commit: () -> Unit = {
+        picked?.let(onPickDate)
+        onDismiss()
+    }
     DatePickerDialog(
         onDismissRequest = onDismiss,
         dismissButton = {
@@ -62,22 +75,68 @@ internal fun DayPickerDialog(
             }
         },
         confirmButton = {
-            // Null while the typed field holds something that is not a day yet, and while a day was
-            // cleared rather than replaced. There is nothing to commit then, and a button that
-            // silently did nothing would be worse than one that says so.
-            val picked = state.selectedDateMillis?.let(::dateOfUtcMillis)
-            TextButton(
-                enabled = picked != null,
-                onClick = {
-                    picked?.let(onPickDate)
-                    onDismiss()
-                }
-            ) {
+            TextButton(enabled = picked != null, onClick = commit) {
                 Text(stringResource(Res.string.bits_action_set_date))
             }
         }
     ) {
-        DatePicker(state)
+        CalendarKeys(
+            isDayPicked = picked != null,
+            displayMode = state.displayMode,
+            onCommit = commit,
+            onDismiss = onDismiss
+        ) {
+            DatePicker(state)
+        }
+    }
+}
+
+/**
+ * Makes Enter mean "Set day" and Esc mean Cancel in the calendar dialog. The typed field would
+ * swallow Enter, so there it is taken on the preview pass; in the grid on the normal pass, so a day
+ * or button tabbed to keeps its own Enter.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CalendarKeys(
+    isDayPicked: Boolean,
+    displayMode: DisplayMode,
+    onCommit: () -> Unit,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val isTyping = displayMode == DisplayMode.Input
+    val focusRequester = remember { FocusRequester() }
+    val isDown = { event: KeyEvent -> event.type == KeyEventType.KeyDown }
+    // Nothing to commit while the field holds something that is not a day, exactly as the button is
+    // disabled then: a key that closed the calendar on nothing would throw away the day it opened
+    // on.
+    val setsTheDay = { event: KeyEvent ->
+        isDayPicked && isDown(event) && (event.key == Key.Enter || event.key == Key.NumPadEnter)
+    }
+    Box(
+        Modifier
+            .focusRequester(focusRequester)
+            .focusTarget()
+            .onPreviewKeyEvent { event ->
+                if (isDown(event) && event.key == Key.Escape) {
+                    onDismiss()
+                    return@onPreviewKeyEvent true
+                }
+                if (!isTyping || !setsTheDay(event)) return@onPreviewKeyEvent false
+                onCommit()
+                true
+            }
+            .onKeyEvent { event ->
+                if (isTyping || !setsTheDay(event)) return@onKeyEvent false
+                onCommit()
+                true
+            }
+    ) {
+        content()
+    }
+    LaunchedEffect(isTyping) {
+        if (!isTyping) focusRequester.requestFocus()
     }
 }
 

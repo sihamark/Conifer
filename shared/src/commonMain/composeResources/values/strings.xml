@@ -59,6 +59,7 @@
     <string name="shortcuts_now">Back to the current time</string>
     <string name="shortcuts_day">Move its day, one day at a time</string>
     <string name="shortcuts_day_with_bits">Jump to the nearest day that has bits</string>
+    <string name="shortcuts_calendar">Pick any day out of the calendar</string>
     <string name="shortcuts_today">Back to today</string>
     <string name="shortcuts_all_days">Show every day</string>
     <string name="shortcuts_escape">Close what is open, or stop editing — or, if neither, back to every day and now, the day list with it</string>

@@ -198,6 +198,12 @@ those exported schemas.
   the `AppConfig` version, the git commit, whether the tree was modified, and the build time — which
   is how runtime code gets at the version at all. `buildLabel()` formats it for a log or a report.
 - Versions/plugins are centralized in `gradle/libs.versions.toml`.
+- **`changelog.md` entries are concise:** at most 3 lines each, describing what happened; give the
+  reason only when a choice is unusual or departs from best practice. The newest version heading
+  carries no date — that is added at release.
+- **KDocs follow the same rule:** short, describing what the code does; give the reason
+  only when it is unusual or departs from best practice. Many existing KDocs predate this and run
+  longer; don't take them as the model.
 - Opt-ins `kotlin.time.ExperimentalTime` and `kotlin.uuid.ExperimentalUuidApi` are enabled
   project-wide — `Instant`, `Clock`, and `Uuid` from `kotlin.*` are used directly (not the kotlinx
   variants).

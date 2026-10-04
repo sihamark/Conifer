@@ -127,6 +127,8 @@ internal fun DateTimeSelector(
     onLoadOlderDays: () -> Unit = {},
     /** Bumped to send the strip back to today — see [ScrollBackToTodayWhenAsked]. */
     scrollHomeRequest: Int = 0,
+    /** The day picked in the calendar, to scroll to — see [ScrollToDayWhenAsked]. */
+    scrollToDateRequest: DayScrollRequest? = null,
     modifier: Modifier = Modifier
 ) {
     val hasCustomSelection = composerDate != null || composerTime != null
@@ -239,7 +241,8 @@ internal fun DateTimeSelector(
                         onClickDate = onClickDate,
                         dayCount = dayCount,
                         onLoadOlderDays = onLoadOlderDays,
-                        scrollHomeRequest = scrollHomeRequest
+                        scrollHomeRequest = scrollHomeRequest,
+                        scrollToDateRequest = scrollToDateRequest
                     )
                 }
                 TimeSlider(
@@ -425,7 +428,8 @@ internal fun LocalTime.shiftedByTimeSlots(slots: Int): LocalTime =
  * reaches [dayCount] days back and asks for another page as it is scrolled towards the oldest of
  * them ([LoadOlderDaysWhenNearTheOldest]) — dragging it leftwards goes on into the past for as
  * long as one keeps dragging, and Esc or the key for today brings it back
- * ([ScrollBackToTodayWhenAsked]).
+ * ([ScrollBackToTodayWhenAsked]). It scrolls to a day picked in the calendar
+ * ([ScrollToDayWhenAsked]).
  */
 @Composable
 private fun DaySelection(
@@ -436,11 +440,13 @@ private fun DaySelection(
     dayCount: Int = DAY_LIST_PAGE,
     onLoadOlderDays: () -> Unit = {},
     scrollHomeRequest: Int = 0,
+    scrollToDateRequest: DayScrollRequest? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     LoadOlderDaysWhenNearTheOldest(listState, onLoadOlderDays)
     ScrollBackToTodayWhenAsked(listState, scrollHomeRequest)
+    ScrollToDayWhenAsked(listState, scrollToDateRequest, currentDate, dayCount)
     // As in the sidebar: one lookup per chip, of which there are as many as have been scrolled to.
     val bitsOfDate = remember(bitsByDate) { bitsByDate.associateBy { it.date } }
     // The clickable Surface would otherwise enforce the 48.dp minimum touch target height on

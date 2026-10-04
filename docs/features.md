@@ -27,14 +27,24 @@ launchers.
   Each day shows 1–3 dots: one for any bit that day, two
   once both morning (before 12:00) and afternoon have at least one, three past that once the day
   holds more than 3 bits (`DatedBits.dots`).
-- **Calendar** — a button beside the date chip, and beside the sidebar's "Days" heading in the
-  two-pane layout, opens Material's `DatePickerDialog` for a day too far back to scroll to
-  (`DayPickerDialog`). Picking a day does what a day chip does — filter the list, date the bit — and
-  additionally grows the day lists to count back far enough to mark it (`BitsViewModel.pickDate`,
-  through the same `movedTo` the date hotkeys use); there is no deselecting, a calendar having no
-  way to say "not this day either". Days after today are not selectable (`DaysUpTo`), the year grid
-  spans the oldest day with bits — and five years past it — up to this year (`yearRangeBackTo`), and
-  where there is a hardware keyboard it opens on the typed field rather than the grid.
+- **Calendar** — a button beside the date chip, beside the sidebar's "Days" heading in the
+  two-pane layout, and the chord's `C` on a keyboard, all open Material's `DatePickerDialog` for a
+  day too far back to scroll to (`DayPickerDialog`). Picking a day does what a day chip does —
+  filter the list, date the bit — and two things a chip never has to: it grows the day lists to
+  count back far enough to mark it (`BitsViewModel.pickDate`, through the same `movedTo` the date
+  hotkeys use), and it takes both lists to it. Growing a list to hold a day is not showing it — a
+  day months back sits hundreds of items past the edge of a list parked at today — so the pick
+  carries a `scrollDaysToDateRequest` that `ScrollToDayWhenAsked` answers, the mirror of
+  `scrollDaysHomeRequest` and the way home. There is no deselecting, a calendar having no way to
+  say "not this day either". Days after today are not selectable (`DaysUpTo`), the year grid spans
+  the oldest day with bits — and five years past it — up to this year (`yearRangeBackTo`), and
+  where there is a hardware keyboard it opens on the typed field rather than the grid. Inside the
+  dialog, `Enter` does what "Set day" does and `Esc` what "Cancel" does (`CalendarKeys`) — neither
+  key arrives on its own, so the wrapper holds the focus while the grid is up and reads Enter on
+  the preview pass in `Input` mode (the field swallows it otherwise) and on the bubble pass in
+  `Picker` mode (so a day or a button tabbed to keeps its own Enter); Esc is taken on the way down
+  in both, and reaches nothing behind the dialog, where the screen's Esc would mean "every day and
+  now".
 - **Time picker** — slider in 15-minute steps (00:00–23:45) for the bit's time of day.
 - **Localized dates and times** — everything the reader sees is spelled by the platform:
   `DateTimeFormats` (five methods — time of day, short weekday, day-and-month, whole date, date with
@@ -56,27 +66,28 @@ launchers.
   sync debug rows all stay ISO, since those are read by machines and by other devices.
 - **Keyboard shortcuts** — all of the screen's shortcuts live in one place, `handleShortcut` in
   `KeyboardShortcuts.kt`, and so work with or without the text field focused. `Alt`+the arrows
-  adjust what the
-  composer will stamp on the bit: `↑/↓` the time by one slider slot, `←/→` the day — left is older,
-  matching the strip's `reverseLayout` — with `Alt+PageUp/PageDown` as a synonym for the day pair
-  (`Alt+←/→` is word-jump on macOS). `Shift+Alt+←/→` skips to the nearest day that has bits,
-  `Alt+T`/`Alt+Home` return to today, `Alt+N`/`Alt+End` hand the time back to the clock without
-  touching either day (`resetTime`, the time's counterpart of `selectToday`) and `Alt+0` shows all
-  days (keeping a chosen time, as the day lists' "All days" does). Those two have a letter each
-  because Apple's laptops have no Home/End keys at all — there they are `fn`+`←/→`, which with the
-  chord on top is unusable — so, as with `Alt+H`, the letter is the spelling that works on every
-  keyboard and is the one the overlay lists first. `Esc` cancels an edit, or failing that resets the
-  selection — the filter, the
-  composer date *and* a nudged time, so one press puts the clock back in charge of both
-  (`resetSelection`; a nudged time alone is enough to arm it, see `BitsPaneState.hasSelection`). The
-  day keys are clamped to `DAY_LIST_DAYS` so the selected day is always one a day
-  list can mark (`dateShiftedBy`, `nearestDateWithBits`); unlike tapping a day they move only the
-  composer date and pull the filter along solely when one is already set, so stepping days mid-edit
-  re-dates the bit in hand without throwing the list about. The field keeps only `Enter` to save and
-  `Shift+Enter` for a line break (`NewBitText`). Because a key event only reaches the focused node
-  and
-  its ancestors — and, with nothing focused, only key input *above* the root focus node — the pane
-  holds a `focusTarget` of its own, taken once on the way in and immediately ceded to the field.
+  adjust what the composer will stamp on the bit: `↑/↓` the time by one slider slot, `←/→` the day
+  — left is older, matching the strip's `reverseLayout` — with `Alt+PageUp/PageDown` as a synonym
+  for the day pair (`Alt+←/→` is word-jump on macOS). `Shift+Alt+←/→` skips to the nearest day
+  that has bits, `Alt+C` opens the calendar — the one way to a day that is not a walk through the
+  days, and C rather than the better mnemonic D because `Alt+D` is the address bar in a browser,
+  which is one of the four places this app runs — `Alt+T`/`Alt+Home` return to today,
+  `Alt+N`/`Alt+End` hand the time back to the clock without touching either day (`resetTime`, the
+  time's counterpart of `selectToday`) and `Alt+0` shows all days (keeping a chosen time, as the
+  day lists' "All days" does). Those two have a letter each because Apple's laptops have no
+  Home/End keys at all — there they are `fn`+`←/→`, which with the chord on top is unusable — so,
+  as with `Alt+H`, the letter is the spelling that works on every keyboard and is the one the
+  overlay lists first. `Esc` cancels an edit, or failing that resets the selection — the filter,
+  the composer date *and* a nudged time, so one press puts the clock back in charge of both
+  (`resetSelection`; a nudged time alone is enough to arm it, see `BitsPaneState.hasSelection`).
+  The day keys are clamped to `DAY_LIST_DAYS` so the selected day is always one a day list can
+  mark (`dateShiftedBy`, `nearestDateWithBits`); unlike tapping a day they move only the composer
+  date and pull the filter along solely when one is already set, so stepping days mid-edit
+  re-dates the bit in hand without throwing the list about. The field keeps only `Enter` to save
+  and `Shift+Enter` for a line break (`NewBitText`). Because a key event only reaches the focused
+  node and its ancestors — and, with nothing focused, only key input *above* the root focus node —
+  the pane holds a `focusTarget` of its own, taken once on the way in and immediately ceded to the
+  field.
 - **Shortcut overlay** — `Alt+H` (or `F1`) shows the whole list over the screen, grouped by what
   each
   key acts on; `Esc`, `Alt+H`, the Close button or a click off the card puts it away

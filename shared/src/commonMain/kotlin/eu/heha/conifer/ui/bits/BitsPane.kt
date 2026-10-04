@@ -129,10 +129,12 @@ fun BitsPane(
         // The composer's date/time picker, kept here rather than in the composer because Esc has to
         // be able to close it — see [waysOut] below.
         var isPickerExpanded by remember { mutableStateOf(false) }
-        // The calendar, kept here because both ways in open the same one: the composer's chip row,
-        // which every layout has, and the sidebar's heading, which only the two-pane layout has. It
-        // is a dialog and so a window of its own, which is why — unlike the picker above — it is no
-        // part of `waysOut`: its Esc never reaches this screen's handler at all.
+        // The calendar, kept here because every way in opens the same one: the composer's chip row,
+        // which every layout has, the sidebar's heading, which only the two-pane layout has, and
+        // the chord's C, the keyboard's only way to a day it cannot walk to (handleShortcut). It is
+        // a dialog and so a window of its own, which is why — unlike the picker above — it is no
+        // part of `waysOut`: its Esc is answered in there (see CalendarKeys) and never reaches this
+        // screen's handler at all.
         var isCalendarOpen by remember { mutableStateOf(false) }
         // The platform's answer is only a guess about the device (see Platform.hasHardwareKeyboard),
         // and a modifier arriving is proof: nothing on a touch keyboard sends Alt. So a tablet with a
@@ -166,6 +168,7 @@ fun BitsPane(
                         chord = shortcutChord,
                         isShortcutsOverlayOpen = isShortcutsOverlayOpen,
                         onShortcutsOverlayChange = { isShortcutsOverlayOpen = it },
+                        onOpenCalendar = { isCalendarOpen = true },
                         // What Esc backs out of and in which order, innermost first, so that one
                         // press is always one thing. Only what the screen draws inside itself
                         // belongs here: a dialog, a menu and sync's popover are each a window of
@@ -203,6 +206,7 @@ fun BitsPane(
                         dayCount = state.listedDayCount,
                         onLoadOlderDays = actions.onLoadOlderDays,
                         scrollHomeRequest = state.scrollDaysHomeRequest,
+                        scrollToDateRequest = state.scrollDaysToDateRequest,
                         // The sidebar spans the whole pane height, so its content has to stay clear
                         // of the keyboard itself — the composer's own inset only shifts the main
                         // pane.
@@ -549,7 +553,8 @@ private fun Composer(
                 onCancelEdit = actions.onCancelEdit,
                 dayCount = state.listedDayCount,
                 onLoadOlderDays = actions.onLoadOlderDays,
-                scrollHomeRequest = state.scrollDaysHomeRequest
+                scrollHomeRequest = state.scrollDaysHomeRequest,
+                scrollToDateRequest = state.scrollDaysToDateRequest
             )
             NewBitText(
                 newBitText = state.newBitText,

@@ -39,6 +39,12 @@ enum class BitsLayout {
  */
 internal const val DAY_LIST_PAGE = 30
 
+/**
+ * A day the day lists are asked to scroll to. [count] makes asking for the same day again a new
+ * request.
+ */
+data class DayScrollRequest(val date: LocalDate, val count: Int = 1)
+
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
@@ -93,7 +99,12 @@ data class BitsPaneState(
      * acknowledges it; each new number is a new request, and a list that was already home simply
      * scrolls nowhere.
      */
-    val scrollDaysHomeRequest: Int = 0
+    val scrollDaysHomeRequest: Int = 0,
+    /**
+     * One-shot request to scroll the day lists to a day picked in the calendar; null until one is.
+     * Like [scrollDaysHomeRequest], its count makes picking the same day twice two requests.
+     */
+    val scrollDaysToDateRequest: DayScrollRequest? = null
 ) {
     /**
      * The time a bit added right now would carry: the user's pick, or the clock while they haven't

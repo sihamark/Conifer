@@ -61,7 +61,8 @@ import org.jetbrains.compose.resources.stringResource
  *
  * It reaches [dayCount] days back and asks for more as it is scrolled towards the oldest of them
  * ([LoadOlderDaysWhenNearTheOldest]), so scrolling into the past simply goes on — and comes back to
- * today when asked ([ScrollBackToTodayWhenAsked]).
+ * today when asked ([ScrollBackToTodayWhenAsked]) or to a day picked in the calendar
+ * ([ScrollToDayWhenAsked]).
  *
  * [selectedDate] is the day the list is filtered to ([BitsPaneState.filterDate]), not the day the
  * composer is set to write on: both day lists mark the day being looked at, which is all they
@@ -80,11 +81,14 @@ internal fun DaySidebar(
     dayCount: Int = DAY_LIST_PAGE,
     onLoadOlderDays: () -> Unit = {},
     scrollHomeRequest: Int = 0,
+    /** The day picked in the calendar, to scroll to. */
+    scrollToDateRequest: DayScrollRequest? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     LoadOlderDaysWhenNearTheOldest(listState, onLoadOlderDays)
     ScrollBackToTodayWhenAsked(listState, scrollHomeRequest)
+    ScrollToDayWhenAsked(listState, scrollToDateRequest, currentDate, dayCount)
     // A day is looked up once per row and there are as many rows as have been scrolled to, so the
     // days are indexed rather than searched through for each of them.
     val bitsOfDate = remember(bitsByDate) { bitsByDate.associateBy { it.date } }
@@ -359,6 +363,28 @@ internal fun ScrollBackToTodayWhenAsked(
         listState.animateScrollToItem(0)
     }
 }
+
+/**
+ * Scrolls [listState] to the day of each new [request]. A day outside the list's [dayCount] days,
+ * or in the future, is ignored rather than scrolled towards.
+ */
+@Composable
+internal fun ScrollToDayWhenAsked(
+    listState: LazyListState,
+    request: DayScrollRequest?,
+    currentDate: LocalDate,
+    dayCount: Int
+) {
+    LaunchedEffect(request) {
+        val date = request?.date ?: return@LaunchedEffect
+        val daysBack = currentDate.toEpochDays() - date.toEpochDays()
+        if (daysBack < 0 || daysBack >= dayCount) return@LaunchedEffect
+        listState.animateScrollToItem(daysBack.toInt() + LEADING_DAY_LIST_ITEMS)
+    }
+}
+
+/** Items before the days in both day lists: the sidebar's "All days" row, the strip's spacer. */
+private const val LEADING_DAY_LIST_ITEMS = 1
 
 /**
  * How much a day holds, as dots (see [DatedBits.dots]) — shared by the day strip and the sidebar so
