@@ -38,7 +38,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # Karma drives the Firefox that ships with the runner image; the build asks for it headless,
+      # Karma drives the Chrome that ships with the runner image; the build asks for it headless,
       # so no virtual display is needed here.
       - name: Run the browser tests
         run: ./gradlew :shared:wasmJsBrowserTest --stacktrace

@@ -7,7 +7,7 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.compose)
 }
 
 fun ApkSigningConfig.fromKeystoreProperties(keystorePropertiesPath: String) {

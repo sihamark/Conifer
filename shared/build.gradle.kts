@@ -4,8 +4,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.multiplatform.library)
-    alias(libs.plugins.compose.multiplatform)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.jetbrains.compose)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.kotlin.serialization)
@@ -57,10 +57,12 @@ kotlin {
         browser {
             testTask {
                 useKarma {
-                    useFirefoxHeadless()
+                    useChromeHeadless()
                 }
             }
         }
+        // Compose UI tests need the webpack bundle to load Skiko (CMP-4906); webApp stays the app.
+        binaries.executable()
     }
 
     sourceSets {

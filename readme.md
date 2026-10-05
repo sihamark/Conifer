@@ -281,7 +281,7 @@ Tests are written with [kotlin-test](https://kotlinlang.org/api/core/kotlin-test
 ./gradlew :shared:jvmTest                   # JVM only — fastest, and the biggest suite
 ./gradlew :shared:testAndroidHostTest       # commonTest against the stubbed android.jar, no emulator
 ./gradlew :shared:iosSimulatorArm64Test     # iOS simulator (macOS only)
-./gradlew :shared:wasmJsBrowserTest         # headless Firefox, via Karma
+./gradlew :shared:wasmJsBrowserTest         # headless Chrome, via Karma
 ./gradlew :shared:jvmTest --tests "*MergePolicyTest"   # a single class
 ./gradlew :shared:jvmCoverageReport         # JVM tests + HTML/XML/CSV coverage report
 ```
@@ -299,11 +299,11 @@ excluded from the count.
 Three workflows in [`.github/workflows`](./.github/workflows), each also runnable by hand from the
 Actions tab (`workflow_dispatch`).
 
-| Workflow                                           | When                         | What it does                                                                                                                                                                                       |
-|----------------------------------------------------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`tests.yml`](./.github/workflows/tests.yml)       | push to `main`, PR to `main` | Three jobs, one per target JaCoCo cannot see: the browser tests (headless Firefox), the Android host tests, the iOS simulator tests (`iosSimulatorArm64` is the only iOS target with a test task). |
-| [`coverage.yml`](./.github/workflows/coverage.yml) | push to `main`, PR to `main` | `:shared:jvmCoverageReport` under `xvfb-run` — the Compose desktop UI tests want a display — then refreshes the two badges at the top of this file.                                                |
-| [`release.yml`](./.github/workflows/release.yml)   | a pushed version tag         | Builds every release artifact, assembles a draft release page and uploads the lot to Nextcloud. See [Releasing](#releasing).                                                                       |
+| Workflow                                           | When                         | What it does                                                                                                                                                                                      |
+|----------------------------------------------------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`tests.yml`](./.github/workflows/tests.yml)       | push to `main`, PR to `main` | Three jobs, one per target JaCoCo cannot see: the browser tests (headless Chrome), the Android host tests, the iOS simulator tests (`iosSimulatorArm64` is the only iOS target with a test task). |
+| [`coverage.yml`](./.github/workflows/coverage.yml) | push to `main`, PR to `main` | `:shared:jvmCoverageReport` under `xvfb-run` — the Compose desktop UI tests want a display — then refreshes the two badges at the top of this file.                                               |
+| [`release.yml`](./.github/workflows/release.yml)   | a pushed version tag         | Builds every release artifact, assembles a draft release page and uploads the lot to Nextcloud. See [Releasing](#releasing).                                                                      |
 
 The JVM suite is deliberately not repeated in `tests.yml`: `coverage.yml` already runs it on the
 same triggers. The Android job *does* repeat `commonTest`, on purpose — it runs against the stubbed

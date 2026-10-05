@@ -31,6 +31,8 @@ import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.theme.ConiferTheme
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.compose.getKoin
 import org.koin.core.context.startKoin
 import kotlin.time.Clock
@@ -232,18 +234,21 @@ object ConiferApp {
         LaunchedEffect(Unit) {
             koin.get<CredentialsInitializer>().awaitCredentialsReady()
             val credentials = koin.get<Credentials>()
-            if (!credentials.isKeySecurelyStored) {
-                // Not a fatal condition (the data is still AES-256-GCM encrypted either way, see
-                // Credentials.isKeySecurelyStored) - but a silent key-custody downgrade to a
-                // filesystem-permission-only fallback should never go unnoticed.
-                Napier.w {
-                    val notes = credentials.keyCustodyNotes
-                        .takeIf { it.isNotEmpty() }
-                        ?.joinToString(prefix = " [", postfix = "]")
-                        .orEmpty()
-                    "credentials encryption key is not stored in an OS-backed secure store " +
-                            "(KSafe fell back to its software tier): " +
-                            credentials.keyCustodyDescription + notes
+            // On Android, KSafe's first protectionInfo read blocks on a store read.
+            withContext(Dispatchers.Default) {
+                if (!credentials.isKeySecurelyStored) {
+                    // Not a fatal condition (the data is still AES-256-GCM encrypted either way,
+                    // see Credentials.isKeySecurelyStored) - but a silent key-custody downgrade to
+                    // a filesystem-permission-only fallback should never go unnoticed.
+                    Napier.w {
+                        val notes = credentials.keyCustodyNotes
+                            .takeIf { it.isNotEmpty() }
+                            ?.joinToString(prefix = " [", postfix = "]")
+                            .orEmpty()
+                        "credentials encryption key is not stored in an OS-backed secure store " +
+                                "(KSafe fell back to its software tier): " +
+                                credentials.keyCustodyDescription + notes
+                    }
                 }
             }
             credentialsReady = true
