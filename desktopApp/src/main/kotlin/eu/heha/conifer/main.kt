@@ -5,13 +5,19 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import conifer.desktopapp.generated.resources.app_icon_linux
+import conifer.desktopapp.generated.resources.app_icon_macos
+import conifer.desktopapp.generated.resources.app_icon_windows
 import conifer.shared.generated.resources.Res
-import conifer.shared.generated.resources.app_icon
 import conifer.shared.generated.resources.app_name
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.skiko.OS
+import org.jetbrains.skiko.hostOs
 import java.awt.Dimension
 import kotlin.math.roundToInt
+import conifer.desktopapp.generated.resources.Res as DesktopRes
 
 // Smallest window the UI still works in: narrower than the mockup's 390 dp phone, but the
 // single-pane layout takes it, and the height still holds the top bar, a day header with a bit or
@@ -44,7 +50,7 @@ fun main() = application {
     )
     Window(
         onCloseRequest = ::exitApplication,
-        icon = painterResource(Res.drawable.app_icon),
+        icon = painterResource(windowIcon()),
         title = stringResource(Res.string.app_name)
     ) {
         // Compose has no window-state property for this; the limit goes straight to the AWT window.
@@ -53,4 +59,11 @@ fun main() = application {
         }
         ConiferApp.AppContent()
     }
+}
+
+/** App icon on the host's icon grid, matching the icon of its native distribution. */
+private fun windowIcon(): DrawableResource = when (hostOs) {
+    OS.MacOS -> DesktopRes.drawable.app_icon_macos
+    OS.Windows -> DesktopRes.drawable.app_icon_windows
+    else -> DesktopRes.drawable.app_icon_linux
 }

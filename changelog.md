@@ -11,6 +11,8 @@
 - the browser tests run in headless Chrome instead of Firefox, which can no longer start pages
   from the command line on macOS 27
 - web crash reports from Chrome and other V8 browsers no longer list the error's header as a frame
+- the desktop icons follow each platform's guidelines: macOS renders its icon from an Icon
+  Composer icon, Windows and Linux sit on their app icon grids; the window icon matches per OS
 
 ## Version 1.2.9 (31.08.2026)
 
