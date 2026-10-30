@@ -89,13 +89,18 @@ private fun String.cutTo(max: Int): String =
  *
  * Taken off [stackTraceToString] rather than off a structured trace, because a structured one is
  * not the same thing on every target - and its first line is the type and message, which
- * [crashBreadcrumb] already has from the throwable itself.
+ * [crashBreadcrumb] already has from the throwable itself. On wasm in a V8 browser the JS stack
+ * repeats that header once more, as `SimpleName: message`, so that is dropped too.
  */
-private fun Throwable.topFrames(): List<String> = stackTraceToString()
-    .lineSequence()
-    .drop(1)
-    .map { it.trim() }
-    .filter { it.isNotEmpty() }
-    .take(MAX_CRASH_FRAMES)
-    .map { redactSecrets(it) }
-    .toList()
+private fun Throwable.topFrames(): List<String> {
+    val jsHeader = listOfNotNull(this::class.simpleName, message).joinToString(": ")
+    return stackTraceToString()
+        .lineSequence()
+        .drop(1)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .dropWhile { it == jsHeader }
+        .take(MAX_CRASH_FRAMES)
+        .map { redactSecrets(it) }
+        .toList()
+}

@@ -5,6 +5,12 @@
 - a calendar beside the date chip (and the two-pane sidebar heading) picks any past day; Alt+C
   (⌃⌥C on a Mac) opens it, Enter confirms, Esc closes. Both day lists grow to and scroll to the
   picked day. Alt+C rather than Alt+D, which browsers keep for the address bar
+- dependency updates: Kotlin 2.4.20, Compose Multiplatform 1.12.1, Gradle 9.8.0, AGP 9.4.1, Room
+  3.0.3, Ktor 3.6.0, KSafe 3.3.0, sqlite-wasm 3.53.4 and smaller bumps. Gradle 9.8 and AGP 9.4 are
+  newer than Kotlin 2.4.20 is tested against
+- the browser tests run in headless Chrome instead of Firefox, which can no longer start pages
+  from the command line on macOS 27
+- web crash reports from Chrome and other V8 browsers no longer list the error's header as a frame
 
 ## Version 1.2.9 (31.08.2026)
 
