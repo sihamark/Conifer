@@ -39,6 +39,12 @@ enum class BitsLayout {
  */
 internal const val DAY_LIST_PAGE = 30
 
+/**
+ * A day the day lists are asked to scroll to. [count] makes asking for the same day again a new
+ * request.
+ */
+data class DayScrollRequest(val date: LocalDate, val count: Int = 1)
+
 data class BitsPaneState(
     val permissionRationale: PermissionRationale? = null,
     val isCopyPossible: Boolean = true,
@@ -93,7 +99,12 @@ data class BitsPaneState(
      * acknowledges it; each new number is a new request, and a list that was already home simply
      * scrolls nowhere.
      */
-    val scrollDaysHomeRequest: Int = 0
+    val scrollDaysHomeRequest: Int = 0,
+    /**
+     * One-shot request to scroll the day lists to a day picked in the calendar; null until one is.
+     * Like [scrollDaysHomeRequest], its count makes picking the same day twice two requests.
+     */
+    val scrollDaysToDateRequest: DayScrollRequest? = null
 ) {
     /**
      * The time a bit added right now would carry: the user's pick, or the clock while they haven't
@@ -163,6 +174,13 @@ class BitsPaneActions(
     val onNewBitTextChange: (String) -> Unit = {},
     val onClickRequestPermission: () -> Unit = {},
     val onClickDate: (LocalDate) -> Unit = {},
+    /**
+     * Picks a day from the calendar ([DayPickerDialog]), which says the same thing [onClickDate]
+     * does — look at this day, and write to it — with the two differences a calendar brings: there
+     * is no second press to deselect with, and the day lists are grown to reach whatever day it
+     * lands on, since a day they already count back to is one the user could have scrolled to.
+     */
+    val onPickDate: (LocalDate) -> Unit = {},
     val onClickAllDays: () -> Unit = {},
     /**
      * Asks for another [DAY_LIST_PAGE] days at the old end of the day lists — what either list

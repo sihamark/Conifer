@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.shortcuts_action_close
 import conifer.shared.generated.resources.shortcuts_all_days
+import conifer.shared.generated.resources.shortcuts_calendar
 import conifer.shared.generated.resources.shortcuts_day
 import conifer.shared.generated.resources.shortcuts_day_with_bits
 import conifer.shared.generated.resources.shortcuts_escape
@@ -128,6 +129,11 @@ internal fun handleShortcut(
     isShortcutsOverlayOpen: Boolean,
     onShortcutsOverlayChange: (Boolean) -> Unit,
     /**
+     * Opens the calendar ([DayPickerDialog]). Opens rather than toggles: the dialog takes the
+     * keyboard and closes on its own Esc.
+     */
+    onOpenCalendar: () -> Unit = {},
+    /**
      * What Esc closes before it means anything else, innermost first: one press closes one thing,
      * and this list is where that order is written down (see [BitsPane], which builds it).
      *
@@ -208,6 +214,19 @@ internal fun handleShortcut(
         // selected day a second time.
         Key.Zero, Key.NumPad0 -> {
             actions.onClickAllDays()
+            return true
+        }
+
+        // C for calendar: the keyboard's way to a day no number of steps is a way to. The keys
+        // above walk the days, a press at a time or a day with bits at a time, which is the same
+        // bargain the day strip makes — fine for last week and hopeless for last March. This opens
+        // the one control that is not a walk, and where a keyboard is what asked for it the dialog
+        // opens on its typed field, so the day can simply be written out (see [BitsPane]).
+        //
+        // Not D for "day" or D for "date", which is the better mnemonic and the worse key: a
+        // browser is one of the four things this app runs in, and Alt+D there is the address bar.
+        Key.C -> {
+            onOpenCalendar()
             return true
         }
 
@@ -423,6 +442,7 @@ private fun shortcutGroups(chord: ShortcutChord): List<ShortcutGroup> {
             rows = listOf(
                 ShortcutRow(listOf("$held+←/→", "$held+PgUp/PgDn"), Res.string.shortcuts_day),
                 ShortcutRow("Shift+$held+←/→", Res.string.shortcuts_day_with_bits),
+                ShortcutRow("$held+C", Res.string.shortcuts_calendar),
                 ShortcutRow(listOf("$held+T", "$held+Home"), Res.string.shortcuts_today),
                 ShortcutRow("$held+0", Res.string.shortcuts_all_days)
             )

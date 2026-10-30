@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -64,6 +66,7 @@ import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.bits_action_back_to_now
 import conifer.shared.generated.resources.bits_action_cancel_edit
 import conifer.shared.generated.resources.bits_action_hide_date_picker
+import conifer.shared.generated.resources.bits_action_show_calendar
 import conifer.shared.generated.resources.bits_action_show_date_picker
 import conifer.shared.generated.resources.bits_action_show_time_picker
 import conifer.shared.generated.resources.bits_content_edit_bit
@@ -111,6 +114,11 @@ internal fun DateTimeSelector(
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onClickDate: (LocalDate) -> Unit,
+    /**
+     * Opens the calendar ([DayPickerDialog]), which [BitsPane] owns because the two-pane layout's
+     * sidebar offers the same way in.
+     */
+    onClickCalendar: () -> Unit,
     onSelectTime: (LocalTime) -> Unit,
     onResetToNow: () -> Unit,
     onCancelEdit: () -> Unit,
@@ -119,6 +127,8 @@ internal fun DateTimeSelector(
     onLoadOlderDays: () -> Unit = {},
     /** Bumped to send the strip back to today — see [ScrollBackToTodayWhenAsked]. */
     scrollHomeRequest: Int = 0,
+    /** The day picked in the calendar, to scroll to — see [ScrollToDayWhenAsked]. */
+    scrollToDateRequest: DayScrollRequest? = null,
     modifier: Modifier = Modifier
 ) {
     val hasCustomSelection = composerDate != null || composerTime != null
@@ -188,6 +198,20 @@ internal fun DateTimeSelector(
                     )
                 }
             }
+            // The way to a day the strip would take a long drag to reach. It keeps the full 48.dp
+            // touch target that the chips beside it give up (see [TimeChip]): those are one of a
+            // row of many, where a miss costs a neighbouring day and a second tap, while this is
+            // the only way in to the calendar — and it is the row's height either way, since the
+            // "back to now" button next to it already stands 40.dp tall.
+            IconButton(onClick = onClickCalendar) {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = stringResource(Res.string.bits_action_show_calendar),
+                    // Sized to the chip's own icons rather than the button's default 24.dp, so the
+                    // two read as one row of controls.
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             AnimatedVisibility(hasCustomSelection && !isEditing) {
                 TextButton(onClick = onResetToNow) {
                     Text(
@@ -217,7 +241,8 @@ internal fun DateTimeSelector(
                         onClickDate = onClickDate,
                         dayCount = dayCount,
                         onLoadOlderDays = onLoadOlderDays,
-                        scrollHomeRequest = scrollHomeRequest
+                        scrollHomeRequest = scrollHomeRequest,
+                        scrollToDateRequest = scrollToDateRequest
                     )
                 }
                 TimeSlider(
@@ -403,7 +428,8 @@ internal fun LocalTime.shiftedByTimeSlots(slots: Int): LocalTime =
  * reaches [dayCount] days back and asks for another page as it is scrolled towards the oldest of
  * them ([LoadOlderDaysWhenNearTheOldest]) — dragging it leftwards goes on into the past for as
  * long as one keeps dragging, and Esc or the key for today brings it back
- * ([ScrollBackToTodayWhenAsked]).
+ * ([ScrollBackToTodayWhenAsked]). It scrolls to a day picked in the calendar
+ * ([ScrollToDayWhenAsked]).
  */
 @Composable
 private fun DaySelection(
@@ -414,11 +440,13 @@ private fun DaySelection(
     dayCount: Int = DAY_LIST_PAGE,
     onLoadOlderDays: () -> Unit = {},
     scrollHomeRequest: Int = 0,
+    scrollToDateRequest: DayScrollRequest? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     LoadOlderDaysWhenNearTheOldest(listState, onLoadOlderDays)
     ScrollBackToTodayWhenAsked(listState, scrollHomeRequest)
+    ScrollToDayWhenAsked(listState, scrollToDateRequest, currentDate, dayCount)
     // As in the sidebar: one lookup per chip, of which there are as many as have been scrolled to.
     val bitsOfDate = remember(bitsByDate) { bitsByDate.associateBy { it.date } }
     // The clickable Surface would otherwise enforce the 48.dp minimum touch target height on

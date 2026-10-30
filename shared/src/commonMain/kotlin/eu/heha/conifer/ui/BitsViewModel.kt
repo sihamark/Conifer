@@ -17,6 +17,7 @@ import eu.heha.conifer.prefs.ComposerDraft
 import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.ui.bits.BitsPaneState
 import eu.heha.conifer.ui.bits.DAY_LIST_PAGE
+import eu.heha.conifer.ui.bits.DayScrollRequest
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
@@ -345,6 +346,24 @@ class BitsViewModel(
         state = state.copy(
             filterDate = if (isDeselecting) null else newDate,
             composerDate = if (isDeselecting) null else newDate
+        )
+    }
+
+    /**
+     * Goes to a day picked in the calendar ([eu.heha.conifer.ui.bits.DayPickerDialog]): like
+     * [selectDate], but never deselects, grows the day lists to reach the day ([movedTo]) and asks
+     * them to scroll there.
+     */
+    fun pickDate(date: LocalDate) {
+        state = state.movedTo(date).copy(
+            filterDate = date,
+            scrollDaysToDateRequest = DayScrollRequest(
+                date = date,
+                // As with the way home, the number is what makes asking twice two requests: the
+                // same day picked again is asked for from wherever the lists have been dragged
+                // since, and a request equal to the last one would be answered by nothing at all.
+                count = (state.scrollDaysToDateRequest?.count ?: 0) + 1
+            )
         )
     }
 

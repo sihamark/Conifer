@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.3.0
+
+- a calendar beside the date chip (and the two-pane sidebar heading) picks any past day; Alt+C
+  (⌃⌥C on a Mac) opens it, Enter confirms, Esc closes. Both day lists grow to and scroll to the
+  picked day. Alt+C rather than Alt+D, which browsers keep for the address bar
+
 ## Version 1.2.9 (31.08.2026)
 
 - the coverage badges moved to a branch of their own. They had been committed back onto `main` by
