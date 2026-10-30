@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,13 +60,17 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.bits_action_back_to_now
 import conifer.shared.generated.resources.bits_action_cancel_edit
+import conifer.shared.generated.resources.bits_action_discard_edit
 import conifer.shared.generated.resources.bits_action_hide_date_picker
+import conifer.shared.generated.resources.bits_action_keep_editing
+import conifer.shared.generated.resources.bits_action_save_edit
 import conifer.shared.generated.resources.bits_action_show_calendar
 import conifer.shared.generated.resources.bits_action_show_date_picker
 import conifer.shared.generated.resources.bits_action_show_time_picker
@@ -73,6 +78,9 @@ import conifer.shared.generated.resources.bits_content_edit_bit
 import conifer.shared.generated.resources.bits_content_save_bit
 import conifer.shared.generated.resources.bits_label_date_time_now
 import conifer.shared.generated.resources.bits_label_new_bit
+import conifer.shared.generated.resources.bits_message_unsaved_edit
+import conifer.shared.generated.resources.bits_note_set_aside
+import conifer.shared.generated.resources.bits_title_unsaved_edit
 import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.label
@@ -515,6 +523,8 @@ private fun DaySelection(
 internal fun NewBitText(
     newBitText: String,
     isEditing: Boolean,
+    /** The new bit an edit has set aside, named under the field so it is not thought lost. */
+    setAsideText: String? = null,
     onNewBitTextChange: (String) -> Unit,
     onClickAdd: () -> Unit,
     focusRequester: FocusRequester,
@@ -556,6 +566,15 @@ internal fun NewBitText(
                         }
                     )
                 )
+            },
+            supportingText = setAsideText?.takeIf { it.isNotBlank() }?.let { text ->
+                {
+                    Text(
+                        stringResource(Res.string.bits_note_set_aside, text.lines().first()),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
@@ -617,3 +636,36 @@ internal fun NewBitText(
     }
 }
 
+
+/**
+ * Asks what to do with an edit that has unsaved changes when another bit is picked for editing.
+ * Saving is offered only while there is text to save.
+ */
+@Composable
+internal fun EditSwitchDialog(
+    isSavePossible: Boolean,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+    onKeepEditing: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onKeepEditing,
+        title = { Text(stringResource(Res.string.bits_title_unsaved_edit)) },
+        text = { Text(stringResource(Res.string.bits_message_unsaved_edit)) },
+        confirmButton = {
+            TextButton(onClick = onSave, enabled = isSavePossible) {
+                Text(stringResource(Res.string.bits_action_save_edit))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onKeepEditing) {
+                    Text(stringResource(Res.string.bits_action_keep_editing))
+                }
+                TextButton(onClick = onDiscard) {
+                    Text(stringResource(Res.string.bits_action_discard_edit))
+                }
+            }
+        }
+    )
+}

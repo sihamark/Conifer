@@ -264,6 +264,14 @@ fun BitsPane(
                 isDebug = isDebug
             )
         }
+        if (state.pendingEditSwitch != null) {
+            EditSwitchDialog(
+                isSavePossible = state.newBitText.isNotBlank(),
+                onSave = actions.onSaveEditAndSwitch,
+                onDiscard = actions.onDiscardEditAndSwitch,
+                onKeepEditing = actions.onKeepEditing
+            )
+        }
         if (isCalendarOpen) {
             DayPickerDialog(
                 // The day the composer would stamp on a bit added now, so the calendar opens where
@@ -559,6 +567,7 @@ private fun Composer(
             NewBitText(
                 newBitText = state.newBitText,
                 isEditing = state.editingBitId != null,
+                setAsideText = state.setAside?.text,
                 onNewBitTextChange = actions.onNewBitTextChange,
                 onClickAdd = actions.onClickAdd,
                 focusRequester = focusRequester,

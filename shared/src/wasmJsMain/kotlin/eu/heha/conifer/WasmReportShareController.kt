@@ -30,6 +30,6 @@ object WasmReportShareController : ReportShareController {
     }
 }
 
-@Suppress("unused")
+@OptIn(ExperimentalWasmJsInterop::class)
 @JsFun("(text) => encodeURIComponent(text)")
 private external fun encodeUriComponent(text: String): String

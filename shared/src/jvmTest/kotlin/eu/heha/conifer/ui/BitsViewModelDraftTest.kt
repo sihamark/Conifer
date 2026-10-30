@@ -136,6 +136,161 @@ class BitsViewModelDraftTest : BitsViewModelTestCase() {
         assertEquals("left alone", repository.getBit(bit.id)?.text)
     }
 
+    @Test
+    fun anEditSetsTheNewBitAsideAndCancellingBringsItBack() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val bit = Bit(text = "older", date = LocalDateTime(2026, 8, 6, 14, 30))
+        repository.add(bit)
+        val model = viewModel(repository)
+        model.onNewBitTextChange("half written")
+        model.selectTime(LocalTime(9, 15))
+
+        model.startEditing(bit)
+        assertEquals("older", model.state.newBitText)
+        assertEquals("half written", model.state.setAside?.text)
+
+        model.cancelEdit()
+        assertEquals("half written", model.state.newBitText)
+        assertEquals(LocalTime(9, 15), model.state.composerTime)
+        assertNull(model.state.setAside)
+    }
+
+    @Test
+    fun savingAnEditBringsTheSetAsideBitBack() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val bit = Bit(text = "older", date = LocalDateTime(2026, 8, 6, 14, 30))
+        repository.add(bit)
+        val model = viewModel(repository)
+        model.onNewBitTextChange("half written")
+
+        model.startEditing(bit)
+        model.onNewBitTextChange("older, revised")
+        model.onClickAdd()
+
+        assertTrue(awaitTrue { model.state.editingBitId == null })
+        assertEquals("half written", model.state.newBitText)
+        assertEquals("older, revised", repository.getBit(bit.id)?.text)
+        assertEquals("half written", draftPrefs.draft()?.text)
+    }
+
+    @Test
+    fun switchingFromAnUnchangedEditAsksNothing() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val first = Bit(text = "first", date = LocalDateTime(2026, 8, 6, 14, 30))
+        val second = Bit(text = "second", date = LocalDateTime(2026, 8, 7, 8, 0))
+        repository.add(first)
+        repository.add(second)
+        val model = viewModel(repository)
+        model.onNewBitTextChange("half written")
+
+        model.startEditing(first)
+        model.startEditing(second)
+
+        assertNull(model.state.pendingEditSwitch)
+        assertEquals(second.id, model.state.editingBitId)
+        assertEquals("half written", model.state.setAside?.text)
+    }
+
+    @Test
+    fun switchingFromAChangedEditAsksAndKeepEditingStays() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val first = Bit(text = "first", date = LocalDateTime(2026, 8, 6, 14, 30))
+        val second = Bit(text = "second", date = LocalDateTime(2026, 8, 7, 8, 0))
+        repository.add(first)
+        repository.add(second)
+        val model = viewModel(repository)
+
+        model.startEditing(first)
+        model.onNewBitTextChange("first, changed")
+        model.startEditing(second)
+
+        assertEquals(second, model.state.pendingEditSwitch)
+        assertEquals(first.id, model.state.editingBitId)
+
+        model.keepEditing()
+        assertNull(model.state.pendingEditSwitch)
+        assertEquals("first, changed", model.state.newBitText)
+    }
+
+    @Test
+    fun discardingSwitchesWithoutSaving() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val first = Bit(text = "first", date = LocalDateTime(2026, 8, 6, 14, 30))
+        val second = Bit(text = "second", date = LocalDateTime(2026, 8, 7, 8, 0))
+        repository.add(first)
+        repository.add(second)
+        val model = viewModel(repository)
+        model.onNewBitTextChange("half written")
+
+        model.startEditing(first)
+        model.onNewBitTextChange("first, changed")
+        model.startEditing(second)
+        model.discardEditAndSwitch()
+
+        assertEquals(second.id, model.state.editingBitId)
+        assertEquals("second", model.state.newBitText)
+        assertEquals("half written", model.state.setAside?.text)
+        assertEquals("first", repository.getBit(first.id)?.text)
+    }
+
+    @Test
+    fun savingSwitchesAfterSaving() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val first = Bit(text = "first", date = LocalDateTime(2026, 8, 6, 14, 30))
+        val second = Bit(text = "second", date = LocalDateTime(2026, 8, 7, 8, 0))
+        repository.add(first)
+        repository.add(second)
+        val model = viewModel(repository)
+
+        model.startEditing(first)
+        model.onNewBitTextChange("first, changed")
+        model.startEditing(second)
+        model.saveEditAndSwitch()
+
+        assertEquals(second.id, model.state.editingBitId)
+        assertTrue(awaitTrue { repository.getBit(first.id)?.text == "first, changed" })
+        assertEquals(first.date, repository.getBit(first.id)?.date)
+    }
+
+    @Test
+    fun restoresTheSetAsideBitWithAnInterruptedEdit() = runBlocking(Dispatchers.Main) {
+        val repository = repository()
+        val bit = Bit(text = "as it was", date = LocalDateTime(2026, 8, 6, 14, 30))
+        repository.add(bit)
+        draftPrefs.save(
+            ComposerDraft(
+                text = "as it will be",
+                editingBitId = bit.id,
+                setAsideText = "half written",
+                setAsideTime = LocalTime(9, 15)
+            )
+        )
+
+        val model = viewModel(repository)
+        assertTrue(awaitTrue { model.state.editingBitId == bit.id })
+
+        model.cancelEdit()
+        assertEquals("half written", model.state.newBitText)
+        assertEquals(LocalTime(9, 15), model.state.composerTime)
+    }
+
+    @Test
+    fun anEditWhoseBitIsGoneJoinsTheSetAsideBit() = runBlocking(Dispatchers.Main) {
+        draftPrefs.save(
+            ComposerDraft(
+                text = "outlived its bit",
+                editingBitId = "deleted-bit",
+                setAsideText = "half written"
+            )
+        )
+
+        val model = viewModel()
+
+        assertTrue(awaitTrue { model.state.newBitText == "half written\n\noutlived its bit" })
+        assertNull(model.state.editingBitId)
+        assertNull(model.state.setAside)
+    }
+
     private fun viewModel(repository: BitsRepository = repository()) = track(
         BitsViewModel(
             repository = repository,

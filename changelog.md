@@ -2,6 +2,9 @@
 
 ## Version 1.3.0
 
+- editing a bit no longer loses the new bit being written: it is set aside (and named under the
+  field) and comes back when the edit is saved or cancelled, across a restart too. Switching to
+  another bit with unsaved changes asks to save, discard or keep editing
 - a calendar beside the date chip (and the two-pane sidebar heading) picks any past day; Alt+C
   (⌃⌥C on a Mac) opens it, Enter confirms, Esc closes. Both day lists grow to and scroll to the
   picked day. Alt+C rather than Alt+D, which browsers keep for the address bar
