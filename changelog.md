@@ -2,6 +2,9 @@
 
 ## Version 1.3.1
 
+- in the two-pane layout the calendar button is only in the day sidebar, no longer also beside
+  the composer's date chip
+
 ## Version 1.3.0 (31.10.2026)
 
 - editing a bit no longer loses the new bit being written: it is set aside (and named under the
