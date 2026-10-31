@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 1.3.0
+## Version 1.3.0 (31.10.2026)
 
 - editing a bit no longer loses the new bit being written: it is set aside (and named under the
   field) and comes back when the edit is saved or cancelled, across a restart too. Switching to
