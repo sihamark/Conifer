@@ -73,19 +73,15 @@ class ComposerDayPickerTest {
     }
 
     @Test
-    fun theSidebarOpensTheSameCalendar() = runComposeUiTest {
-        // In the two-pane layout the days are the sidebar's, so it carries the way in as well —
-        // both buttons open the one dialog [BitsPane] owns.
+    fun theSidebarTakesTheCalendarButtonOver() = runComposeUiTest {
+        // In the two-pane layout the days are the sidebar's, so the button moves there from the
+        // composer — one button on screen, opening the dialog [BitsPane] owns.
         setContent { ComposerPane(layout = BitsLayout.DaySidebar) }
 
         val buttons = onAllNodesWithContentDescription(CALENDAR)
-        buttons.assertCountEquals(2)
+        buttons.assertCountEquals(1)
 
         buttons[0].performClick()
-        onNodeWithText(SET_DAY).assertExists()
-        onNodeWithText("Cancel").performClick()
-
-        buttons[1].performClick()
         onNodeWithText(SET_DAY).assertExists()
     }
 

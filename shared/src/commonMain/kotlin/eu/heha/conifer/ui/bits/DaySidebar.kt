@@ -98,10 +98,9 @@ internal fun DaySidebar(
         AnimatedVisibility(isTopBarVisible) {
             Spacer(Modifier.height(TopAppBarDefaults.TopAppBarExpandedHeight))
         }
-        // The days' own heading, and beside it the way to a day too far back to scroll to. The
-        // composer's chip row carries the same button in every layout; this one is here because in
-        // this layout the days are the sidebar's, and reaching for the composer to move the list
-        // beside it would be the long way round.
+        // The days' own heading, and beside it the way to a day too far back to scroll to. In
+        // this layout the button is here instead of in the composer's chip row, beside the days it
+        // moves.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 18.dp, end = 4.dp, bottom = 4.dp)

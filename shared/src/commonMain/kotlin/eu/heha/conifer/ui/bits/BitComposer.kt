@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -93,9 +94,10 @@ import kotlin.math.roundToInt
  * Compact date & time control presented as a chip. Collapsed it shows the date and time the bit
  * being written would get; a custom selection highlights the chip and a "back to now" text button
  * clears it, so a selection survives collapsing the picker. While editing a bit, a "cancel edit"
- * text button is offered instead. Expanding the chip reveals the day picker (unless the two-pane
- * layout's sidebar already owns the day, see [isDaySelectionVisible]) and a slim time slider, whose
- * own chip opens the time picker for a time the slider's quarter hours cannot make.
+ * text button is offered instead. A calendar button beside the chip opens the calendar. Expanding
+ * the chip reveals the day picker and a slim time slider, whose own chip opens the time picker for
+ * a time the slider's quarter hours cannot make. Where the two-pane layout's sidebar owns the day
+ * (see [isDaySelectionVisible]), both the day picker and the calendar button are left to it.
  */
 @Composable
 internal fun DateTimeSelector(
@@ -146,7 +148,9 @@ internal fun DateTimeSelector(
     Column(modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            // The calendar button's height, kept when the sidebar has the button instead, so the
+            // row does not change height as "back to now" comes and goes.
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
         ) {
             Surface(
                 onClick = { onExpandedChange(!isExpanded) },
@@ -211,14 +215,18 @@ internal fun DateTimeSelector(
             // row of many, where a miss costs a neighbouring day and a second tap, while this is
             // the only way in to the calendar — and it is the row's height either way, since the
             // "back to now" button next to it already stands 40.dp tall.
-            IconButton(onClick = onClickCalendar) {
-                Icon(
-                    Icons.Default.CalendarMonth,
-                    contentDescription = stringResource(Res.string.bits_action_show_calendar),
-                    // Sized to the chip's own icons rather than the button's default 24.dp, so the
-                    // two read as one row of controls.
-                    modifier = Modifier.size(20.dp)
-                )
+            //
+            // Left to the sidebar where it has the days, so the button is on screen only once.
+            if (isDaySelectionVisible) {
+                IconButton(onClick = onClickCalendar) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = stringResource(Res.string.bits_action_show_calendar),
+                        // Sized to the chip's own icons rather than the button's default 24.dp, so
+                        // the two read as one row of controls.
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
             AnimatedVisibility(hasCustomSelection && !isEditing) {
                 TextButton(onClick = onResetToNow) {
