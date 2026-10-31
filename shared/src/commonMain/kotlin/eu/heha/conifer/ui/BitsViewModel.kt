@@ -18,6 +18,7 @@ import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.ui.bits.BitsPaneState
 import eu.heha.conifer.ui.bits.DAY_LIST_PAGE
 import eu.heha.conifer.ui.bits.DayScrollRequest
+import eu.heha.conifer.ui.bits.SetAsideComposer
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
 import io.github.aakira.napier.Napier
@@ -49,14 +50,6 @@ class BitsViewModel(
 
     // The bit currently being edited inline, if any. Retained so its id/createdAt survive a save.
     private var editingBit: Bit? = null
-
-    /**
-     * What the composer was set to before the current edit started, put back when the edit ends.
-     *
-     * Editing loads the edited bit's date and time into the composer, so without remembering them
-     * a selection the user had made for the bits they are writing would be lost to a passing edit.
-     */
-    private var composerSelectionBeforeEdit: ComposerSelection? = null
 
     var state by mutableStateOf(
         BitsPaneState(
@@ -125,17 +118,36 @@ class BitsViewModel(
         // because of something the user did to a different bit entirely.
         val edited = draft.editingBitId?.let { repository.getBit(it) }
         editingBit = edited
-        // What the edit would be restored *to* was not stored: it is the composer the user had
-        // before an edit they may well have forgotten starting. Saving the restored edit therefore
-        // hands the composer back to the clock, as an edit started and finished right now would.
-        composerSelectionBeforeEdit = ComposerSelection().takeIf { edited != null }
         Napier.d { "restored draft, editing ${edited?.id}" }
-        state = state.copy(
-            newBitText = draft.text,
-            editingBitId = edited?.id,
-            composerDate = draft.composerDate,
-            composerTime = draft.composerTime
+        val setAside = SetAsideComposer(
+            text = draft.setAsideText.orEmpty(),
+            date = draft.setAsideDate,
+            time = draft.setAsideTime
         )
+        state = when {
+            edited != null -> state.copy(
+                newBitText = draft.text,
+                editingBitId = edited.id,
+                composerDate = draft.composerDate,
+                composerTime = draft.composerTime,
+                setAside = setAside
+            )
+            // The edit's bit is gone but a new bit was set aside for it: that new bit takes the
+            // composer back, with the edit's text appended rather than dropped.
+            setAside.text.isNotBlank() -> state.copy(
+                newBitText = listOf(setAside.text, draft.text)
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n\n"),
+                composerDate = setAside.date,
+                composerTime = setAside.time
+            )
+
+            else -> state.copy(
+                newBitText = draft.text,
+                composerDate = draft.composerDate,
+                composerTime = draft.composerTime
+            )
+        }
     }
 
     /**
@@ -242,24 +254,20 @@ class BitsViewModel(
                 repository.add(newBit)
                 submittedBitId = newBit.id
             }
-            // Cleared here rather than left to the debounced save below: the text is a bit now, and
-            // being killed in the half second in between would otherwise bring it back as a draft
-            // of a bit that already exists.
-            catchingDraftFailure { draftPrefs.save(null) }
             // A selection the user made by hand for new bits is kept, so several bits can be
-            // entered for the same date and time in a row. An edit's selection was loaded from the
-            // bit, so it gives way to whatever the composer was set to before the edit.
-            val composerSelection = if (edited != null) {
-                composerSelectionBeforeEdit ?: ComposerSelection()
+            // entered for the same date and time in a row. An edit hands the composer back to the
+            // new bit it set aside.
+            val next = if (edited != null) {
+                state.setAside ?: SetAsideComposer()
             } else {
-                ComposerSelection(state.composerDate, state.composerTime)
+                SetAsideComposer(date = state.composerDate, time = state.composerTime)
             }
-            composerSelectionBeforeEdit = null
             state = state.copy(
-                newBitText = "",
+                newBitText = next.text,
                 editingBitId = null,
-                composerDate = composerSelection.date,
-                composerTime = composerSelection.time,
+                composerDate = next.date,
+                composerTime = next.time,
+                setAside = null,
                 // A filtered list follows the bit that was just written when it lands on another
                 // day, so it stays in view (and can be scrolled to) instead of disappearing behind
                 // the filter. Filtered to the day it landed on anyway — the common case — this
@@ -267,6 +275,10 @@ class BitsViewModel(
                 filterDate = if (state.filterDate != null) date.date else null,
                 scrollToBitId = submittedBitId
             )
+            // Written here rather than left to the debounced save: the text is a bit now, and
+            // being killed in the half second in between would otherwise bring it back as a draft
+            // of a bit that already exists.
+            catchingDraftFailure { draftPrefs.save(state.toDraft()) }
         }
     }
 
@@ -294,34 +306,69 @@ class BitsViewModel(
      * scroll position cannot survive.
      */
     fun startEditing(bit: Bit) {
-        // Switching straight from one bit to another keeps what was remembered for the first, so
-        // the date the earlier edit loaded doesn't become what the composer is restored to.
-        if (editingBit == null) {
-            composerSelectionBeforeEdit =
-                ComposerSelection(state.composerDate, state.composerTime)
+        val current = editingBit
+        // Loading the bit being edited again would only throw away what was changed in it.
+        if (current?.id == bit.id) return
+        if (current != null && state.hasChangesTo(current)) {
+            state = state.copy(pendingEditSwitch = bit)
+            return
         }
+        switchEditTo(bit)
+    }
+
+    /**
+     * Loads [bit] into the composer. What the composer held for a new bit is set aside (see
+     * [BitsPaneState.setAside]); switching from one edit to another keeps what the first set aside.
+     */
+    private fun switchEditTo(bit: Bit) {
         editingBit = bit
         state = state.copy(
             newBitText = bit.text,
             editingBitId = bit.id,
             composerDate = bit.date.date,
-            composerTime = bit.date.time
+            composerTime = bit.date.time,
+            setAside = state.setAside
+                ?: SetAsideComposer(state.newBitText, state.composerDate, state.composerTime),
+            pendingEditSwitch = null
         )
     }
 
-    /** Leaves edit mode without saving, putting the composer back the way the edit found it. */
+    /** Saves the open edit as it stands, then edits the bit the user asked for. */
+    fun saveEditAndSwitch() {
+        val next = state.pendingEditSwitch ?: return
+        val edited = editingBit ?: return
+        val text = state.newBitText
+        if (text.isBlank()) return
+        val date = newBitDateTime()
+        switchEditTo(next)
+        viewModelScope.launch { repository.update(edited.copy(text = text, date = date)) }
+    }
+
+    /** Drops the open edit's changes, then edits the bit the user asked for. */
+    fun discardEditAndSwitch() {
+        switchEditTo(state.pendingEditSwitch ?: return)
+    }
+
+    /** Stays with the open edit. */
+    fun keepEditing() {
+        state = state.copy(pendingEditSwitch = null)
+    }
+
+    /** Leaves edit mode without saving, giving the composer back to the new bit set aside. */
     fun cancelEdit() {
         editingBit = null
-        // As in onClickAdd: the text was dropped on purpose, so it should not outlive the decision.
-        viewModelScope.launch { catchingDraftFailure { draftPrefs.save(null) } }
-        val restored = composerSelectionBeforeEdit ?: ComposerSelection()
-        composerSelectionBeforeEdit = null
+        val restored = state.setAside ?: SetAsideComposer()
         state = state.copy(
-            newBitText = "",
+            newBitText = restored.text,
             editingBitId = null,
             composerDate = restored.date,
-            composerTime = restored.time
+            composerTime = restored.time,
+            setAside = null,
+            pendingEditSwitch = null
         )
+        // As in onClickAdd: the edit was dropped on purpose, so it should not outlive the decision.
+        val draft = state.toDraft()
+        viewModelScope.launch { catchingDraftFailure { draftPrefs.save(draft) } }
     }
 
     /** Called by the UI once it has scrolled to (or verified visibility of) the submitted bit. */
@@ -590,18 +637,21 @@ private fun BitsPaneState.toDraft(): ComposerDraft? =
         text = newBitText,
         editingBitId = editingBitId,
         composerDate = composerDate,
-        composerTime = composerTime
-    ).takeIf { newBitText.isNotBlank() }
+        composerTime = composerTime,
+        setAsideText = setAside?.text,
+        setAsideDate = setAside?.date,
+        setAsideTime = setAside?.time
+    ).takeIf { it.hasText }
 
 /**
- * What the composer is set to date a bit with — null in either field meaning "whatever the clock
- * says when it is written". Kept together so an edit can put both back at once, see
- * [BitsViewModel.composerSelectionBeforeEdit].
+ * Whether the composer would save [bit] any differently from how it is stored. A date left to the
+ * clock counts as today, which is what saving would make of it; a time left to the clock is a
+ * change, since saving would stamp the current one.
  */
-private data class ComposerSelection(
-    val date: LocalDate? = null,
-    val time: LocalTime? = null
-)
+private fun BitsPaneState.hasChangesTo(bit: Bit): Boolean =
+    newBitText != bit.text ||
+            (composerDate ?: today) != bit.date.date ||
+            composerTime != bit.date.time
 
 /** The bits of one day, as the list and both day pickers consume them. */
 data class DatedBits(

@@ -86,6 +86,16 @@ data class BitsPaneState(
     val currentTime: LocalTime = now().time,
     val bitsByDate: List<DatedBits> = emptyList(),
     val editingBitId: String? = null,
+    /**
+     * The new bit the composer held when the current edit started, put back when the edit is saved
+     * or cancelled. Set exactly while a bit is being edited.
+     */
+    val setAside: SetAsideComposer? = null,
+    /**
+     * A bit the user asked to edit while the open edit had unsaved changes; while set,
+     * [EditSwitchDialog] asks whether to save or discard those changes first.
+     */
+    val pendingEditSwitch: Bit? = null,
     /** One-shot request to scroll the list to this bit after it was added or edited. */
     val scrollToBitId: String? = null,
     /**
@@ -141,6 +151,16 @@ data class BitsPaneState(
     val hasSelection: Boolean
         get() = filterDate != null || composerDate != null || composerTime != null
 }
+
+/**
+ * What the composer holds for a new bit — its text, and a date and time where null means "the
+ * clock's". Set aside while an edit borrows the composer, see [BitsPaneState.setAside].
+ */
+data class SetAsideComposer(
+    val text: String = "",
+    val date: LocalDate? = null,
+    val time: LocalTime? = null
+)
 
 /**
  * The day [days] steps away from the one being written to, clamped to [oldestReachableDate] and
@@ -220,6 +240,12 @@ class BitsPaneActions(
     val onDismissRunEndReport: () -> Unit = {},
     val onClickEditBit: (Bit) -> Unit = {},
     val onCancelEdit: () -> Unit = {},
+    /** Saves the open edit, then edits [BitsPaneState.pendingEditSwitch]. */
+    val onSaveEditAndSwitch: () -> Unit = {},
+    /** Drops the open edit's changes, then edits [BitsPaneState.pendingEditSwitch]. */
+    val onDiscardEditAndSwitch: () -> Unit = {},
+    /** Stays with the open edit and forgets [BitsPaneState.pendingEditSwitch]. */
+    val onKeepEditing: () -> Unit = {},
     val onDeleteBit: (Bit) -> Unit = {},
     val onScrolledToBit: () -> Unit = {}
 )

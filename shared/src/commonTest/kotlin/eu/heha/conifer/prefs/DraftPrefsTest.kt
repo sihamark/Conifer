@@ -127,4 +127,24 @@ class DraftPrefsTest {
         }
         assertEquals(ComposerDraft(text = "still worth keeping"), prefs.draft())
     }
+
+    @Test
+    fun aSetAsideNewBitIsRestoredWithTheEdit() = runTest {
+        val draft = ComposerDraft(
+            text = "an edit",
+            editingBitId = "bit-1",
+            setAsideText = "a new bit",
+            setAsideDate = LocalDate(2026, 8, 6),
+            setAsideTime = LocalTime(9, 15)
+        )
+        prefs.save(draft)
+        assertEquals(draft, prefs.draft())
+    }
+
+    @Test
+    fun anEditClearedToNothingIsStillKeptForTheBitItSetAside() = runTest {
+        val draft = ComposerDraft(text = "", editingBitId = "bit-1", setAsideText = "a new bit")
+        prefs.save(draft)
+        assertEquals(draft, prefs.draft())
+    }
 }

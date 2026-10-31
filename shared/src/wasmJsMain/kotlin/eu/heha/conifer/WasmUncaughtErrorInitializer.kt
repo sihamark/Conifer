@@ -30,10 +30,11 @@ object WasmUncaughtErrorInitializer : UncaughtErrorInitializer {
      * rejection's `reason` on the other), and neither is worth a cast that can fail on a browser
      * that spells it differently.
      */
+    @OptIn(ExperimentalWasmJsInterop::class)
     private fun describe(event: Event): String = describeEvent(event).toString()
 }
 
-@Suppress("unused")
+@OptIn(ExperimentalWasmJsInterop::class)
 @JsFun(
     """(event) => {
         const reason = event.reason;

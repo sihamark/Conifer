@@ -34,6 +34,13 @@
     <string name="bits_title_delete_bit">Delete bit?</string>
     <string name="bits_message_delete_bit">This bit will be permanently deleted.</string>
 
+    <string name="bits_title_unsaved_edit">Save your changes?</string>
+    <string name="bits_message_unsaved_edit">The bit you are editing has unsaved changes. Save them before editing the other one?</string>
+    <string name="bits_action_save_edit">Save</string>
+    <string name="bits_action_discard_edit">Discard</string>
+    <string name="bits_action_keep_editing">Keep editing</string>
+    <string name="bits_note_set_aside">Your new bit waits until this edit is done: %1$s</string>
+
     <string name="bits_message_beginning">This is where your Conifer sprouted.\nKeep adding bits and watch it grow!</string>
     <string name="bits_message_empty">No bits yet.\nWrite your first one below.</string>
     <string name="bits_message_empty_filtered">No bits on this day yet.\nWrite one below — it will land here.</string>
