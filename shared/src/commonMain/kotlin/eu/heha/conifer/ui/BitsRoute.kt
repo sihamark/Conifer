@@ -40,6 +40,8 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickCopyRunEndReport = model::copyRunEndReportToClipboard,
             onClickShareRunEndReport = model::shareRunEndReport,
             onDismissRunEndReport = model::dismissRunEndReport,
+            onClickOpenUpdate = model::openUpdate,
+            onDismissUpdate = model::dismissUpdate,
             onClickEditBit = model::startEditing,
             onCancelEdit = model::cancelEdit,
             onSaveEditAndSwitch = model::saveEditAndSwitch,
@@ -65,6 +67,7 @@ fun BitsRoute(permissionHandler: PermissionHandler? = null) {
             onClickOpenLoginUrl = syncModel::onClickOpenLoginUrl,
             onClickSyncNow = syncModel::onClickSyncNow,
             onClickDisconnect = syncModel::onClickDisconnect,
+            onUpdateCheckChange = syncModel::onUpdateCheckChange,
         ),
         // The only place that knows what kind of device this is; the pane takes these as plain
         // arguments so that it stays a composable a preview or a test can simply call.

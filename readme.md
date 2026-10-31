@@ -50,17 +50,22 @@ the sync files and the logs stay ISO.
 **Copy a day.** The copy icon in a date header puts that day on the clipboard as plain text, one
 line per bit.
 
-**Sync through your own Nextcloud — optionally.** Sync is off until you connect an account, and
-nothing leaves the device before you do. Signing in goes through Nextcloud's Login Flow v2 in your
-browser, so the app only ever holds an app-scoped token, kept encrypted with a key from the
+**A hint when there is a newer release.** On desktop and Android the app asks GitHub once a day
+for its newest release and, if that is newer, shows a small chip in the app bar that opens the
+release page or hides that version. The request carries nothing but the app's user agent; a switch
+in the sync settings turns it off.
+
+**Sync through your own Nextcloud — optionally.** Sync is off until you connect an account, and none
+of your bits leave the device before you do. Signing in goes through Nextcloud's Login Flow v2 in
+your browser, so the app only ever holds an app-scoped token, kept encrypted with a key from the
 device's own secure store (and it says so plainly when a platform has none). From then on it syncs
 when the app comes to the front, every five minutes while you are in it, and ten seconds after an
 edit settles. Conflicts resolve last-write-wins with a deterministic tiebreak; deleted bits become
 tombstones that are collected 90 days later. Beside the machine data — one JSON file per bit in
-monthly buckets under a hidden `.sync/` folder — it writes one Markdown file per day, so opening
-the folder in Nextcloud's web UI shows something a person can read. The app bar's cloud icon shows
-the current state and, expanded, the troubleshooting details a bug report would want: device id,
-app root, last sync, root ETag, last error, last tally.
+monthly buckets under a hidden `.sync/` folder — it writes one Markdown file per day, so opening the
+folder in Nextcloud's web UI shows something a person can read. The app bar's cloud icon shows the
+current state and, expanded, the troubleshooting details a bug report would want: device id, app
+root, last sync, root ETag, last error, last tally.
 
 **Tell you when the last run ended badly.** Every start writes its own log file and a record of the
 run. A crash is written into that record as it happens; an ordinary ending writes `--- log closed

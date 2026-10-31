@@ -1,6 +1,8 @@
 package eu.heha.conifer
 
 import android.app.Application
+import eu.heha.conifer.net.coniferUserAgent
+import eu.heha.conifer.update.GitHubReleases
 
 class ConiferApplication : Application() {
     override fun onCreate() {
@@ -17,7 +19,8 @@ class ConiferApplication : Application() {
             reportShareController = AndroidReportShareController(this),
             logFileInitializer = AndroidLogFileInitializer(this),
             uncaughtErrorInitializer = AndroidUncaughtErrorInitializer,
-            appPresenceInitializer = AndroidAppPresenceInitializer(this)
+            appPresenceInitializer = AndroidAppPresenceInitializer(this),
+            updateSource = GitHubReleases(coniferUserAgent(AndroidPlatform))
         )
     }
 }

@@ -11,6 +11,7 @@ import eu.heha.conifer.model.BitsRepository
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncCoordinator
 import eu.heha.conifer.sync.SyncTrigger
+import eu.heha.conifer.update.UpdateChecker
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +42,8 @@ class SyncViewModel(
     appPresence: AppPresence = AppPresence(),
     /** Absent on platforms without a clipboard; the copy affordance is then simply not offered. */
     private val clipboardController: ClipboardController? = null,
+    /** Absent where the platform checks for no updates; the switch is then not offered. */
+    private val updateChecker: UpdateChecker? = null,
 ) : ViewModel() {
 
     var state by mutableStateOf(SyncUiState())
@@ -53,6 +56,11 @@ class SyncViewModel(
             coordinator.refreshState()
             coordinator.state.collect { connection ->
                 state = state.copy(connection = connection)
+            }
+        }
+        updateChecker?.let { checker ->
+            viewModelScope.launch {
+                checker.isEnabled.collect { state = state.copy(isUpdateCheckEnabled = it) }
             }
         }
         viewModelScope.launch {
@@ -114,6 +122,11 @@ class SyncViewModel(
 
     fun onOpenSettings() {
         state = state.copy(areSettingsOpen = true, areDebugDetailsOpen = false)
+    }
+
+    fun onUpdateCheckChange(isEnabled: Boolean) {
+        val checker = updateChecker ?: return
+        viewModelScope.launch { checker.setEnabled(isEnabled) }
     }
 
     fun onServerUrlChange(url: String) {

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -42,6 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -63,6 +65,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -115,6 +118,8 @@ import conifer.shared.generated.resources.sync_status_syncing
 import conifer.shared.generated.resources.sync_subtitle
 import conifer.shared.generated.resources.sync_title
 import conifer.shared.generated.resources.sync_title_insecure_key
+import conifer.shared.generated.resources.update_check_label
+import conifer.shared.generated.resources.update_check_note
 import eu.heha.conifer.prefs.SyncPrefs
 import eu.heha.conifer.sync.SyncConnectionState
 import eu.heha.conifer.sync.SyncDebugInfo
@@ -615,6 +620,41 @@ private fun SyncBody(
             isDebugHintVisible = isDebugHintVisible
         )
     }
+    state.isUpdateCheckEnabled?.let { isEnabled ->
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+        UpdateCheckSwitch(isEnabled = isEnabled, onChange = actions.onUpdateCheckChange)
+    }
+}
+
+/**
+ * Turns the update check off and on. Here because this is the app's only settings surface; the
+ * check itself has nothing to do with sync.
+ */
+@Composable
+private fun UpdateCheckSwitch(isEnabled: Boolean, onChange: (Boolean) -> Unit) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(value = isEnabled, role = Role.Switch, onValueChange = onChange)
+        ) {
+            Text(
+                stringResource(Res.string.update_check_label),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(checked = isEnabled, onCheckedChange = null)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(Res.string.update_check_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 /**
@@ -858,6 +898,8 @@ data class SyncUiState(
     val savedAppRoot: String = SyncPrefs.DEFAULT_APP_ROOT,
     /** Non-null while a "connect anyway?" warning is pending - see [eu.heha.conifer.sync.SyncCoordinator.insecureKeyCustody]. */
     val insecureKeyCustody: String? = null,
+    /** The update check's switch; null where the platform checks for no updates. */
+    val isUpdateCheckEnabled: Boolean? = null,
 )
 
 /**
@@ -882,6 +924,7 @@ class SyncPaneActions(
     val onClickOpenLoginUrl: () -> Unit = {},
     val onClickSyncNow: () -> Unit = {},
     val onClickDisconnect: () -> Unit = {},
+    val onUpdateCheckChange: (Boolean) -> Unit = {},
 )
 
 /**

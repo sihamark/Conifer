@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.4.0
+
+- desktop and Android check GitHub once a day for a newer release and show a small hint in the app
+  bar, which opens the release page or hides that version; a switch in the sync settings turns
+  the check off. Debug and modified builds never check
+
 ## Version 1.3.1 (31.10.2026)
 
 - in the two-pane layout the calendar button is only in the day sidebar, no longer also beside

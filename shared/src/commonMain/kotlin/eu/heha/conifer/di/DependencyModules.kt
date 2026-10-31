@@ -15,11 +15,15 @@ import eu.heha.conifer.model.database.DatabaseController
 import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.prefs.DraftPrefs
 import eu.heha.conifer.prefs.SyncPrefs
+import eu.heha.conifer.prefs.UpdatePrefs
 import eu.heha.conifer.sync.SyncCoordinator
 import eu.heha.conifer.ui.BitsViewModel
 import eu.heha.conifer.ui.SyncViewModel
+import eu.heha.conifer.update.UpdateChecker
+import eu.heha.conifer.update.UpdateSource
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.scope.Scope
 import org.koin.dsl.module
 
 /**
@@ -32,6 +36,9 @@ val coreModule = module {
     singleOf(::DatabaseController)
     single { SyncPrefs(get<PreferencesInitializer>().createStore(SyncPrefs.STORE_FILE_NAME)) }
     single { DraftPrefs(get<PreferencesInitializer>().createStore(DraftPrefs.STORE_FILE_NAME)) }
+    single { UpdatePrefs(get<PreferencesInitializer>().createStore(UpdatePrefs.STORE_FILE_NAME)) }
+    // Resolvable only where the platform handed in an UpdateSource; see updateCheckerOrNull.
+    single { UpdateChecker(get(), get()) }
     single { get<CredentialsInitializer>().createCredentials() }
     singleOf(::BitsRepository)
     // Not singleOf(::SyncCoordinator): its trailing `loginFlow` parameter has a default value
@@ -50,7 +57,10 @@ val coreModule = module {
             draftPrefs = get(),
             clipboardController = getOrNull(),
             reportShareController = getOrNull(),
-            runEndReports = get()
+            runEndReports = get(),
+            updateChecker = updateCheckerOrNull(),
+            browserOpener = get(),
+            appPresence = get()
         )
     }
     // Same reason as BitsViewModel above: the clipboard controller is optional, so it has to
@@ -60,10 +70,15 @@ val coreModule = module {
             coordinator = get(),
             bitsRepository = get(),
             appPresence = get(),
-            clipboardController = getOrNull()
+            clipboardController = getOrNull(),
+            updateChecker = updateCheckerOrNull()
         )
     }
 }
+
+/** The update checker, or null on a platform that checks for no updates. */
+private fun Scope.updateCheckerOrNull(): UpdateChecker? =
+    getOrNull<UpdateSource>()?.let { get<UpdateChecker>() }
 
 /**
  * Wraps the explicitly supplied platform implementations into a Koin module. A null
@@ -77,6 +92,9 @@ val coreModule = module {
  * [appPresence] comes in for the same reason again: the platform's notice is installed into it before
  * the graph exists. Its default is one nothing ever puts away, which is what a test or a preview
  * wants - always on screen.
+ *
+ * [updateSource] is null where the app's builds are not released on GitHub (iOS, web), which leaves
+ * the update check out entirely.
  */
 fun platformModule(
     platform: Platform,
@@ -88,7 +106,8 @@ fun platformModule(
     clipboardController: ClipboardController?,
     reportShareController: ReportShareController? = null,
     runEndReports: RunEndReports = RunEndReports(),
-    appPresence: AppPresence = AppPresence()
+    appPresence: AppPresence = AppPresence(),
+    updateSource: UpdateSource? = null
 ) = module {
     single { platform }
     single { dateTimeFormats }
@@ -100,4 +119,5 @@ fun platformModule(
     single { appPresence }
     clipboardController?.let { controller -> single { controller } }
     reportShareController?.let { controller -> single { controller } }
+    updateSource?.let { source -> single { source } }
 }

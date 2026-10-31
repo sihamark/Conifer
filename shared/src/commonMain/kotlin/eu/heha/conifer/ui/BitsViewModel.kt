@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import eu.heha.conifer.AppPresence
+import eu.heha.conifer.BrowserOpener
 import eu.heha.conifer.ClipboardController
 import eu.heha.conifer.DateTimeFormats
 import eu.heha.conifer.PermissionHandler
@@ -21,6 +23,7 @@ import eu.heha.conifer.ui.bits.DayScrollRequest
 import eu.heha.conifer.ui.bits.SetAsideComposer
 import eu.heha.conifer.ui.bits.dateShiftedBy
 import eu.heha.conifer.ui.bits.nearestDateWithBits
+import eu.heha.conifer.update.UpdateChecker
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +45,11 @@ class BitsViewModel(
     private val draftPrefs: DraftPrefs,
     private val clipboardController: ClipboardController? = null,
     private val reportShareController: ReportShareController? = null,
-    private val runEndReports: RunEndReports = RunEndReports()
+    private val runEndReports: RunEndReports = RunEndReports(),
+    /** Absent where the platform checks for no updates; the hint is then never shown. */
+    private val updateChecker: UpdateChecker? = null,
+    private val browserOpener: BrowserOpener? = null,
+    appPresence: AppPresence = AppPresence()
 ) : ViewModel() {
 
     /** Collection of the currently bound handler, see [bindPermissionHandler]. */
@@ -90,6 +97,12 @@ class BitsViewModel(
                 }
             }
             launch { trackCurrentDateTime() }
+            updateChecker?.let { checker ->
+                launch { checker.run(appPresence.isOnScreen) }
+                launch {
+                    checker.availableUpdate.collect { state = state.copy(availableUpdate = it) }
+                }
+            }
             // Restoring reads what saving would overwrite, so the two share a coroutine and run in
             // that order — never a save of the empty composer landing on top of the stored draft.
             launch {
@@ -569,6 +582,20 @@ class BitsViewModel(
     fun dismissRunEndReport() {
         runEndReports.forget()
         state = state.copy(lastRunEnd = null)
+    }
+
+    /** Opens the release page of [BitsPaneState.availableUpdate]. */
+    fun openUpdate() {
+        val update = state.availableUpdate ?: return
+        if (browserOpener?.open(update.url) != true) {
+            Napier.w { "could not open the release page ${update.url}" }
+        }
+    }
+
+    /** Hides the update hint until a newer release than the one it shows. */
+    fun dismissUpdate() {
+        val checker = updateChecker ?: return
+        viewModelScope.launch { checker.dismiss() }
     }
 }
 

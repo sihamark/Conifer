@@ -67,6 +67,7 @@ import eu.heha.conifer.ui.SyncPaneActions
 import eu.heha.conifer.ui.SyncPresentation
 import eu.heha.conifer.ui.SyncStatusIcon
 import eu.heha.conifer.ui.SyncUiState
+import eu.heha.conifer.update.Release
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -495,6 +496,9 @@ private fun Bits(
         Topbar(
             bitsCount = bitsCount,
             isVisible = isTopBarVisible,
+            availableUpdate = state.availableUpdate,
+            onClickOpenUpdate = actions.onClickOpenUpdate,
+            onDismissUpdate = actions.onDismissUpdate,
             syncState = syncState,
             syncActions = syncActions,
             syncPresentation = syncPresentation,
@@ -582,6 +586,9 @@ private fun Composer(
 private fun Topbar(
     bitsCount: Int,
     isVisible: Boolean,
+    availableUpdate: Release?,
+    onClickOpenUpdate: () -> Unit,
+    onDismissUpdate: () -> Unit,
     syncState: SyncUiState,
     syncActions: SyncPaneActions,
     syncPresentation: SyncPresentation,
@@ -592,6 +599,14 @@ private fun Topbar(
         TopAppBar(
             title = { Text(stringResource(Res.string.app_name)) },
             actions = {
+                if (availableUpdate != null) {
+                    UpdateHint(
+                        update = availableUpdate,
+                        onClickOpen = onClickOpenUpdate,
+                        onDismiss = onDismissUpdate,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
                 Text(
                     pluralStringResource(
                         Res.plurals.bits_label_counter,

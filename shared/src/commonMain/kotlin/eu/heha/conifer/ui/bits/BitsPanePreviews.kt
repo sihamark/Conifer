@@ -15,6 +15,7 @@ import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.SyncPresentation
 import eu.heha.conifer.ui.SyncUiState
 import eu.heha.conifer.ui.theme.ConiferTheme
+import eu.heha.conifer.update.Release
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -72,6 +73,34 @@ private fun BitsPaneAfterACrashPreview() {
                     DatedBits(
                         date = LocalDate(2024, 6, 1),
                         bits = listOf(Bit(text = "Wrote this just before it all went wrong"))
+                    )
+                )
+            )
+        )
+    }
+}
+
+/** A newer release is out: the hint beside the bits counter in the top bar. */
+@PreviewLightDark
+@Composable
+private fun BitsPaneUpdateAvailablePreview() {
+    ConiferTheme {
+        BitsPane(
+            state = BitsPaneState(
+                availableUpdate = Release(
+                    version = "1.4.0",
+                    url = "https://github.com/sihamark/Conifer/releases/tag/1.4.0"
+                ),
+                bitsByDate = listOf(
+                    DatedBits(
+                        date = LocalDate(2024, 6, 1),
+                        bits = listOf(
+                            Bit(
+                                text = "Started reading a new book",
+                                date = LocalDateTime(2024, 6, 1, 8, 0)
+                            ),
+                            Bit(text = "Evening walk", date = LocalDateTime(2024, 6, 1, 19, 30))
+                        )
                     )
                 )
             )

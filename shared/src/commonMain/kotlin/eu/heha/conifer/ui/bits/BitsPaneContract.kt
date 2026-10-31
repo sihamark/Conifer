@@ -6,6 +6,7 @@ import eu.heha.conifer.log.LastRunEnd
 import eu.heha.conifer.model.database.Bit
 import eu.heha.conifer.ui.DatedBits
 import eu.heha.conifer.ui.now
+import eu.heha.conifer.update.Release
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -56,6 +57,8 @@ data class BitsPaneState(
      * [eu.heha.conifer.log.RunEndReports].
      */
     val lastRunEnd: LastRunEnd? = null,
+    /** A newer release than this build, for the top bar's hint; null when there is none to show. */
+    val availableUpdate: Release? = null,
     val newBitText: String = "",
     /**
      * The day the list is filtered to; null shows every day. Set by the day lists — the composer's
@@ -238,6 +241,8 @@ class BitsPaneActions(
     val onClickShareRunEndReport: () -> Unit = {},
     /** Takes the crash banner down and forgets the crash it reported. */
     val onDismissRunEndReport: () -> Unit = {},
+    val onClickOpenUpdate: () -> Unit = {},
+    val onDismissUpdate: () -> Unit = {},
     val onClickEditBit: (Bit) -> Unit = {},
     val onCancelEdit: () -> Unit = {},
     /** Saves the open edit, then edits [BitsPaneState.pendingEditSwitch]. */

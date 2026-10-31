@@ -10,6 +10,8 @@ import conifer.desktopapp.generated.resources.app_icon_macos
 import conifer.desktopapp.generated.resources.app_icon_windows
 import conifer.shared.generated.resources.Res
 import conifer.shared.generated.resources.app_name
+import eu.heha.conifer.net.coniferUserAgent
+import eu.heha.conifer.update.GitHubReleases
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -46,7 +48,8 @@ fun main() = application {
         reportShareController = JvmReportShareController,
         logFileInitializer = JvmLogFileInitializer,
         uncaughtErrorInitializer = JvmUncaughtErrorInitializer,
-        appPresenceInitializer = JvmAppPresenceInitializer
+        appPresenceInitializer = JvmAppPresenceInitializer,
+        updateSource = GitHubReleases(coniferUserAgent(JvmPlatform))
     )
     Window(
         onCloseRequest = ::exitApplication,

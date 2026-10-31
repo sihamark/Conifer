@@ -121,7 +121,8 @@ generates. Everything else platform-specific is an interface in `commonMain` (`D
 `Platform`, `DateTimeFormats`, `DatabaseInitializer`, `PreferencesInitializer`,
 `CredentialsInitializer`, `BrowserOpener`, plus the optional `ClipboardController`,
 `ReportShareController`, `LogFileInitializer`, `UncaughtErrorInitializer`, `AppPresenceInitializer`
-— with one implementation per source set (`JvmDatabaseInitializer`, `AndroidClipboardController`,
+and `UpdateSource` — with one implementation per source set (`JvmDatabaseInitializer`,
+`AndroidClipboardController`,
 …).
 
 Each entry point calls `ConiferApp.initialize(...)` with its own implementations. That function
@@ -171,7 +172,8 @@ and its scroll position), `BitComposer` (date/time chip, day strip, time slider,
 `DaySidebar` (the two-pane day list), `BitItem`, `TimeOfDayPicker` (the exact-time dialog behind the
 slider), `KeyboardShortcuts` (`handleShortcut` and the overlay listing `SHORTCUT_GROUPS`, so a key
 wired up and never documented shows), `EmojiFallScene` (the empty state's and the beginning marker's
-ambient scenes), `PermissionPrompt`, `RunEndPrompt` (the banner offering the previous run's bad
+ambient scenes), `PermissionPrompt`, `UpdateHint` (the top bar's newer-release chip), `RunEndPrompt`
+(the banner offering the previous run's bad
 ending for reporting, fed by `log/RunEndReports`), `BitsPaneContract`
 (`BitsPaneState`/`BitsPaneActions`) and `BitsPanePreviews`. Since Kotlin has no package-private,
 anything used across those files is `internal`; `BitsPane` and the contract types are the only
@@ -230,6 +232,11 @@ those exported schemas.
   `ReportShareController` — share sheet on Android/iOS, a folder in the file manager on desktop, a
   download on web. All four targets have the whole chain; web keeps its logs and record in
   `localStorage` (`WasmLogFileInitializer`, fewer and smaller — see its KDoc).
+- **The update check** (`update/`): desktop and Android hand `GitHubReleases` to `initialize` as
+  their `UpdateSource` (iOS and web pass none — nothing of theirs is released there; debug and
+  modified builds are dropped too). `UpdateChecker` asks `releases/latest` at most once a day while
+  the app is on screen, keeps the answer in `UpdatePrefs`, and feeds the top bar's `UpdateHint`;
+  its on/off switch sits in the sync surface, the app's only settings.
 - **Where the desktop app keeps its data** (`shared/src/jvmMain/.../JvmDataFolder.kt`): one per-user
   folder outside the installed program — `~/Library/Application Support/Conifer`,
   `%LOCALAPPDATA%\Conifer`, `$XDG_DATA_HOME/conifer` — holding the database, the preferences,

@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import eu.heha.conifer.ConiferApp.initialize
 import eu.heha.conifer.ConiferApp.installUncaughtErrorHandler
 import eu.heha.conifer.auth.Credentials
 import eu.heha.conifer.di.coreModule
@@ -29,6 +28,7 @@ import eu.heha.conifer.net.coniferUserAgent
 import eu.heha.conifer.ui.BitsRoute
 import eu.heha.conifer.ui.LocalDateTimeFormats
 import eu.heha.conifer.ui.theme.ConiferTheme
+import eu.heha.conifer.update.UpdateSource
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +65,7 @@ object ConiferApp {
         logFileInitializer: LogFileInitializer? = null,
         uncaughtErrorInitializer: UncaughtErrorInitializer? = null,
         appPresenceInitializer: AppPresenceInitializer? = null,
+        updateSource: UpdateSource? = null,
     ) {
         this.isDebug = isDebug
         // DebugAntilog derives its tag from the runtime stack trace, which breaks under
@@ -93,7 +94,9 @@ object ConiferApp {
                     clipboardController,
                     reportShareController,
                     runEndReports,
-                    appPresence
+                    appPresence,
+                    // A build being worked on is usually behind the newest release on purpose.
+                    updateSource.takeUnless { isDebug || BuildInfo.isModified }
                 )
             )
         }
